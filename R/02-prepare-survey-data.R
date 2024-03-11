@@ -1,4 +1,4 @@
-# 1. STANDARDIZE MAMU RADAR COUNTS
+# 2. STANDARDIZE MAMU RADAR COUNTS
 
 # In this script, MAMU counts from radar stations will be
 # standardized following a generalized linear mixed model
@@ -214,9 +214,11 @@ sum(s$y == 0) / length(s$y) * 100
 library(glmmTMB)
 
 # WITH controlling for total sampling effort
+# We're assuming a log relationship with sampling effort. At some point, 
+# no matter how much you sample, you are not going to find more birds.
 # Note: adding year:region interaction term makes the residuals a bit funky
 m <- glmmTMB(y ~ s_doy + I(s_doy^2) + s_year + region + lat + lon
-             + s_tilt + s_radius + (1|observer) + (s_year|site) + total_effort
+             + s_tilt + s_radius + (1|observer) + (s_year|site) + log(total_effort)
              + s_doy:region  + I(s_doy^2):region,
              data = s,
              ziformula = ~1, # YES zero-inflation
@@ -236,13 +238,13 @@ m2 <- glmmTMB(y ~ s_doy + I(s_doy^2) + s_year + region + lat + lon
 #               + s_doy:region  + I(s_doy^2):region,
 #               data = s,
 #               ziformula = ~1, # YES zero-inflation
-#               offset = log(yearly_effort),
+#               offset = log(total_effort),
 #               family = nbinom1)
 
 # Sampling effort as RE
 # This is not allowed technically, continuous var RE's are a no-no
 # m3 <- glmmTMB(y ~ s_doy + I(s_doy^2) + s_year * region + lat + lon
-#               + s_tilt + s_radius + (1|observer) + (s_year|site) + (1|effort)
+#               + s_tilt + s_radius + (1|observer) + (s_year|site) + (1|total_effort)
 #               + s_doy:region  + I(s_doy^2):region,
 #               data = s,
 #               ziformula = ~1, # YES zero-inflation
@@ -250,15 +252,16 @@ m2 <- glmmTMB(y ~ s_doy + I(s_doy^2) + s_year + region + lat + lon
 
 # Sampling effort varies by region
 # m4 <- glmmTMB(y ~ s_doy + I(s_doy^2) + s_year * region + lat + lon
-#               + s_tilt + s_radius + (1|observer) + (s_year|site) + (region|effort)
+#               + s_tilt + s_radius + (1|observer) + (s_year|site) + (region|total_effort)
 #               + s_doy:region  + I(s_doy^2):region,
 #               data = s,
 #               ziformula = ~1, # YES zero-inflation
 #               family = nbinom1)
 
 # Sampling effort varies by site
+# Not enough site-effort combos for this to work
 # m5 <- glmmTMB(y ~ s_doy + I(s_doy^2) + s_year * region + lat + lon
-#              + s_tilt + s_radius + (1|observer) + (s_year|site) + (site|effort)
+#              + s_tilt + s_radius + (1|observer) + (s_year|site) + (site|total_effort)
 #              + s_doy:region  + I(s_doy^2):region,
 #              data = s,
 #              ziformula = ~0, # NO zero-inflation
@@ -291,14 +294,21 @@ rm(m2)
 # 03-1 ALL YEARS, SINGLE MEANS ----
 # Mean covariate values across ALL years assigned to the prediction dataset
 # This is used to get decadal trends in bird counts, smoothing over yearly variation
+
+# Note for DOY: mean DOY for ALL years by region.
+doy_reg <- aggregate(doy ~ region, s, FUN = function(x) round(mean(x)))
+doy_reg <- merge(doy_reg, unique(st_drop_geometry(s[s$doy %in% doy_reg$doy, c("doy", "s_doy")])), by = "doy")
+
+# We want to keep the same scaled years btwn original dataset in newdata one
+s_years <- aggregate(s_year ~ year, s, mean) 
+
 p_allyears <- expand.grid(site = unique(s$site),
                           year = unique(s$year))
 names(p_allyears) <- c("site", "year")
 p_allyears <- plyr::join(p_allyears, unique(st_drop_geometry(s[,c("site", "region")])), by = "site", match = "first") # note it's crucial to keep the same factor levels as in original dataset
 p_allyears$observer <- s$observer[1] # Standardize our observer to Bernard
-p_allyears$doy <- mean(s$doy)
-p_allyears$s_year <- scale(as.numeric(p_allyears$year))[,1]
-p_allyears$s_doy <- s[["s_doy"]][s$doy == 176][1]#scale(p$doy)[,1]
+p_allyears <- merge(p_allyears, doy_reg, by = "region")
+p_allyears <- merge(p_allyears, s_years, by = "year")
 p_allyears$tilt <- max(s$tilt) # max tilt value so we don't 'undercount' birds
 p_allyears$s_tilt <- max(s$s_tilt)
 p_allyears$radius <- max(s$radius) # max radius value so we don't 'undercount' birds
@@ -313,21 +323,29 @@ p_allyears <- merge(p_allyears, st_drop_geometry(stn[,names(stn) != "region"]), 
 # Mean covariate values PER YEAR assigned to each year of the prediction dataset
 # This is used to get an accurate estimate for yearly bird population counts, including
 # yearly variation in counts
+
+# Mean variables by year and region
 year_reg_vars <- s %>%
   sf::st_drop_geometry() %>%
   group_by(region, year) %>%
-  summarise(doy = mean(doy),
-            s_doy = mean(s_doy),
-            s_year = mean(s_year),
-            total_effort = median(total_effort))
+  summarise(doy = round(mean(doy)),
+            total_effort = median(s$total_effort)) # we want to standardize effort across all records - we don't want to see any variation caused by survey effort across years
+# Merge in the original s_year and s_doy values
+year_reg_vars <- merge(year_reg_vars, unique(st_drop_geometry(s[s$doy %in% year_reg_vars$doy, c("doy", "s_doy")])), by = "doy")
+year_reg_vars <- merge(year_reg_vars, unique(st_drop_geometry(s[s$year %in% year_reg_vars$year, c("year", "s_year")])), by = "year")
 
+# Mean variables by year across all regions 
+# Some regions aren't present in certain years, so we'll use the overall 
+# yearly means to fill in those gaps).
 yearly_vars <- s %>%
   sf::st_drop_geometry() %>%
   group_by(year) %>%
-  summarise(doy = mean(doy),
-            s_doy = mean(s_doy),
-            s_year = mean(s_year),
-            total_effort = median(total_effort))
+  summarise(doy = round(mean(doy)),
+            total_effort = median(s$total_effort)) # we want to standardize effort across all records - we don't want to see any variation caused by survey effort across years
+# Merge in the original s_year and s_doy values
+yearly_vars <- merge(yearly_vars, unique(st_drop_geometry(s[s$doy %in% yearly_vars$doy, c("doy", "s_doy")])), by = "doy")
+yearly_vars <- merge(yearly_vars, unique(st_drop_geometry(s[s$year %in% yearly_vars$year, c("year", "s_year")])), by = "year")
+
 
 # Unfortunately, not all regions were present in each year.
 # So for regions that were not present in a given year, we'll
@@ -343,6 +361,8 @@ p_x2 <- merge(p_x2, yearly_vars, by = "year")
 p_x <- rbind(p_x1, p_x2) # 216 rows
 rm(p_x1, p_x2)
 
+# We'll now merge p_x (which contains our mean variables either by region/year or just
+# year) with p, our matrix of all possible site-year combos.
 p <- expand.grid(site = unique(s$site),
                  year = unique(s$year))
 names(p) <- c("site", "year")
@@ -355,18 +375,21 @@ p$radius <- max(s$radius) # max radius value so we don't 'undercount' birds
 p$s_radius <- max(s$s_radius)
 p$observer <- s$observer[1] # Standardize our observer to Bernard
 # Merge in station info
-p <- merge(p, stn[, names(stn) != "region"], by = "site")
+p <- merge(p, st_drop_geometry(stn[, names(stn) != "region"]), by = "site")
 
 rm(year_reg_vars, yearly_vars, yr_region)
 
 
 # 03-3 2022 ONLY ----
+
+# Using doy_reg above 
+# Not all regions are present in 2022 data
+
 p2022 <- unique(st_drop_geometry(s[,c("region", "site")]))
 p2022$observer <- s$observer[1] # Standardize our observer to Bernard
 p2022$year <- unique(s[["year"]][s$year == 2022]) # do this to keep the same factor level
 p2022$s_year <- unique(s[["s_year"]][s$year == 2022])
-p2022$doy <- mean(s$doy)
-p2022$s_doy <- mean(s$s_doy)
+p2022 <- merge(p2022, doy_reg, by = "region")
 p2022$tilt <- max(s$tilt) # max tilt value so we don't 'undercount' birds
 p2022$s_tilt <- max(s$s_tilt)
 p2022$radius <- max(s$radius) # max radius value so we don't 'undercount' birds
@@ -445,8 +468,10 @@ p %>%
 # 2022 only
 p2022 <- cbind(p2022, glmmTMB_preds(m = m, newdata = p2022))
 
-# TODO: investigate this
-sum(p2022$pred_fit) # should be the same
+# Note predictions for p[p$year == 2022,] will NOT equal p2022.
+# The mean DOY and year is different there. So, it'll
+# be close, but not an exact match.
+sum(p2022$pred_fit) 
 colSums(p2022[,c("pred_fit", "ci_lwr", "ci_upr")])
 
 p2022 %>%
