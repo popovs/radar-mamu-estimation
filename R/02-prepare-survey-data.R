@@ -27,7 +27,7 @@ surveys <- MAMU::process_radar_data("data/ECCC_FLNR_MAMU-RadarData-20240307.xlsx
 
 # Read in the conservation regions data
 library(sf)
-cons_reg <- st_read("data/cons_reg.shp")
+cons_reg <- st_read("GIS/cons_reg.shp")
 cons_reg <- st_transform(cons_reg, 3005) # Set BC Albers projection
 cons_reg <- cons_reg[,1] # Drop everything but first column
 names(cons_reg) <- c("region", "geometry") # Rename cols
