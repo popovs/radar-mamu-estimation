@@ -376,8 +376,5 @@ st_write(cons_reg, "GIS/cons_reg.shp", append = FALSE) # overwrite the conservat
 
 # 05 CLEAN UP -------------------------------------------------------------
 
-# Clean up environment (if you're going on to the next scripts)
-rm(dem_3005, distance, elev)
-
 # Clean up any temp files
 unlink("temp", recursive = TRUE)
