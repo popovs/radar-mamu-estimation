@@ -7,7 +7,8 @@
 # differing seasons/day of year and/or suboptimal radar
 # setups (smaller radar radius or lower radar tilt).
 
-# 01 PREPARE DATA ---------------------------------------------------------
+
+# 01 SETUP ----------------------------------------------------------------
 
 # 01-1 Read in 'surveys' ----
 
@@ -269,7 +270,7 @@ m2 <- glmmTMB(y ~ s_doy + I(s_doy^2) + s_year + region + lat + lon
 
 # Sampling effort is controlled for by year
 # m6 <- glmmTMB(y ~ s_doy + I(s_doy^2) + s_year * region + lat + lon
-#               + s_tilt + s_radius + (1|observer) + (s_year|site) + within_year_effort
+#               + s_tilt + s_radius + (1|observer) + (s_year|site) + log(within_year_effort)
 #               + s_doy:region  + I(s_doy^2):region,
 #               data = s,
 #               ziformula = ~1, # YES zero-inflation
@@ -279,7 +280,11 @@ bbmle::AICtab(m, m2)
 DHARMa::testResiduals(m)
 DHARMa::testResiduals(m2)
 
-rm(m2)
+# CHANGE HERE TO PREDICT VALUES FROM DIFFERENT MODEL
+top_model <- m2
+
+# Clean up `m*` objects
+rm(list = ls()[grep("^m", ls())])
 
 # 03 BUILD NEWDATA --------------------------------------------------------------
 
@@ -443,7 +448,7 @@ glmmTMB_preds <- function(m, newdata) {
 # Note that we don't expect it to match - we are smoothing out
 # fluctuations caused by unoptimal radar setups etc., after all,
 # so we expect some of the predicted to be higher than observed.
-s <- cbind(s, glmmTMB_preds(m = m))
+s <- cbind(s, glmmTMB_preds(m = top_model))
 ggplot(s, aes(x = pred_fit, y = y)) + geom_point() + geom_abline() + coord_fixed()
 
 
@@ -454,11 +459,11 @@ ggplot(s, aes(x = pred_fit, y = y)) + geom_point() + geom_abline() + coord_fixed
 
 # All years 
 # Mean covariate values across ALL years applied to entire prediction dataset
-p_allyears <- cbind(p_allyears, glmmTMB_preds(m = m, newdata = p_allyears))
+p_allyears <- cbind(p_allyears, glmmTMB_preds(m = top_model, newdata = p_allyears))
 
 # Yearly variation
 # Mean covariate values PER YEAR applied to each year in the prediction dataset
-p <- cbind(p, glmmTMB_preds(m = m, newdata = p))
+p <- cbind(p, glmmTMB_preds(m = top_model, newdata = p))
 
 p %>%
   group_by(year) %>%
@@ -466,7 +471,7 @@ p %>%
   print(n = 27)
 
 # 2022 only
-p2022 <- cbind(p2022, glmmTMB_preds(m = m, newdata = p2022))
+p2022 <- cbind(p2022, glmmTMB_preds(m = top_model, newdata = p2022))
 
 # Note predictions for p[p$year == 2022,] will NOT equal p2022.
 # The mean DOY and year is different there. So, it'll
@@ -479,3 +484,8 @@ p2022 %>%
   summarise(count = sum(pred_fit),
             lwr = sum(ci_lwr),
             upr = sum(ci_upr))
+
+
+# 05 CLEAN UP -------------------------------------------------------------
+
+rm(doy_reg, s_years)
