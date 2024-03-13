@@ -56,3 +56,4 @@ ignore*
 temp*
 *.qgz
 *.tiff
+*~*
