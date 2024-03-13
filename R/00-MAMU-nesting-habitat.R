@@ -9,16 +9,24 @@
 # Central, and South Mainland Coast, Haida Gwaii, North + West 
 # Vancouver Island, and East Vancouver Island).
 
-# TODO: update with actual time 
-# DISCLAIMER 1: THIS WHOLE SCRIPT WILL TAKE ABOUT AN HOUR TO RUN.
+# DISCLAIMER 1: THIS WHOLE SCRIPT WILL TAKE ABOUT TWO HOURS TO RUN.
 # There are likely faster or more efficient ways of doing this,
 # but the primary goal of this script is reproducibility and
-# ease of understanding.
+# ease of understanding. If you wish to simply test the script, 
+# modify the raster resolutions to a courser scale (e.g., 500m) 
+# to run through the script quickly.
 
-# Disclaimer 2: this was run with 16 GB ram and will likely 
+# DISCLAIMER 2: this was run with 16 GB ram and will likely 
 # fail with less - that said, many of these steps can be
 # easily replicated in QGIS to the same effect. The benefit of
 # this code is the exact reproducibility.
+
+# DISCLAIMER 3: If you are running this script on MacOS, there
+# is a known bug with the default MacOS graphics device that 
+# makes plotting really reaaallly slow. Install `ragg` and 
+# change the graphics device to "AGG" in Options > General >
+# Graphics. See here:
+# https://gis.stackexchange.com/questions/424897/why-is-sf-struggling-to-run-plots-quickly-on-uk-datasets?rq=1
 
 # Create temporary directory to store large scratch files
 # This makes it a bit easier on the RStudio memory
@@ -359,10 +367,10 @@ rm(r)
 # with the correct habitat areas, but also to double check that 
 # our numbers roughly line up with what we expect - the Haida 
 # Gwaii habitat area should be just under 10k km squared.
-cons_reg$mnh_cell_count <- exactextractr::exact_extract(mnh, cons_reg, 'count') # count the number of cells within each cons region
-cons_reg$mnh_m <- cons_reg$mnh_cell_count * 625 # each raster cell is 25m x 25m, aka 625 meters squared
+cons_reg$mnh_count <- exactextractr::exact_extract(mnh, cons_reg, 'count') # count the number of cells within each cons region
+cons_reg$mnh_m <- cons_reg$mnh_count * 625 # each raster cell is 25m x 25m, aka 625 meters squared
 cons_reg$mnh_km <- cons_reg$mnh_m / 1000000 # go from m2 to km2
-cons_reg$mnh_ha <- cons_reg$mnh_km / 100 # divide by 100 to go from km2 to hectares
+cons_reg$mnh_ha <- cons_reg$mnh_km * 100 # multiply by 100 to go from km2 to hectares
 
 # Checks out nicely!
 cons_reg[["mnh_km"]][cons_reg$MMCR_NA == "Haida Gwaii"] # HG should be just under 10k
