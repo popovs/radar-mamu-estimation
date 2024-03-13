@@ -12,26 +12,19 @@
 
 # 01 SETUP ----------------------------------------------------------------
 
-# This script assumes you have run scripts 1 and 2, and that
+# This script assumes you have run scripts 00 though 02, and that
 # the predicted population + GIS files are either loaded into
-# the present R environment OR can be loaded in from the 'data'
-# directory.
+# the present R environment OR can be loaded in from the 'data' 
+# or 'GIS' directory.
+catchments <- sf::st_read("GIS/radar_derived_catchments.gpkg")
+cons_reg <- sf::st_read("GIS/cons_reg.shp")
 
-# TODO: change this to load w final file name/update above 
-# description as needed once scripts are finalized.
-# Note: you need to have 'cons_reg' loaded up from 01-prepare-survey-data
-# TODO: rename `c30_2` var/file as needed 
-catchments <- sf::st_read('data/radar_derived_catchments_v2.gpkg')
-c30_2 <- terra::rast("../Habitat/30km_from_shore_OVER_mountains_below_elev_cutoffs.tiff")
+names(cons_reg)[1] <- "region"
 
-# TODO: update this description w file name
-# Chop up c30_2 (aka 'mamu containment zone' aka 'mcz') by region
-# and count up the number of raster cells in c30_2 using exact_extract()
-cons_reg$mcz_cell_count <- exactextractr::exact_extract(c30_2, cons_reg, 'count')
+# Check that cons_reg has the four `mnh` area columns in it
+# Otherwise, spit message that script 00 may need to be re-run
+stopifnot("The conservation region shapefile does not contain `mnh` columns within it. You need to run section four of script `00-MAMU-nesting-habitat.R`." = sum(grepl("mnh", names(cons_reg))) == 4)
 
-# Calculate number of hectares of habitat are within each conservation region
-# Cell resolution is 500m x 500m, aka 250,000 m2, aka 25 ha per cell
-cons_reg$mcz_ha <- cons_reg$mcz_cell_count * 25
 
 # 01-1 Merge prediction datasets with catchments ----
 
@@ -102,17 +95,17 @@ density_allyears <- merge(density_allyears, cons_reg, by = "region", all.x = TRU
 density2022 <- merge(density2022, cons_reg, by = "region", all.x = TRUE)
 
 # Finally, extrapolate the density by region to the total area
-density$mamu <- density$density * density$mcz_ha
-density$mamu_lwr <- density$density_lwr * density$mcz_ha
-density$mamu_upr <- density$density_upr * density$mcz_ha
+density$mamu <- density$density * density$mnh_ha
+density$mamu_lwr <- density$density_lwr * density$mnh_ha
+density$mamu_upr <- density$density_upr * density$mnh_ha
 
-density_allyears$mamu <- density_allyears$density * density_allyears$mcz_ha
-density_allyears$mamu_lwr <- density_allyears$density_lwr * density_allyears$mcz_ha
-density_allyears$mamu_upr <- density_allyears$density_upr * density_allyears$mcz_ha
+density_allyears$mamu <- density_allyears$density * density_allyears$mnh_ha
+density_allyears$mamu_lwr <- density_allyears$density_lwr * density_allyears$mnh_ha
+density_allyears$mamu_upr <- density_allyears$density_upr * density_allyears$mnh_ha
 
-density2022$mamu <- density2022$density * density2022$mcz_ha
-density2022$mamu_lwr <- density2022$density_lwr * density2022$mcz_ha
-density2022$mamu_upr <- density2022$density_upr * density2022$mcz_ha
+density2022$mamu <- density2022$density * density2022$mnh_ha
+density2022$mamu_lwr <- density2022$density_lwr * density2022$mnh_ha
+density2022$mamu_upr <- density2022$density_upr * density2022$mnh_ha
 
 # Examine the data
 options(scipen = 999)
@@ -123,32 +116,41 @@ colSums(density[density$year == 1996, c("mamu", "mamu_lwr", "mamu_upr")])
 colSums(density[density$year == 2005, c("mamu", "mamu_lwr", "mamu_upr")])
 colSums(density[density$year == 2015, c("mamu", "mamu_lwr", "mamu_upr")])
 colSums(density[density$year == 2022, c("mamu", "mamu_lwr", "mamu_upr")])
-colSums(density2022[,c("mamu", "mamu_lwr", "mamu_upr")]) # TODO: why the heck are these different
+colSums(density2022[,c("mamu", "mamu_lwr", "mamu_upr")]) # these will slightly differ, as the prediction data between the two dataframes will be slightly different
 
 density %>%
   filter(year == 2022) %>%
-  select(region, mamu, mamu_lwr, mamu_upr, mcz_ha, density) %>%
+  select(region, mamu, mamu_lwr, mamu_upr, mnh_ha, density) %>%
   group_by(region) %>%
   summarize(mamu = round(sum(mamu)),
             mamu_lwr = round(sum(mamu_lwr)),
             mamu_upr = round(sum(mamu_upr)),
-            area_ha = mean(mcz_ha) / 1000000,
+            area_ha = mean(mnh_ha) / 1000000,
             density = mean(density) * 1000) %>%
   arrange(desc(mamu))  #%>%
   #select(-region) %>%
   #colSums()
 
 density2022 %>%
-  select(region, mamu, mamu_lwr, mamu_upr, mcz_ha, density) %>%
+  select(region, mamu, mamu_lwr, mamu_upr, mnh_ha, density) %>%
   mutate(mamu = round(mamu),
          mamu_lwr = round(mamu_lwr),
          mamu_upr = round(mamu_upr),
-         mcz_ha = mcz_ha / 1000000,
+         mnh_ha = mnh_ha / 1000000,
          density = density * 1000) %>%
   arrange(desc(mamu)) #%>%
   #select(-region) %>%
   #colSums() # note ignore the density column here, you need to calc that by hand
-  
+
+
+# 03 PLOT IT --------------------------------------------------------------
+
+# Midpoint MAMU population estimates from previous literature
+previous_estimates <- setNames(data.frame(c(2002, 2007, 2002, 2010, 2012),
+                                          c(66500, 73000, 23700, 16700, 99100),
+                                          c("Burger 2002", "Piatt 2007", "Miller 2012", "Miller 2012", "COSEWIC 2012")),
+                               c("year", "estimate", "source"))
+
 # Plot it
 density %>%
   select(year, mamu, mamu_lwr, mamu_upr) %>%
@@ -164,6 +166,17 @@ density %>%
               alpha = 0.3) +
   geom_point() +
   geom_line() +
+  geom_point(data = previous_estimates,
+             aes(x = year,
+                 y = estimate),
+             color = "red") +
+  geom_text(data = previous_estimates,
+            aes(x = year,
+                y = estimate,
+                label = source),
+            color = "red",
+            hjust = 0, 
+            nudge_x = 0.75) +
   xlab("Year") +
   ylab("BC murrelet population") +
   theme_minimal()
