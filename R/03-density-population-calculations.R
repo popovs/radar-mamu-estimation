@@ -44,6 +44,16 @@ ggplot(p2022, aes(x = area_ha, y = pred_fit, color = region)) +
   labs(x = "Area (ha)",
        y = "2022 MAMU population estimate")
 
+# 01-2 Summary statistics ----
+
+ss <- unique(p[!is.na(p$area_ha),c("site", "region", "area_ha")])
+
+summary(ss$area_ha)
+psych::describeBy(ss$area_ha, ss$region, mat = TRUE, quant = c(0.25, 0.75)) %>% 
+  arrange(mean) #%>%
+  #select(-group1, -item) %>%
+  #colSums()
+
 
 # 02 CALCULATE DENSITY ----------------------------------------------------
 
