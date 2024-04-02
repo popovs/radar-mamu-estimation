@@ -220,7 +220,7 @@ library(glmmTMB)
 # Note: adding year:region interaction term makes the residuals a bit funky
 m <- glmmTMB(y ~ s_doy + I(s_doy^2) + s_year + region + lat + lon
              + s_tilt + s_radius + (1|observer) + (s_year|site) + log(total_effort)
-             + s_doy:region  + I(s_doy^2):region,
+             + s_doy:region  + I(s_doy^2):region + (1|year),
              data = s,
              ziformula = ~1, # YES zero-inflation
              family = nbinom1)
@@ -228,7 +228,7 @@ m <- glmmTMB(y ~ s_doy + I(s_doy^2) + s_year + region + lat + lon
 # WITHOUT controlling for total sampling effort
 m2 <- glmmTMB(y ~ s_doy + I(s_doy^2) + s_year + region + lat + lon
               + s_tilt + s_radius + (1|observer) + (s_year|site)
-              + s_doy:region  + I(s_doy^2):region,
+              + s_doy:region  + I(s_doy^2):region + (1|year),
               data = s,
               ziformula = ~1, # YES zero-inflation
               family = nbinom1)
