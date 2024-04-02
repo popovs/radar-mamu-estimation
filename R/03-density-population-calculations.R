@@ -190,3 +190,25 @@ density %>%
   xlab("Year") +
   ylab("BC murrelet population") +
   theme_minimal()
+
+# By region
+density %>%
+  select(year, mamu, mamu_lwr, mamu_upr, region) %>%
+  mutate(year_n = as.numeric(year) + 1995) %>%
+  dplyr::group_by(year_n, region) %>%
+  summarise(mamu = sum(mamu),
+            mamu_lwr = sum(mamu_lwr),
+            mamu_upr = sum(mamu_upr)) %>%
+  ggplot(aes(x = year_n, y = mamu)) +
+  geom_ribbon(aes(ymin = mamu_lwr,
+                  ymax = mamu_upr,
+                  fill = region),
+              color = NA,
+              #fill = "lightgrey",
+              alpha = 0.3) +
+  geom_point(aes(color = region)) +
+  geom_line(aes(color = region)) +
+  xlab("Year") +
+  ylab("BC murrelet population") +
+  theme_minimal()
+
