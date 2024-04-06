@@ -28,9 +28,35 @@
 # Graphics. See here:
 # https://gis.stackexchange.com/questions/424897/why-is-sf-struggling-to-run-plots-quickly-on-uk-datasets?rq=1
 
+
+# 00 SETUP ----------------------------------------------------------------
+
 # Create temporary directory to store large scratch files
 # This makes it a bit easier on the RStudio memory
-dir.create("temp")
+dir.create("temp", showWarnings = FALSE)
+
+# Create `res` variable - the resolution in meters of all 
+# GIS calculations. The max resolution for the dataset is
+# 25m x 25m, but the runtime for the script will be 3+ hours.
+res <- 500 # res MUST be >25, as the DEM goes does to 25m accuracy.
+stopifnot("`res` must be >=25, as the DEM goes down to 25m accuracy." = res > 25)
+overwrite <- TRUE
+
+#library(devtools)
+#devtools::install_github("popovs/MAMU")
+library(MAMU)
+
+# Read in the conservation regions shapefile
+library(sf)
+cons_reg <- st_read("GIS/cons_reg.shp")
+cons_reg <- st_transform(cons_reg, 3005) # Set BC Albers projection
+
+# Read in nest data
+nests <- st_read("GIS/MAMU_nests.gpkg")
+
+# TODO: replace all the "if length files in DEM folder == 0
+# then run this code" w "if overwrite == TRUE" piece above -
+# this will make it targets-friendly
 
 # 01 DOWNLOAD DEM ---------------------------------------------------------
 
@@ -49,48 +75,56 @@ dir.create("temp")
 # download this DEM.
 # https://popovs.github.io/MAMU/articles/BC_DEM.html
 
-#library(devtools)
-#devtools::install_github("popovs/MAMU")
-library(MAMU)
-
-tiles_to_download <- c("103k", "103j", "103f", "103g", "103c", "103b", "102o", # haida gwaii
-                       "103o", "103p", "103j", "103i", "103g", "103h", "103a", "93e", "93d", "93c", "93l", "93m", "102p", "92m", "92n", "104a", "104b", # north/central coast
-                       "102i", "92l", "92k", "92e", "92f", "92c", "92b", # vancouver island
-                       "92j", "92g", "92h" # lower mainland
-                       )
-tiles_to_download <- tolower(tiles_to_download)
-tiles_to_download <- unique(tiles_to_download)
-
 # Create a new directory, `GIS/DEM/DEM_tiles`, where the dem data will be stored
-dir.create("GIS/DEM/DEM_tiles", recursive = TRUE)
+dir.create("GIS/DEM/DEM_tiles", recursive = TRUE, showWarnings = FALSE)
 
-# Download the tiles one at a time and save to the DEM folder
-# (R will crash if you try to download your DEM's all in one go
-# from within the BC_DEM function - so do it in a loop).
-# This will take approximately 15 minutes to complete.
-sapply(tiles_to_download, 
-       BC_DEM,
-       save_output = TRUE,
-       overwrite = FALSE,
-       output_dir = "GIS/DEM/DEM_tiles/")
-beepr::beep()
+# And finally, ONLY RUN THIS CODE IF THE DEM DOESN'T EXIST!
+if (!("BC_DEM_EPSG3005.tiff" %in% list.files("GIS/DEM"))) {
+  
+  tiles_to_download <- c("103k", "103j", "103f", "103g", "103c", "103b", "102o", # haida gwaii
+                         "103o", "103p", "103j", "103i", "103g", "103h", "103a", "93e", "93d", "93c", "93l", "93m", "102p", "92m", "92n", "104a", "104b", # north/central coast
+                         "102i", "92l", "92k", "92e", "92f", "92c", "92b", # vancouver island
+                         "92j", "92g", "92h" # lower mainland
+                         )
+  tiles_to_download <- tolower(tiles_to_download)
+  tiles_to_download <- unique(tiles_to_download)
+  
+  # Download the tiles one at a time and save to the DEM folder
+  # (R will crash if you try to download your DEM's all in one go
+  # from within the BC_DEM function - so do it in a loop).
+  # This will take approximately 15 minutes to complete.
+  sapply(tiles_to_download, 
+         BC_DEM,
+         save_output = TRUE,
+         overwrite = FALSE,
+         output_dir = "GIS/DEM/DEM_tiles/")
+  beepr::beep()
+  
+  rm(tiles_to_download)
+  
+  # Create virtual raster layer of all these tiles
+  # This will throw a warning for all the xml files - safe to ignore.
+  vrt <- make_vrt(path = "GIS/DEM/DEM_tiles/", filename = "GIS/DEM/BC_DEM_VRT.vrt")
+  
+  # Reproject the DEM VRT to BC Albers (EPSG 3005)
+  # This will take approximately 30 minutes
+  # `stars` package may be faster, though I have had issues getting it to work
+  dem_3005 <- terra::project(vrt, "EPSG:3005")
+  beepr::beep()
+  
+  # Save your hard-earned DEM
+  # This will take approximately 1-2 minutes
+  terra::writeRaster(dem_3005, "GIS/DEM/BC_DEM_EPSG3005.tiff")
+  beepr::beep()
 
-rm(tiles_to_download)
-
-# Create virtual raster layer of all these tiles
-# This will throw a warning for all the xml files - safe to ignore.
-vrt <- make_vrt(path = "GIS/DEM/DEM_tiles/", filename = "GIS/DEM/BC_DEM_VRT.vrt")
-
-# Reproject the DEM VRT to BC Albers (EPSG 3005)
-# This will take approximately 30 minutes
-# `stars` package may be faster, though I have had issues getting it to work
-dem_3005 <- terra::project(vrt, "EPSG:3005")
-beepr::beep()
-
-# Save your hard-earned DEM
-# This will take approximately 1-2 minutes
-terra::writeRaster(dem_3005, "GIS/DEM/BC_DEM_EPSG3005.tiff")
-beepr::beep()
+} else {
+  dem_3005 <- terra::rast("GIS/DEM/BC_DEM_EPSG3005.tiff")
+  # Resample DEM to match the resolution specified above
+  r <- dem_3005
+  terra::res(r) <- res
+  dem_3005 <- terra::resample(dem_3005, r)
+  rm(r)
+}
 
 
 
@@ -99,29 +133,28 @@ beepr::beep()
 # The DEM now needs to be divided into conservation regions 
 # for the elevational cutoff step.
 
-# Read in the conservation regions shapefile
-library(sf)
-cons_reg <- st_read("GIS/cons_reg.shp")
-cons_reg <- st_transform(cons_reg, 3005) # Set BC Albers projection
-
 # 02-1 Intersect DEM with each conservation region ----
 
 # The `stars` package renders images much quicker within R, but
 # I have found `terra::writeRaster` to be much faster than
 # `stars::write_stars` for actually saving the rasters to disk.
 # This will take approximately 10 minutes.
-dir.create("GIS/DEM/Regional_DEM")
+dir.create("GIS/DEM/Regional_DEM", showWarnings = FALSE)
 library(terra)
-for (i in 1:nrow(cons_reg)) {
-  message("Cropping and saving ", cons_reg$MMCR_NA[i])
-  tmp <- terra::crop(dem_3005, cons_reg[i,])
-  tmp <- terra::mask(tmp, cons_reg[i,]) # This can be done in one step with terra::crop(mask = T), but was resulting in buggy raster values - so doing it in two steps here.
-  filename <- paste0(file.path("GIS/DEM/Regional_DEM", gsub('\\b(\\pL)\\pL{3,}|.','\\U\\1', cons_reg$MMCR_NA[i], perl = TRUE)), "_3005.tiff")
-  terra::writeRaster(tmp, filename)
-  gc() # Clean up RAM & misc session garbo
+
+# ONLY RUN THIS IF FILES DO NOT EXIST YET
+if (length(list.files("GIS/DEM/Regional_DEM")) == 0) {
+  for (i in 1:nrow(cons_reg)) {
+    message("Cropping and saving ", cons_reg$MMCR_NA[i])
+    tmp <- terra::crop(dem_3005, cons_reg[i,])
+    tmp <- terra::mask(tmp, cons_reg[i,]) # This can be done in one step with terra::crop(mask = T), but was resulting in buggy raster values - so doing it in two steps here.
+    filename <- paste0(file.path("GIS/DEM/Regional_DEM", gsub('\\b(\\pL)\\pL{3,}|.','\\U\\1', cons_reg$MMCR_NA[i], perl = TRUE)), "_3005.tiff")
+    terra::writeRaster(tmp, filename)
+    gc() # Clean up RAM & misc session garbo
+  }
+  beepr::beep()
+  rm(i, tmp, filename)
 }
-beepr::beep()
-rm(i, tmp, filename)
 
 # To quickly visualize
 #plot(stars::read_stars("GIS/DEM/Regional_DEM/NMC_3005.tiff")) # etc.
@@ -133,15 +166,28 @@ rm(i, tmp, filename)
 # prefer to nest in. Large coniferous trees that can support
 # MAMU nests can grow in higher elevations at lower latitudes.
 # Conversely, the further north you go, the lower the maximum
-# MAMU nesting elevation.
+# MAMU nesting elevation. The nest data is the main source of 
+# cutoffs. Adding more nest data will trigger a re-run of this
+# analysis.
 
-# | REGION                | ELEVATION |
-# +-----------------------+-----------+
-# | Central & Northern MC |  <  800m  |
-# | Haida Gwaii           |  <  700m  |
-# | East VI               |  < 1100m  |
-# | West & North VI       |  < 1200m  |
-# | South MC              |  < 1500m  |
+# Extract nest elevations from DEM
+nests$elev_m <- terra::extract(dem_3005, nests)[[2]]
+
+ggplot2::ggplot(data = nests, 
+                ggplot2::aes(x = cons_reg, 
+                             y = elev_m)) + 
+  ggplot2::geom_boxplot() + 
+  ggplot2::geom_jitter() +
+  ggplot2::theme_minimal()
+
+# | REGION                | ELEVATION* |
+# +-----------------------+------------+
+# | Central & Northern MC |  <  730m   |
+# | Haida Gwaii           |  <  610m   |
+# | East VI               |  < 1050m   |
+# | West & North VI       |  < 1050m   |
+# | South MC              |  < 1220m   |
+# * Derived from 95 percentile nest elevations by region
 
 # Even though Alaska is not being used in this present analysis,
 # I've assigned it a cutoff of 800m in line with Northern MC so 
@@ -149,22 +195,34 @@ rm(i, tmp, filename)
 
 elevation_cutoffs <- setNames(data.frame(cons_reg$MMCR_NA,
                                          gsub('\\b(\\pL)\\pL{3,}|.','\\U\\1', cons_reg$MMCR_NA, perl = TRUE),
-                                         c(800, 700, 800, 1500, 1200, 1100, 800)),
+                                         #c(700, 600, 700, 1200, 1000, 1000, 800)
+                                         unlist(lapply(cons_reg$MMCR_NA, function(x){quantile(nests[["elev_m"]][nests$cons_reg == x], 0.95, na.rm = TRUE)[[1]]}))
+                                         ),
                               c("region", "abbreviation", "elevation_m"))
+# If northern mainland coast and alaska border are NA, use CMC elevation cutoff
+if (is.na(elevation_cutoffs[["elevation_m"]][elevation_cutoffs$abbreviation == "NMC"])) elevation_cutoffs[["elevation_m"]][elevation_cutoffs$abbreviation == "NMC"] <- elevation_cutoffs[["elevation_m"]][elevation_cutoffs$abbreviation == "CMC"]
+if (is.na(elevation_cutoffs[["elevation_m"]][elevation_cutoffs$abbreviation == "AB"])) elevation_cutoffs[["elevation_m"]][elevation_cutoffs$abbreviation == "AB"] <- elevation_cutoffs[["elevation_m"]][elevation_cutoffs$abbreviation == "CMC"]
 
+# Round to nearest 10 meter
+elevation_cutoffs$elevation_m <- round(elevation_cutoffs$elevation_m, -1)
 
-dir.create("GIS/Elevation_cutoffs")
+if (overwrite == TRUE) unlink("GIS/Elevation_cutoffs", recursive = TRUE)
+dir.create("GIS/Elevation_cutoffs", showWarnings = F)
 
 # This will take approximately 5 minutes
-for (i in 1:nrow(elevation_cutoffs)) {
-  message("Reclassifying ", elevation_cutoffs$region[i])
-  tmp <- terra::rast(paste0("GIS/DEM/Regional_DEM/", elevation_cutoffs$abbreviation[i], "_3005.tiff"))
-  tmp <- terra::ifel(tmp < elevation_cutoffs$elevation_m[i] & tmp > 0, 1, NA)
-  filename <- file.path("GIS/Elevation_cutoffs", paste0(elevation_cutoffs$abbreviation[i], "_", elevation_cutoffs$elevation_m[i], "m.tiff"))
-  terra::writeRaster(tmp, filename)
-}
-beepr::beep()
-rm(i, tmp, filename, elevation_cutoffs)
+# RUN IF FILES DON'T EXIST OR OVERWRITE == TRUE AT TOP OF SCRIPT
+if (length(list.files("GIS/Elevation_cutoffs/")) == 0|overwrite == TRUE){
+  for (i in 1:nrow(elevation_cutoffs)) {
+    message("Reclassifying ", elevation_cutoffs$region[i])
+    tmp <- terra::rast(paste0("GIS/DEM/Regional_DEM/", elevation_cutoffs$abbreviation[i], "_3005.tiff"))
+    # TODO: change elevation cutoffs to the `res` resolution
+    tmp <- terra::ifel(tmp < elevation_cutoffs$elevation_m[i] & tmp > 0, 1, NA)
+    filename <- file.path("GIS/Elevation_cutoffs", paste0(elevation_cutoffs$abbreviation[i], "_", elevation_cutoffs$elevation_m[i], "m.tiff"))
+    terra::writeRaster(tmp, filename, overwrite = overwrite)
+  }
+  beepr::beep()
+  rm(i, tmp, filename, elevation_cutoffs)
+} 
 
 
 # 02-3 Merge elevation cutoff rasters ----
@@ -179,12 +237,19 @@ names(ec) <- basename(f)
 
 # Mosaic all the ec rasters together
 # This will take approximately 1-2 minutes
+# TODO: wrap in 'if overwrite = TRUE' situation
 ec <- make_vrt("GIS/Elevation_cutoffs/",
-               filename = "GIS/Elevation_cutoffs/elevation_cutoffs.vrt")
+               filename = "GIS/Elevation_cutoffs/elevation_cutoffs.vrt",
+               overwrite = overwrite)
 ec_collection <- terra::sprc(ec)
 elev <- terra::mosaic(ec_collection,
-                      filename = "GIS/Elevation_cutoffs/elevation_cutoffs.tiff")
+                      filename = "GIS/Elevation_cutoffs/elevation_cutoffs.tiff",
+                      overwrite = overwrite)
+list.files("GIS/Elevation_cutoffs/")
 terra::plot(elev)
+
+# TODO: ELSE, if overwrite = F, read in elev and set it to the
+# resolution set above
 
 rm(ec, ec_collection, f)
 
@@ -194,137 +259,126 @@ rm(ec, ec_collection, f)
 # Next we will create a separate raster of all points wit
 # 30 km distance from the coast, as BC nest survey data
 # indicates that 99% of MAMU nests are within 30 km of the
-# coastline. We will then intersect the two rasters to get
-# our suitable MAMU habitat raster.
+# coastline. We are going to assume a 30 km distance from 
+# shore flying around mountain barriers  but allowing for 
+#flight over water.
 
-# 03-1 Create blank canvas of study area ----
+# 03-1 Get USA land areas ----
 
-# It's faster to calculate distance from coast using a blank
-# canvas raster rather than reclassifying the thousands of 
-# cell values in the DEM. Additionally, we're going to make
-# it a courser resolution by a factor of 10 here - so each
-# pixel will be 250m x 250m rather than 25m x 25m - otherwise,
+# The DEM data doesn't include the USA or inland BC.
+# These land areas need to be blocked off so the distance
+# algorithm can differentiate between land areas and
+# water areas. 
+
+# Pull Alaska + Washington state land area from Natural Earth
+library(rnaturalearth)
+usa <- ne_states("united states of america")
+usa <- usa[usa$name %in% c("Alaska", "Washington"), ]
+usa <- st_as_sf(usa)
+usa <- st_transform(usa, crs = 3005)
+
+extent <- terra::ext(dem_3005)
+usa <- st_crop(usa, extent)
+
+# 03-2 Block of inland BC areas ----
+
+# Rather than block off inland BC with a rough BC-shaped
+# polygon from Natural Earth, we're just going to use crude
+# rectangles. The reason for this is the DEM coastline is far
+# more detailed than the course NE polygon, and we would risk
+# losing coastline data if we masked the DEM with such a 
+# course polygon. So rectangles it is.
+# Specify a few rectangles w coordinates from bottom left corner clockwise to bottom right corner
+x1 <- rbind(c(1280841, extent[3]), c(1280841, extent[4]), c(extent[2], extent[4]), c(extent[2], extent[3]))
+x2 <- rbind(c(1109405, 651763), c(1109405, extent[4]), c(extent[2], extent[4]), c(extent[2], 651763))
+x3 <- rbind(c(979227, 877974), c(979227, extent[4]), c(extent[2], extent[4]), c(extent[2], 877974))
+x4 <- rbind(c(827708, 1154691), c(827708, extent[4]), c(extent[2], extent[4]), c(extent[2], 1154691))
+x5 <- rbind(c(610000, 1300000), c(610000, extent[4]), c(extent[2], extent[4]), c(extent[2], 1300000))
+# lol this is terribly inefficient but it works
+land <- list(x1, x2, x3, x4, x5)
+land <- lapply(land, terra::vect, type = "polygons", crs = "epsg:3005")
+land1 <- terra::union(land[[1]], land[[2]])
+land2 <- terra::union(land1, land[[3]])
+land3 <- terra::union(land2, land[[4]])
+land4 <- terra::union(land3, land[[5]])
+land <- terra::aggregate(land4)
+land <- terra::aggregate(terra::union(terra::vect(usa), land))
+terra::plot(land)
+rm(land1, land2, land3, land4, x1, x2, x3, x4, x5)
+
+
+# 03-3 Create canvas of target area ----
+
+# Now we need to combine our land data with the `elev` data to
+# create the raster with which we are going to do distance
+# calculations with. The `elev` data will cut off barriers
+# that the algorithm will have to travel around when 
+# calculating distance, while the `canvas` area will supply
+# land and sea data.
+#   - Mountain barriers -> must travel around
+#   - Land areas -> traveling through
+#   - Sea areas -> traveling from
+# We will need to employ some if/else logic to correctly combine
+# these three data layers.
+
+# Additionally, if the resolution is too high, we're going to
+# make it a courser resolution by a factor of 10 - so each
+# pixel will be e.g. 250m x 250m rather than 25m x 25m - otherwise,
 # many of the subsequent raster calculations will fail or 
 # take far far too long. This means that we will be calculating
-# distance from the coast to a 1/4 km accuracy.
-canvas <- terra::rast(extent = terra::ext(elev), 
-                      nrow = nrow(elev)/10, 
-                      ncol = ncol(elev)/10, 
+# distance from the coast to a maximum of 1/4 km accuracy.
+
+if (res >= 100) {
+  canvasrow <- nrow(dem_3005)
+  canvascol <- ncol(dem_3005)
+} else {
+  canvasrow <- nrow(dem_3005) / 10
+  canvascol <- ncol(dem_3005) / 10
+}
+
+canvas <- terra::rast(extent = extent, # `extent` defined in 03-1 above 
+                      nrow = canvasrow, 
+                      ncol = canvascol, 
                       nlyr = 1)
-terra::values(canvas) <- 1
+terra::values(canvas) <- 0 # assume everything is the sea (0)
 terra::crs(canvas) <- "epsg:3005"
 
-# Clip canvas to cons_reg extent to cut down on memory
-canvas <- terra::crop(canvas, cons_reg, mask = TRUE)
+canvas <- terra::mask(canvas, land, inverse = TRUE)
+canvas <- terra::ifel(is.na(canvas), 1, canvas) # masked areas == land == 1
+terra::plot(canvas)
 
-# Read in coastline (high water mark)
-coast <- sf::st_read("GIS/CHS_HWM_S_line.shp")
-sf::st_crs(coast) # check projection
+land <- terra::ifel(dem_3005 > 0, 1, 0) # now extract land areas from DEM
+land <- terra::resample(land, canvas) # resample `land` to match `canvas` extent/resolution
+terra::plot(land)
 
-# Extract coastline points
-xy <- sf::st_coordinates(sf::st_cast(coast, "POINT"))
+land <- terra::merge(land, canvas, first = TRUE) # now merge the two
+sea <- terra::ifel(land == 0, 0, NA) # now we can extract the sea
 
-rm(coast)
+# 03-4 Calculate coast distance ----
+# NOTE: IF WE INCLUDE ALASKA BORDER REGION LATER, we will need to 
+# include the Alaska DEM in this to correctly measure distance from
+# coast for the Alaska Border region. 
+coast_distance <- terra::merge(terra::resample(elev, sea), sea)
+coast_distance <- terra::gridDist(coast_distance, target = 0) # calculate distance from the sea!
+terra::plot(coast_distance)
+terra::plot(coast_distance <= 30000)
 
-# Change all coastline values of the raster to '2'
-# Extract out all the cells in `canvas` that contain our coastline
-# (x,y) coordinates, then change the value of those cells to '2'
-# This will take ~3 minutes
-rcoast <- terra::cellFromXY(canvas, xy)
-rcoast <- unique(rcoast)
-rcoast <- rcoast[!is.na(rcoast)]
-canvas[rcoast] <- 2
+# Cut down to only include 30km distance and clip to land areas
+c30 <- coast_distance <= 30000
+c30 <- terra::merge(sea, c30)
+c30 <- terra::ifel(c30 == 1, 1, NA) # set any non-valid nesting areas == NA
 
-rm(rcoast, xy)
+# Set it to match the resolution specified above
+r <- c30
+terra::res(r) <- res
+c30 <- terra::resample(c30, r)
 
-# If you visualize it, it looks like not all the coastline is '2',
-# but that's more of a rendering issue - if you zoom in the coastline
-# is all there.
+# Save it
+if (length(list.files("GIS/Distance_cutoffs/")) == 0|overwrite == TRUE) terra::writeRaster(c30, "GIS/Distance_cutoffs/distance_cutoffs.tiff", overwrite = overwrite)
 
-# 03-2 Pull out mainland from canvas ----
-
-# Next, we're going to split apart the islands from the mainland. 
-# The mainland is the only region we're applying the 30km buffer to, 
-# whereas we know with confidence MAMU are flying into the most interior 
-# ~35-40km bits of Vancouver Island (and Haida Gwaii is <30 km across
-# anyway). We are going to include the most interior bits of the islands
-# in our analysis and *not* apply the 30 km buffer rule to them.
-
-# Weird terra bug where you sometimes have to separately mask the object
-# or else it messes with the raster values?
-mainland <- terra::crop(canvas, 
-                        cons_reg[!(cons_reg$MMCR_NA %in% c("West and North Vancouver Island", "East Vancouver Island", "Haida Gwaii")),])
-mainland <- terra::mask(mainland,
-                        cons_reg[!(cons_reg$MMCR_NA %in% c("West and North Vancouver Island", "East Vancouver Island", "Haida Gwaii")),])
-
-rm(canvas)
+# Clean up
+rm(canvas, coast_distance, extent, land, sea, r, usa, canvascol, canvasrow)
 gc()
-
-# For the islands themselves, we're just going to take the dem, pull 
-# out the island, and select any cells with an elevation greater than 0.
-# (See section 03-4 below.)
-
-# 03-3 Calculate mainland coast distance ----
-
-# Now compute the distance of every cell != 2 to every cell == 2
-# Note that this is a very simple distance calculation - we are
-# assuming the birds can fly a straight-line path in any direction
-# from the coast. (To assume barriers, you can use the 'costDist'
-# function.)
-distance <- terra::gridDist(mainland, target = 2)
-
-# Extract out only distances <= 30km
-distance <- terra::ifel(distance <= 30000, 1, NA) # projection is in meters
-
-# Re-aggregate to the same resolution as original DEM so we can
-# later extract out any land area plus + merge with the islands
-# This will take 1-2 minutes
-distance <- terra::resample(distance, dem_3005)
-
-# Crop the distance to land areas only
-# (This step is purely cosmetic and can be skipped)
-# Takes approximately 5 minutes
-distance <- (dem_3005 > 0) * distance
-distance <- terra::ifel(distance == 1, 1, NA)
-beepr::beep()
-
-# 03-4 Pull out islands from DEM ----
-
-# This will take approximately 10 minutes
-islands <- terra::crop(dem_3005,
-                       cons_reg[(cons_reg$MMCR_NA %in% c("West and North Vancouver Island", "East Vancouver Island", "Haida Gwaii")),])
-islands <- terra::mask(dem_3005,
-                       cons_reg[(cons_reg$MMCR_NA %in% c("West and North Vancouver Island", "East Vancouver Island", "Haida Gwaii")),])
-islands <- terra::ifel(islands > 0, 1, NA)
-beepr::beep()
-
-# Resample islands to match extent of the DEM, so we 
-# can merge with `distance`
-# This will take approximately 2 minutes
-islands <- terra::resample(islands, dem_3005)
-beepr::beep()
-
-# 03-5 Merge mainland and islands ----
-
-# First saving `distance` and `islands` to temp folder
-# in case anything goes awry
-terra::writeRaster(distance, "temp/distance.tiff")
-terra::writeRaster(islands, "temp/islands.tiff")
-beepr::beep()
-
-gc()
-
-# This will take approximately 10 minutes
-dir.create("GIS/Distance_cutoffs")
-distance <- sum(distance, islands, na.rm = TRUE)
-distance <- terra::resample(distance, elev) # set to same spatial extent as `elev`
-beepr::beep()
-
-terra::writeRaster(distance, "GIS/Distance_cutoffs/distance_cutoffs.tiff")
-beepr::beep()
-
-rm(islands)
-
 
 # 04 MERGE ELEVATION AND COAST DISTANCE CUTOFFS ---------------------------
 
