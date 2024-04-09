@@ -40,7 +40,7 @@ dir.create("temp", showWarnings = FALSE)
 # 25m x 25m, but the runtime for the script will be 3+ hours.
 res <- 500 # res MUST be >25, as the DEM goes does to 25m accuracy.
 stopifnot("`res` must be >=25, as the DEM goes down to 25m accuracy." = res > 25)
-overwrite <- TRUE
+overwrite <- FALSE
 
 #library(devtools)
 #devtools::install_github("popovs/MAMU")
@@ -118,12 +118,17 @@ if (!("BC_DEM_EPSG3005.tiff" %in% list.files("GIS/DEM"))) {
   beepr::beep()
 
 } else {
+  message("Reading in existing DEM file...")
   dem_3005 <- terra::rast("GIS/DEM/BC_DEM_EPSG3005.tiff")
   # Resample DEM to match the resolution specified above
-  r <- dem_3005
-  terra::res(r) <- res
-  dem_3005 <- terra::resample(dem_3005, r)
-  rm(r)
+  if (all(terra::res(dem_3005) != res)) {
+    message("Resampling DEM to target resolution (", res, "m)...")
+    r <- dem_3005
+    terra::res(r) <- res
+    dem_3005 <- terra::resample(dem_3005, r)
+    rm(r)
+  }
+  
 }
 
 
@@ -215,7 +220,12 @@ if (length(list.files("GIS/Elevation_cutoffs/")) == 0|overwrite == TRUE){
   for (i in 1:nrow(elevation_cutoffs)) {
     message("Reclassifying ", elevation_cutoffs$region[i])
     tmp <- terra::rast(paste0("GIS/DEM/Regional_DEM/", elevation_cutoffs$abbreviation[i], "_3005.tiff"))
-    # TODO: change elevation cutoffs to the `res` resolution
+    if (all(terra::res(tmp) != res)) {
+      r <- tmp 
+      terra::res(r) <- res
+      tmp <- terra::resample(tmp, r)
+      rm(r)
+    }
     tmp <- terra::ifel(tmp < elevation_cutoffs$elevation_m[i] & tmp > 0, 1, NA)
     filename <- file.path("GIS/Elevation_cutoffs", paste0(elevation_cutoffs$abbreviation[i], "_", elevation_cutoffs$elevation_m[i], "m.tiff"))
     terra::writeRaster(tmp, filename, overwrite = overwrite)
@@ -230,28 +240,37 @@ if (length(list.files("GIS/Elevation_cutoffs/")) == 0|overwrite == TRUE){
 # Now we can merge all these rasters into one single raster
 # for ease of use.
 
-# Read them into environment
-f <- list.files("GIS/Elevation_cutoffs", full.names = T)
-ec <- lapply(f, terra::rast) # 'ec' for elevational cutoffs
-names(ec) <- basename(f)
+if (!("elevation_cutoffs.vrt" %in% list.files("GIS/Elevation_cutoffs"))|overwrite == TRUE) {
+  # Read them into environment
+  f <- list.files("GIS/Elevation_cutoffs", full.names = T)
+  f <- f[!grepl("elevations_cutoffs", f)]
+  ec <- lapply(f, terra::rast) # 'ec' for elevational cutoffs
+  names(ec) <- basename(f)
+  
+  # Mosaic all the ec rasters together
+  # This will take approximately 1-2 minutes
+  ec <- make_vrt("GIS/Elevation_cutoffs/",
+                 filename = "GIS/Elevation_cutoffs/elevation_cutoffs.vrt",
+                 overwrite = overwrite)
+  ec_collection <- terra::sprc(ec)
+  elev <- terra::mosaic(ec_collection,
+                        filename = "GIS/Elevation_cutoffs/elevation_cutoffs.tiff",
+                        overwrite = overwrite)
+  #list.files("GIS/Elevation_cutoffs/")
+  #terra::plot(elev)
+  rm(ec, ec_collection, f)
+} else {
+  elev <- terra::rast("GIS/Elevation_cutoffs/elevation_cutoffs.tiff")
+  # Resample to match the resolution specified above
+  if (all(terra::res(elev) != res)) {
+    r <- elev
+    terra::res(r) <- res
+    elev <- terra::resample(elev, r)
+    rm(r)
+  }
+}
 
-# Mosaic all the ec rasters together
-# This will take approximately 1-2 minutes
-# TODO: wrap in 'if overwrite = TRUE' situation
-ec <- make_vrt("GIS/Elevation_cutoffs/",
-               filename = "GIS/Elevation_cutoffs/elevation_cutoffs.vrt",
-               overwrite = overwrite)
-ec_collection <- terra::sprc(ec)
-elev <- terra::mosaic(ec_collection,
-                      filename = "GIS/Elevation_cutoffs/elevation_cutoffs.tiff",
-                      overwrite = overwrite)
-list.files("GIS/Elevation_cutoffs/")
-terra::plot(elev)
 
-# TODO: ELSE, if overwrite = F, read in elev and set it to the
-# resolution set above
-
-rm(ec, ec_collection, f)
 
 
 # 03 DISTANCE FROM COAST CUTOFF -------------------------------------------
@@ -263,180 +282,449 @@ rm(ec, ec_collection, f)
 # shore flying around mountain barriers  but allowing for 
 #flight over water.
 
-# 03-1 Get USA land areas ----
+# Only run if files are empty or overwrite == TRUE
+if (length(list.files("GIS/Distance_cutoffs/")) == 0|overwrite == TRUE){
 
-# The DEM data doesn't include the USA or inland BC.
-# These land areas need to be blocked off so the distance
-# algorithm can differentiate between land areas and
-# water areas. 
-
-# Pull Alaska + Washington state land area from Natural Earth
-library(rnaturalearth)
-usa <- ne_states("united states of america")
-usa <- usa[usa$name %in% c("Alaska", "Washington"), ]
-usa <- st_as_sf(usa)
-usa <- st_transform(usa, crs = 3005)
-
-extent <- terra::ext(dem_3005)
-usa <- st_crop(usa, extent)
-
-# 03-2 Block of inland BC areas ----
-
-# Rather than block off inland BC with a rough BC-shaped
-# polygon from Natural Earth, we're just going to use crude
-# rectangles. The reason for this is the DEM coastline is far
-# more detailed than the course NE polygon, and we would risk
-# losing coastline data if we masked the DEM with such a 
-# course polygon. So rectangles it is.
-# Specify a few rectangles w coordinates from bottom left corner clockwise to bottom right corner
-x1 <- rbind(c(1280841, extent[3]), c(1280841, extent[4]), c(extent[2], extent[4]), c(extent[2], extent[3]))
-x2 <- rbind(c(1109405, 651763), c(1109405, extent[4]), c(extent[2], extent[4]), c(extent[2], 651763))
-x3 <- rbind(c(979227, 877974), c(979227, extent[4]), c(extent[2], extent[4]), c(extent[2], 877974))
-x4 <- rbind(c(827708, 1154691), c(827708, extent[4]), c(extent[2], extent[4]), c(extent[2], 1154691))
-x5 <- rbind(c(610000, 1300000), c(610000, extent[4]), c(extent[2], extent[4]), c(extent[2], 1300000))
-# lol this is terribly inefficient but it works
-land <- list(x1, x2, x3, x4, x5)
-land <- lapply(land, terra::vect, type = "polygons", crs = "epsg:3005")
-land1 <- terra::union(land[[1]], land[[2]])
-land2 <- terra::union(land1, land[[3]])
-land3 <- terra::union(land2, land[[4]])
-land4 <- terra::union(land3, land[[5]])
-land <- terra::aggregate(land4)
-land <- terra::aggregate(terra::union(terra::vect(usa), land))
-terra::plot(land)
-rm(land1, land2, land3, land4, x1, x2, x3, x4, x5)
-
-
-# 03-3 Create canvas of target area ----
-
-# Now we need to combine our land data with the `elev` data to
-# create the raster with which we are going to do distance
-# calculations with. The `elev` data will cut off barriers
-# that the algorithm will have to travel around when 
-# calculating distance, while the `canvas` area will supply
-# land and sea data.
-#   - Mountain barriers -> must travel around
-#   - Land areas -> traveling through
-#   - Sea areas -> traveling from
-# We will need to employ some if/else logic to correctly combine
-# these three data layers.
-
-# Additionally, if the resolution is too high, we're going to
-# make it a courser resolution by a factor of 10 - so each
-# pixel will be e.g. 250m x 250m rather than 25m x 25m - otherwise,
-# many of the subsequent raster calculations will fail or 
-# take far far too long. This means that we will be calculating
-# distance from the coast to a maximum of 1/4 km accuracy.
-
-if (res >= 100) {
-  canvasrow <- nrow(dem_3005)
-  canvascol <- ncol(dem_3005)
+  # 03-1 Get USA land areas ----
+  
+  # The DEM data doesn't include the USA or inland BC.
+  # These land areas need to be blocked off so the distance
+  # algorithm can differentiate between land areas and
+  # water areas. 
+  
+  # Pull Alaska + Washington state land area from Natural Earth
+  library(rnaturalearth)
+  usa <- ne_states("united states of america")
+  usa <- usa[usa$name %in% c("Alaska", "Washington"), ]
+  usa <- st_as_sf(usa)
+  usa <- st_transform(usa, crs = 3005)
+  
+  extent <- terra::ext(dem_3005)
+  usa <- st_crop(usa, extent)
+  
+  # 03-2 Block of inland BC areas ----
+  
+  # Rather than block off inland BC with a rough BC-shaped
+  # polygon from Natural Earth, we're just going to use crude
+  # rectangles. The reason for this is the DEM coastline is far
+  # more detailed than the course NE polygon, and we would risk
+  # losing coastline data if we masked the DEM with such a 
+  # course polygon. So rectangles it is.
+  # Specify a few rectangles w coordinates from bottom left corner clockwise to bottom right corner
+  x1 <- rbind(c(1280841, extent[3]), c(1280841, extent[4]), c(extent[2], extent[4]), c(extent[2], extent[3]))
+  x2 <- rbind(c(1109405, 651763), c(1109405, extent[4]), c(extent[2], extent[4]), c(extent[2], 651763))
+  x3 <- rbind(c(979227, 877974), c(979227, extent[4]), c(extent[2], extent[4]), c(extent[2], 877974))
+  x4 <- rbind(c(827708, 1154691), c(827708, extent[4]), c(extent[2], extent[4]), c(extent[2], 1154691))
+  x5 <- rbind(c(610000, 1300000), c(610000, extent[4]), c(extent[2], extent[4]), c(extent[2], 1300000))
+  # lol this is terribly inefficient but it works
+  land <- list(x1, x2, x3, x4, x5)
+  land <- lapply(land, terra::vect, type = "polygons", crs = "epsg:3005")
+  land1 <- terra::union(land[[1]], land[[2]])
+  land2 <- terra::union(land1, land[[3]])
+  land3 <- terra::union(land2, land[[4]])
+  land4 <- terra::union(land3, land[[5]])
+  land <- terra::aggregate(land4)
+  land <- terra::aggregate(terra::union(terra::vect(usa), land))
+  terra::plot(land)
+  rm(land1, land2, land3, land4, x1, x2, x3, x4, x5)
+  
+  
+  # 03-3 Create canvas of target area ----
+  
+  # Now we need to combine our land data with the `elev` data to
+  # create the raster with which we are going to do distance
+  # calculations with. The `elev` data will cut off barriers
+  # that the algorithm will have to travel around when 
+  # calculating distance, while the `canvas` area will supply
+  # land and sea data.
+  #   - Mountain barriers -> must travel around
+  #   - Land areas -> traveling through
+  #   - Sea areas -> traveling from
+  # We will need to employ some if/else logic to correctly combine
+  # these three data layers.
+  
+  # Additionally, if the resolution is too high, we're going to
+  # make it a courser resolution by a factor of 10 - so each
+  # pixel will be e.g. 250m x 250m rather than 25m x 25m - otherwise,
+  # many of the subsequent raster calculations will fail or 
+  # take far far too long. This means that we will be calculating
+  # distance from the coast to a maximum of 1/4 km accuracy.
+  
+  if (res >= 100) {
+    canvasrow <- nrow(dem_3005)
+    canvascol <- ncol(dem_3005)
+  } else {
+    canvasrow <- nrow(dem_3005) / 10
+    canvascol <- ncol(dem_3005) / 10
+  }
+  
+  canvas <- terra::rast(extent = extent, # `extent` defined in 03-1 above 
+                        nrow = canvasrow, 
+                        ncol = canvascol, 
+                        nlyr = 1)
+  terra::values(canvas) <- 0 # assume everything is the sea (0)
+  terra::crs(canvas) <- "epsg:3005"
+  
+  canvas <- terra::mask(canvas, land, inverse = TRUE)
+  canvas <- terra::ifel(is.na(canvas), 1, canvas) # masked areas == land == 1
+  terra::plot(canvas)
+  
+  land <- terra::ifel(dem_3005 > 0, 1, 0) # now extract land areas from DEM
+  land <- terra::resample(land, canvas) # resample `land` to match `canvas` extent/resolution
+  terra::plot(land)
+  
+  land <- terra::merge(land, canvas, first = TRUE) # now merge the two
+  sea <- terra::ifel(land == 0, 0, NA) # now we can extract the sea
+  
+  # 03-4 Calculate coast distance ----
+  # NOTE: IF WE INCLUDE ALASKA BORDER REGION LATER, we will need to 
+  # include the Alaska DEM in this to correctly measure distance from
+  # coast for the Alaska Border region. 
+  coast_distance <- terra::merge(terra::resample(elev, sea), sea)
+  coast_distance <- terra::gridDist(coast_distance, target = 0) # calculate distance from the sea!
+  terra::plot(coast_distance)
+  terra::plot(coast_distance <= 30000)
+  
+  # Cut down to only include 30km distance and clip to land areas
+  c30 <- coast_distance <= 30000
+  c30 <- terra::merge(sea, c30)
+  c30 <- terra::ifel(c30 == 1, 1, NA) # set any non-valid nesting areas == NA
+  
+  # Set it to match the resolution specified above
+  r <- c30
+  terra::res(r) <- res
+  c30 <- terra::resample(c30, r)
+  
+  # Save it
+  if (length(list.files("GIS/Distance_cutoffs/")) == 0|overwrite == TRUE) terra::writeRaster(c30, "GIS/Distance_cutoffs/distance_cutoffs.tiff", overwrite = overwrite)
+  
+  # Clean up
+  rm(canvas, coast_distance, extent, land, sea, r, usa, canvascol, canvasrow)
+  gc()
+  
 } else {
-  canvasrow <- nrow(dem_3005) / 10
-  canvascol <- ncol(dem_3005) / 10
+  c30 <- terra::rast("GIS/Distance_cutoffs/distance_cutoffs.tiff")
+  # Resample to match the resolution specified above
+  if (all(terra::res(c30) != res)) {
+    r <- c30
+    terra::res(r) <- res
+    c30 <- terra::resample(c30, r)
+    rm(r)
+  }
 }
 
-canvas <- terra::rast(extent = extent, # `extent` defined in 03-1 above 
-                      nrow = canvasrow, 
-                      ncol = canvascol, 
-                      nlyr = 1)
-terra::values(canvas) <- 0 # assume everything is the sea (0)
-terra::crs(canvas) <- "epsg:3005"
 
-canvas <- terra::mask(canvas, land, inverse = TRUE)
-canvas <- terra::ifel(is.na(canvas), 1, canvas) # masked areas == land == 1
-terra::plot(canvas)
 
-land <- terra::ifel(dem_3005 > 0, 1, 0) # now extract land areas from DEM
-land <- terra::resample(land, canvas) # resample `land` to match `canvas` extent/resolution
-terra::plot(land)
+# 04 NEST COST DISTANCE ---------------------------------------------------
 
-land <- terra::merge(land, canvas, first = TRUE) # now merge the two
-sea <- terra::ifel(land == 0, 0, NA) # now we can extract the sea
+# Next, we calculate the flight cost values of each nest. 
+# Evidence shows that MAMU take the least-cost flightpaths to
+# their nests; that is, they tend to fly along valley contours
+# rather than straight across ridges (even if the ridges are
+# below their nest cutoff elevations). Here we will calculate a
+# raster of the flight cost (elevation * distance from coast)
+# to generate a landscape where birds are more or less likely to
+# nest. This will be used to: 1) delineate the nesting catchment 
+# boundaries later and 2) eliminate "high cost" nesting areas 
+# that may still be included within the elevation cutoff and 
+# coast distance rasters.
 
-# 03-4 Calculate coast distance ----
-# NOTE: IF WE INCLUDE ALASKA BORDER REGION LATER, we will need to 
-# include the Alaska DEM in this to correctly measure distance from
-# coast for the Alaska Border region. 
-coast_distance <- terra::merge(terra::resample(elev, sea), sea)
-coast_distance <- terra::gridDist(coast_distance, target = 0) # calculate distance from the sea!
-terra::plot(coast_distance)
-terra::plot(coast_distance <= 30000)
+if (overwrite == TRUE) unlink("GIS/Cost_cutoffs", recursive = TRUE)
+dir.create("GIS/Cost_cutoffs", showWarnings = F)
 
-# Cut down to only include 30km distance and clip to land areas
-c30 <- coast_distance <= 30000
-c30 <- terra::merge(sea, c30)
-c30 <- terra::ifel(c30 == 1, 1, NA) # set any non-valid nesting areas == NA
+# Only run this if file does not exist or overwrite == TRUE
 
-# Set it to match the resolution specified above
-r <- c30
-terra::res(r) <- res
-c30 <- terra::resample(c30, r)
+if (!("cost_layer.tiff" %in% list.files("GIS/Cost_cutoffs"))|overwrite == TRUE) {
+  # 04-1 Prepare cost layer ----
+  # First, similar to above, lower the resolution of high res
+  # DEM by a factor of 10, or else the calculations will fail.
+  if (res < 100) {
+    c <- dem_3005
+    terra::res(c) <- res * 10
+    c <- terra::resample(dem_3005, c)
+  } else {
+    c <- dem_3005
+  }
+  
+  # Ensure no negative values in the raster, or the costDist
+  # function will fail.
+  c <- terra::ifel(c < 0, 0, c)
+  
+  # 04-2 Calculate cost ----
+  # The cost distance function calculates distance from shore (i.e.,
+  # the `gridDist` function we just used above) and multiplies it
+  # by the 'cost' layer (elevation). Higher elevations are more
+  # costly to fly over. 
+  cost <- terra::costDist(c, target = 0, scale = 1000) # divide values by 1000 so output numbers are smaller
+  rm(c)
+  
+  # Save it - we will still use this layer later to extract the 
+  # mean nesting cost per catchment
+  if (!("cost_layer.tiff" %in% list.files("GIS/Cost_cutoffs"))|overwrite == TRUE) terra::writeRaster(cost, "GIS/Cost_cutoffs/cost_layer.tiff")
+} else {
+  cost <- terra::rast("GIS/Cost_cutoffs/cost_layer.tiff")
+  # Resample to match the resolution specified above
+  if (all(terra::res(cost) != res)) {
+    r <- cost
+    terra::res(r) <- res
+    cost <- terra::resample(cost, r)
+    rm(r)
+  }
+}
 
-# Save it
-if (length(list.files("GIS/Distance_cutoffs/")) == 0|overwrite == TRUE) terra::writeRaster(c30, "GIS/Distance_cutoffs/distance_cutoffs.tiff", overwrite = overwrite)
 
-# Clean up
-rm(canvas, coast_distance, extent, land, sea, r, usa, canvascol, canvasrow)
-gc()
+# 04-3 Extract nest costs ----
+nests$cost <- terra::extract(cost, nests)[[2]]
 
-# 04 MERGE ELEVATION AND COAST DISTANCE CUTOFFS ---------------------------
+ggplot2::ggplot(data = nests, 
+                ggplot2::aes(x = cons_reg, 
+                             y = cost)) + 
+  ggplot2::geom_boxplot() + 
+  ggplot2::geom_jitter() +
+  ggplot2::theme_minimal()
 
-# Finally, merge the coast distance + elevation cutoff rasters
-# together to create a "MAMU containment zone" area that has a
-# high probability of containing high quality MAMU nesting 
-# habitat. This raster will be used as our maximum MAMU area
-# within BC that we will extrapolate our population estimates
-# to.
 
-# `mnh` for "MAMU nesting habitat"
-# This will take approximately 3-4 minutes
-mnh <- elev + distance
+cost_cutoffs <- setNames(data.frame(cons_reg$MMCR_NA,
+                                    gsub('\\b(\\pL)\\pL{3,}|.','\\U\\1', cons_reg$MMCR_NA, perl = TRUE),
+                                    unlist(lapply(cons_reg$MMCR_NA, function(x){quantile(nests[["cost"]][nests$cons_reg == x], 0.95, na.rm = TRUE)[[1]]}))
+                                    ),
+                         c("region", "abbreviation", "cost"))
+# If northern mainland coast and alaska border are NA, use CMC elevation cutoff
+if (is.na(cost_cutoffs[["cost"]][cost_cutoffs$abbreviation == "NMC"])) cost_cutoffs[["cost"]][cost_cutoffs$abbreviation == "NMC"] <- cost_cutoffs[["cost"]][cost_cutoffs$abbreviation == "CMC"]
+if (is.na(cost_cutoffs[["cost"]][cost_cutoffs$abbreviation == "AB"])) cost_cutoffs[["cost"]][cost_cutoffs$abbreviation == "AB"] <- cost_cutoffs[["cost"]][cost_cutoffs$abbreviation == "CMC"]
 
-# 04-1 Adjust raster resolution ----
+# Round to nearest 10 meter
+cost_cutoffs$cost <- round(cost_cutoffs$cost, -1)
+
+# 04-4 Apply cost cutoffs ----
+
+# This will take approximately 5 minutes
+# RUN IF FILES DON'T EXIST OR OVERWRITE == TRUE AT TOP OF SCRIPT
+if (length(list.files("GIS/Cost_cutoffs/")) == 0|overwrite == TRUE){
+  for (i in 1:nrow(cost_cutoffs)) {
+    message("Reclassifying ", cost_cutoffs$region[i])
+    # First split apart/mask the main `cost` raster into regions
+    tmp <- terra::mask(cost, cons_reg[cons_reg$MMCR_NA == cost_cutoffs$region[i],], touches = TRUE)
+    tmp <- terra::ifel(tmp < cost_cutoffs$cost[i] & tmp > 0, 1, NA)
+    filename <- file.path("GIS/Cost_cutoffs", paste0(cost_cutoffs$abbreviation[i], "_", cost_cutoffs$cost[i], ".tiff"))
+    terra::writeRaster(tmp, filename, overwrite = overwrite)
+  }
+  beepr::beep()
+  rm(i, tmp, filename, cost_cutoffs)
+} 
+
+# To quickly visualize
+list.files("GIS/Cost_cutoffs")
+#terra::plot(terra::rast("GIS/Cost_cutoffs/CMC_2310.tiff")) # etc.
+
+
+# 04-5 Merge cost cutoff rasters ----
+
+# Now we can merge all these rasters into one single raster
+# for ease of use.
+
+if (!("cost_cutoffs.vrt" %in% list.files("GIS/Cost_cutoffs"))|overwrite == TRUE) {
+  # Only do this step if its the first time running or overwrite == TRUE
+  # Read them into environment
+  f <- list.files("GIS/Cost_cutoffs", full.names = T)
+  f <- f[!grepl("cost_cutoffs", f)]
+  cc <- lapply(f, terra::rast) # 'cc' for cost cutoffs
+  names(cc) <- basename(f)
+  
+  # Mosaic all the ec rasters together
+  # This will take approximately 1-2 minutes
+  cc <- make_vrt("GIS/Cost_cutoffs/",
+                 filename = "GIS/Cost_cutoffs/cost_cutoffs.vrt",
+                 overwrite = overwrite)
+  cc_collection <- terra::sprc(cc)
+  cc <- terra::mosaic(cc_collection,
+                      filename = "GIS/Cost_cutoffs/cost_cutoffs.tiff",
+                      overwrite = overwrite)
+  rm(cc_collection, f)
+} else {
+  cc <- terra::rast("GIS/Cost_cutoffs/cost_cutoffs.tiff")
+  # Resample to match the resolution specified above
+  if (all(terra::res(cc) != res)) {
+    r <- cc
+    terra::res(r) <- res
+    cc <- terra::resample(cc, r)
+    rm(r)
+  }
+}
+
+
+
+
+# 05 FOREST COVER ---------------------------------------------------------
+
+
+# MAMU are almost certainly not nesting in urban or other completely
+# treeless areas. Cut those out. 
+
+# Download the University of Maryland global forest cover dataset
+# https://glad.earthengine.app/view/global-forest-change#bl=off;old=0;dl=off;lon=-486.9726343690056;lat=51.450799512228464;zoom=6;
+
+dir.create("GIS/Tree_cover/", showWarnings = FALSE)
+
+# 05-1 Download forest cover data ---- 
+# This will take ~1 hour to run
+# This can also be done in QGIS/ArcGIS - mosaic the 3 map tiles
+# into one raster -> project/warp to EPSG3005 -> crop/mask to 
+# study area
+if (length(list.files("GIS/Tree_cover/")) == 0) {
+  urls <- c("https://storage.googleapis.com/earthenginepartners-hansen/GFC-2023-v1.11/Hansen_GFC-2023-v1.11_treecover2000_60N_140W.tif",
+            "https://storage.googleapis.com/earthenginepartners-hansen/GFC-2023-v1.11/Hansen_GFC-2023-v1.11_treecover2000_60N_130W.tif",
+            "https://storage.googleapis.com/earthenginepartners-hansen/GFC-2023-v1.11/Hansen_GFC-2023-v1.11_treecover2000_50N_130W.tif"
+  )
+  
+  # These files will take longer than one minute to download, so
+  # increase the download timeout to 5 mins
+  options(timeout = 300)
+  
+  # Download % forest cover data (year 2000) for BC
+  lapply(urls, function(x) {
+    download.file(url = x, 
+                  destfile = file.path("GIS/Forest_cover", basename(x))
+                  )
+    })
+  
+  options(timeout = 60) # reset default
+  rm(urls)
+
+  # Read files into memory
+  forest <- lapply(list.files("GIS/Forest_cover", full.names = TRUE), terra::rast)
+  
+  # Mosaic
+  forest <- terra::sprc(forest)
+  forest <- terra::mosaic(forest)
+
+  # Crop to conservation regions
+  forest <- terra::project(forest, "EPSG:3005") # This will take the longest
+  forest <- terra::mask(forest, cons_reg)
+  forest <- terra::crop(forest, cons_reg)
+  gc()
+  
+  # Save
+  terra::writeRaster(forest, "GIS/Forest_cover/forest_cover.tiff")
+  beepr::beep()
+  
+} else {
+  forest <- terra::rast("GIS/Forest_cover/forest_cover.tiff")
+  if (all(terra::res(forest) != res)) {
+    r <- forest
+    terra::res(r) <- res
+    forest <- terra::resample(forest, r)
+    rm(r)
+  }
+}
+
+
+# Extract areas with >5% forest cover
+f95 <- forest > 5
+
+# ... aaaand leave it at that for now.
+# TODO: include f95 as layer if deemed necessary. 
+
+
+# 06 MERGE ELEVATION AND COAST DISTANCE CUTOFFS ---------------------------
+
+# Finally, merge the cutoff rasters together to create a 
+# "MAMU containment zone" area that has a high probability of
+# containing high quality MAMU nesting habitat. This raster 
+# will be used as our maximum MAMU area within BC that we will 
+# extrapolate our population estimates to.
+
+# 06-1 Resample raster resolutions ----
+
+# The raster datasets are all various resolutions as they come
+# from different base datasets (e.g. the DEM versus the forest
+# cover data) or the resolution was increased for calculation
+# to even be feasible (e.g. cost distance). 
 
 # Per the BC DEM website, this raster product is at a 25m 
 # resolution, but gridded to a 0.75 arc-second scale. 
 # https://www2.gov.bc.ca/gov/content/data/geographic-data-services/topographic-data/elevation/digital-elevation-model
 # This means all our raster data is at a somewhat odd 
 # 17.37227 x 17.37227 resolution:
-res(dem_3005)
-res(elev)
-res(mnh)
+#res(dem_3005)
+#res(elev)
+# As such, the maximum resolution we can safely go for is 25m.
 
-# To make calculations easier down the line, we will resample
-# the final `mnh` resolution to 25m x 25m grid cells.
-# This will take 1-2 minutes.
-r <- mnh
-terra::res(r) <- 25
-mnh <- terra::resample(mnh, r)
+# Resample raster resolutions to the `res` value specified above,
+# to a maximum of 25m. In theory the minimum should be set in the
+# script above but just in case it's not here's another failsafe.
+res <- ifelse(res < 25, 25, res)
+
+# Resample `elev`
+if (all(terra::res(elev) != res)) {
+  r <- elev
+  terra::res(r) <- res
+  elev <- terra::resample(elev, r)
+}
 beepr::beep()
 
-res(mnh)
+# Resample `c30`
+if (all(terra::res(c30) != res)) {
+  r <- c30
+  terra::res(r) <- res
+  c30 <- terra::resample(c30, r)
+}
+beepr::beep()
+
+# Resample `cc`
+if (all(terra::res(cc) != res)) {
+  r <- cc
+  terra::res(r) <- res
+  cc <- terra::resample(cc, r)
+}
+beepr::beep()
+
+# Confirm that the raster extents align
+terra::ext(c30) == terra::ext(cc)
+terra::ext(c30) == terra::ext(elev)
+terra::ext(cc) == terra::ext(elev)
+
+cc <- terra::resample(cc, elev)
+
+terra::ext(c30) == terra::ext(cc)
+terra::ext(c30) == terra::ext(elev)
+terra::ext(cc) == terra::ext(elev)
+
 rm(r)
 
-# 04-2 Calculate habitat area within each conservation region ----
+# 06-2 Merge nest layers ----
+
+# Now we can merge our rasters into a 'suitable nesting
+# habitat' final layer.
+
+# `mnh` for "MAMU nesting habitat"
+# This will take approximately 3-4 minutes
+mnh <- elev + c30 + cc
+
+# 06-3 Calculate habitat area within each conservation region ----
 
 # This serves to both update our conservation region shapefile
 # with the correct habitat areas, but also to double check that 
 # our numbers roughly line up with what we expect - the Haida 
 # Gwaii habitat area should be just under 10k km squared.
 cons_reg$mnh_count <- exactextractr::exact_extract(mnh, cons_reg, 'count') # count the number of cells within each cons region
-cons_reg$mnh_m <- cons_reg$mnh_count * 625 # each raster cell is 25m x 25m, aka 625 meters squared
+cons_reg$mnh_m <- cons_reg$mnh_count * res^2 # each raster cell is res m x res m (e.g., 25m x 25m), aka 625 meters squared
 cons_reg$mnh_km <- cons_reg$mnh_m / 1000000 # go from m2 to km2
 cons_reg$mnh_ha <- cons_reg$mnh_km * 100 # multiply by 100 to go from km2 to hectares
 
 # Checks out nicely!
 cons_reg[["mnh_km"]][cons_reg$MMCR_NA == "Haida Gwaii"] # HG should be just under 10k
-sum(cons_reg[["mnh_km"]][cons_reg$MMCR_NA %in% c("West and North Vancouver Island", "East Vancouver Island")]) # Vancouver Island (incl. Nootka + Quadra + Gulf islands) should be ~32k
+sum(cons_reg[["mnh_km"]][cons_reg$MMCR_NA %in% c("West and North Vancouver Island", "East Vancouver Island")]) # Vancouver Island (incl. Nootka + Quadra + Gulf islands) should be under ~32k
 
-# 04-3 Save MAMU nesting habitat ----
+# 06-4 Save MAMU nesting habitat ----
 
-terra::writeRaster(mnh, "GIS/MAMU_nesting_habitat.tiff")
-st_write(cons_reg, "GIS/cons_reg.shp", append = FALSE) # overwrite the conservation region shapefile with a shp containing the habitat area numbers
+if (!(any(grepl("MAMU_nesting_habitat.tiff", list.files("GIS"))))|overwrite == TRUE) {
+  terra::writeRaster(mnh, "GIS/MAMU_nesting_habitat.tiff", overwrite = overwrite)
+  st_write(cons_reg, "GIS/cons_reg.shp", append = FALSE) # overwrite the conservation region shapefile with a shp containing the habitat area numbers
+}
 
 
-# 05 CLEAN UP -------------------------------------------------------------
+# 07 CLEAN UP -------------------------------------------------------------
 
 # Clean up any temp files
 unlink("temp", recursive = TRUE)
