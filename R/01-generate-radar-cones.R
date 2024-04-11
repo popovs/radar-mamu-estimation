@@ -138,6 +138,7 @@ circmean <- function(x) {
 # Repeat `n` number of times to derive the bootstrapped
 # sample; derive quantile breaks `alpha` from the 
 # bootstrapped sample and output the result.
+# Thanks to Ben Bolker (again): https://stackoverflow.com/a/53916042/1454785
 circboot <- function(x, n = 1000, alpha = 0.05) {
   bootsample <- replicate(n, circmean(sample(x, replace = TRUE)))
   out <- setNames(c(mean(bootsample), quantile(bootsample, 
@@ -256,15 +257,22 @@ plot(cones[1]) # Visually inspect
 
 gc()
 
-# 03 CLIP watersheds? TO CATCHMENTS ---------------------------------------------
 
-# 03-1 Intersect cones with watersheds ----
+# 03 SELECT WATERSHED CATCHMENTS ------------------------------------------
+
+# 03-1 Select watersheds that fall within cones ----
 
 # Evidence indicates that MAMU generally fly within a given
 # watershed when flying to a nesting site. 
 # TODO: CITE!!!!!\
 # TODO: if this works, move to GIS folder!
 watersheds <- st_read("../Watersheds/conservation_region_watersheds.gpkg")
+
+# Get rid of tiny tiny watersheds
+# These mess up the pathfinding algorithm when assuming 
+# MAMU can or cannot cross from one watershed to another
+watersheds$AREA_SQM <- st_area(watersheds)
+watersheds <- watersheds[watersheds$AREA_SQM > units::as_units(150000, "m^2"),]
 
 # Get a matrix of which watersheds intersect with cones
 # Each column is a cone, each row a watershed
@@ -335,24 +343,15 @@ lapply(h$site, function(x){
 })
 
 
-
 # Dissolve watersheds together by site
-watersheds <- watersheds %>% 
-  select(site) %>%
-  group_by(site) %>%
-  dplyr::summarize()
+# watersheds <- watersheds %>%
+#   select(site) %>%
+#   group_by(site) %>%
+#   dplyr::summarize()
 
-ggplot() +
-  geom_sf(data = watersheds,
-          aes(color = site),
-          show.legend = FALSE) +
-  geom_sf(data = cones,
-          fill = NA) +
-  geom_sf(data = h)
+rm(wat_cat)
 
-
-
-# 03-2 Mask to accessible areas ----
+# 03-2 Intersect with accessible areas ----
 
 # Load up accessible nesting habitat tiff
 # This time using stars - far more efficient to vectorize
@@ -379,7 +378,158 @@ maz <- smooth(maz, method = "chaikin")
 catchments <- st_intersection(watersheds, maz)
 
 
-# 03-3 Select correct watershed ----
+# Inspect each one...
+dir.create("temp/catchment_inspection", showWarnings = F)
+lapply(h$site, function(x){
+  message(x)
+  p1 <- ggplot() +
+    geom_sf(data = watersheds[watersheds$site == x, ],
+            aes(color = x),
+            show.legend = FALSE) +
+    geom_sf(data = catchments[catchments$site == x, ],
+            color = NA,
+            aes(fill = WSD_ID),
+            alpha = 0.3,
+            show.legend = FALSE) +
+    geom_sf(data = cones[cones$site == x, ],
+            fill = NA) +
+    geom_sf(data = h[h$site == x, ]) +
+    ggtitle(x)
+  p2 <- ggplot(data = headings[headings$name == x & headings$flightpath_type == "Incoming",]) + 
+    geom_histogram(aes(x = heading)) + 
+    geom_vline(xintercept = h[["mean"]][h$site == x],
+               color = "red") +
+    geom_vline(xintercept = h[["lower"]][h$site == x],
+               color = "grey",
+               linetype = "dashed") +
+    geom_vline(xintercept = h[["upper"]][h$site == x],
+               color = "grey",
+               linetype = "dashed") +
+    xlim(0, 360) + 
+    ggtitle("Incoming") + 
+    theme(axis.title = element_blank()) +
+    theme_minimal()
+  p3 <- ggplot(data = headings[headings$name == x & headings$flightpath_type == "Outgoing",]) + 
+    geom_histogram(aes(x = heading)) + 
+    geom_vline(xintercept = h[["mean"]][h$site == x],
+               color = "red") +
+    geom_vline(xintercept = h[["lower"]][h$site == x],
+               color = "grey",
+               linetype = "dashed") +
+    geom_vline(xintercept = h[["upper"]][h$site == x],
+               color = "grey",
+               linetype = "dashed") +
+    xlim(0, 360) + 
+    ggtitle("Outgoing") + 
+    theme(axis.title = element_blank()) +
+    theme_minimal()
+  p_all <- ggpubr::ggarrange(p1, ggpubr::ggarrange(p2, p3, ncol = 1), nrow = 1)
+  ggsave(paste0("temp/catchment_inspection/", x, ".png"),
+         p_all)
+})
+
+
+# 03-3 Select accessible areas ----
+
+# Now we've cut out the inaccessible zones, we can see some
+# of our catchments are cut up into pieces. (e.g., see 
+# Aaltanhash). We need to choose the pieces that are actually
+# reachable from the radar station. This will entail two 
+# assumptions:
+#   1) Any catchment pieces that are adjacent to/touch the 
+#      origin piece are accessible to a flying MAMU.
+#   2) The catchment piece closest to the radar station is thh
+#      'origin' catchment piece
+
+# 03-3A Merge adjacent catchment pieces ----
+# Dissolve catchments together by site, then split multipart
+# polygons into singlepart 
+# Need to cast to multipart first bc of bug: https://github.com/r-spatial/sf/issues/763
+catchments <- catchments %>%
+  select(site) %>%
+  group_by(site) %>%
+  dplyr::summarize() %>%
+  st_cast("MULTIPOLYGON") %>%
+  st_cast("POLYGON", warn = FALSE)
+
+catchments$id <- rownames(catchments)
+
+# 03-3B Select pieces closest to origin ----
+
+# If a flying bird can enter the origin piece, logic dictates
+# that it can then subsequently fly into any neighboring areas
+# that are also accessible. Therefore, select any pieces that
+# touch the origin piece.
+
+# For each radar station site and each corresponding catchment,
+# choose the origin piece (catchment piece that is closest to
+# the radar station)
+catchments2 <- list()
+catchments2 <- lapply(h$site, function(x) {
+  message("Finding origin site for ", x, "...")
+  hx <- h[h$site == x,]
+  cx <- catchments[catchments$site == x,]
+  cx$origin <- FALSE
+  cx[["origin"]][st_nearest_feature(hx, cx)] <- TRUE
+  cx
+})
+catchments2 <- dplyr::bind_rows(catchments2)
+
+# Inspect again...
+lapply(h$site, function(x){
+  message(x)
+  p1 <- ggplot() +
+    geom_sf(data = watersheds[watersheds$site == x, ],
+            aes(color = x),
+            show.legend = FALSE) +
+    geom_sf(data = catchments2[catchments2$site == x, ],
+            color = NA,
+            aes(fill = origin),
+            alpha = 0.3,
+            show.legend = FALSE) +
+    geom_sf(data = cones[cones$site == x, ],
+            fill = NA) +
+    geom_sf(data = h[h$site == x, ]) +
+    ggtitle(x)
+  p2 <- ggplot(data = headings[headings$name == x & headings$flightpath_type == "Incoming",]) + 
+    geom_histogram(aes(x = heading)) + 
+    geom_vline(xintercept = h[["mean"]][h$site == x],
+               color = "red") +
+    geom_vline(xintercept = h[["lower"]][h$site == x],
+               color = "grey",
+               linetype = "dashed") +
+    geom_vline(xintercept = h[["upper"]][h$site == x],
+               color = "grey",
+               linetype = "dashed") +
+    xlim(0, 360) + 
+    ggtitle("Incoming") + 
+    theme(axis.title = element_blank()) +
+    theme_minimal()
+  p3 <- ggplot(data = headings[headings$name == x & headings$flightpath_type == "Outgoing",]) + 
+    geom_histogram(aes(x = heading)) + 
+    geom_vline(xintercept = h[["mean"]][h$site == x],
+               color = "red") +
+    geom_vline(xintercept = h[["lower"]][h$site == x],
+               color = "grey",
+               linetype = "dashed") +
+    geom_vline(xintercept = h[["upper"]][h$site == x],
+               color = "grey",
+               linetype = "dashed") +
+    xlim(0, 360) + 
+    ggtitle("Outgoing") + 
+    theme(axis.title = element_blank()) +
+    theme_minimal()
+  p_all <- ggpubr::ggarrange(p1, ggpubr::ggarrange(p2, p3, ncol = 1), nrow = 1)
+  ggsave(paste0("temp/catchment_inspection/", x, ".png"),
+         p_all)
+})
+
+# Replace catchments w catchments2
+catchments2 <- catchments2[catchments2$origin == TRUE,]
+catchments <- catchments2
+rm(catchments2)
+
+# 03-3 CUT SECTION? Select correct watershed ----
 
 # The catchments are now essentially chopped up cones divided
 # up by either the non-nesting zones from `mnh` or into 
@@ -391,43 +541,43 @@ catchments <- st_intersection(watersheds, maz)
 # with the heading
 # https://stackoverflow.com/questions/69820690/finding-coordinates-from-heading-and-distance-in-r
 
-h2 <- st_transform(h, crs = 4326)
-h2$lon.1 <- NA
-h2$lat.1 <- NA
-
-for (i in 1:nrow(h2)) {
-  ic <- st_coordinates(h2[i,])
-  b <- sf::st_drop_geometry(h2[i, "inc_out2"])[[1]]
-  nc <- geosphere::destPoint(ic, b = b, d = 30000)
-  h2[i, "lon.1"] <- nc[1]
-  h2[i, "lat.1"] <- nc[2]
-}
-rm(ic, b, nc, i)
-
-h2 <- st_drop_geometry(h2)
-h2$geom <- sprintf("LINESTRING(%s %s, %s %s)",
-                   h2$lon, h2$lat,
-                   h2$lon.1, h2$lat.1)
-h2 <- st_as_sf(h2, wkt = "geom")
-st_crs(h2) <- 4326
-h2 <- st_transform(h2, 3005)
-
-
-# Check it out...
-x <- "Southgate"
-x <- "Aaltanhash"
-
-ggplot() +
-  geom_sf(data = catchments[catchments$site == x,],
-          aes(color = WSD_ID)) +
-  geom_sf(data = h[h$site == x,]) +
-  geom_sf(data = h2[h2$site == x,])
-
-ggplot() +
-  geom_sf(data = catchments[catchments$site == x,][st_intersects(catchments[catchments$site == x,], h2[h2$site == x,], sparse = F),],
-          aes(color = WSD_ID)) +
-  geom_sf(data = h[h$site == x,]) +
-  geom_sf(data = h2[h2$site == x,])
+# h2 <- st_transform(h, crs = 4326)
+# h2$lon.1 <- NA
+# h2$lat.1 <- NA
+# 
+# for (i in 1:nrow(h2)) {
+#   ic <- st_coordinates(h2[i,])
+#   b <- sf::st_drop_geometry(h2[i, "inc_out2"])[[1]]
+#   nc <- geosphere::destPoint(ic, b = b, d = 30000)
+#   h2[i, "lon.1"] <- nc[1]
+#   h2[i, "lat.1"] <- nc[2]
+# }
+# rm(ic, b, nc, i)
+# 
+# h2 <- st_drop_geometry(h2)
+# h2$geom <- sprintf("LINESTRING(%s %s, %s %s)",
+#                    h2$lon, h2$lat,
+#                    h2$lon.1, h2$lat.1)
+# h2 <- st_as_sf(h2, wkt = "geom")
+# st_crs(h2) <- 4326
+# h2 <- st_transform(h2, 3005)
+# 
+# 
+# # Check it out...
+# x <- "Southgate"
+# x <- "Aaltanhash"
+# 
+# ggplot() +
+#   geom_sf(data = catchments[catchments$site == x,],
+#           aes(color = WSD_ID)) +
+#   geom_sf(data = h[h$site == x,]) +
+#   geom_sf(data = h2[h2$site == x,])
+# 
+# ggplot() +
+#   geom_sf(data = catchments[catchments$site == x,][st_intersects(catchments[catchments$site == x,], h2[h2$site == x,], sparse = F),],
+#           aes(color = WSD_ID)) +
+#   geom_sf(data = h[h$site == x,]) +
+#   geom_sf(data = h2[h2$site == x,])
 
 # `h2` is now our dataframe of headings (lines that are 30km 
 # long oriented in the direction of each station's mean
@@ -439,15 +589,15 @@ ggplot() +
 # that intersect with it's corresponding `h2` line.
 
 
-catchments$area_ha <- units::set_units(sf::st_area(catchments), "ha")
-catchments <- catchments[order(catchments$site, catchments$area_ha),]
-catchments$keep_yn <- NA
-
-for (i in 1:nrow(h2)) {
-  site <- h2[["site"]][i]
-  message("Cleaning up ", site, "...")
-  catchments[["keep_yn"]][catchments$site == site] <- st_intersects(catchments[catchments$site == site,], h2[h2$site == site,], sparse = F)
-}
+# catchments$area_ha <- units::set_units(sf::st_area(catchments), "ha")
+# catchments <- catchments[order(catchments$site, catchments$area_ha),]
+# catchments$keep_yn <- NA
+# 
+# for (i in 1:nrow(h2)) {
+#   site <- h2[["site"]][i]
+#   message("Cleaning up ", site, "...")
+#   catchments[["keep_yn"]][catchments$site == site] <- st_intersects(catchments[catchments$site == site,], h2[h2$site == site,], sparse = F)
+# }
 
 # 
 # keep_cat_yn <- lapply(h2$site, function(x) {
@@ -457,66 +607,35 @@ for (i in 1:nrow(h2)) {
 
 # Check it out...
 
-x <- "Aaltanhash"
-x <- "Southgate"
-x <- "Watta"
-
-ggplot() +
-  geom_sf(data = catchments[catchments$site == x,][st_intersects(catchments[catchments$site == x,], h2[h2$site == x,], sparse = F),],
-          aes(color = WSD_ID)) +
-  geom_sf(data = h[h$site == x,]) +
-  geom_sf(data = h2[h2$site == x,]) +
-  ggtitle(x)
-
-ggplot() +
-  geom_sf(data = catchments[catchments$site == x & catchments$keep_yn == TRUE,]) +
-  geom_sf(data = h[h$site == x,]) +
-  ggtitle(x)
+# x <- "Aaltanhash"
+# x <- "Southgate"
+# x <- "Watta"
+# 
+# ggplot() +
+#   geom_sf(data = catchments[catchments$site == x,][st_intersects(catchments[catchments$site == x,], h2[h2$site == x,], sparse = F),],
+#           aes(color = WSD_ID)) +
+#   geom_sf(data = h[h$site == x,]) +
+#   geom_sf(data = h2[h2$site == x,]) +
+#   ggtitle(x)
+# 
+# ggplot() +
+#   geom_sf(data = catchments[catchments$site == x & catchments$keep_yn == TRUE,]) +
+#   geom_sf(data = h[h$site == x,]) +
+#   ggtitle(x)
 
 
 # Remove non-intersecting catchment pieces
-catchments <- catchments[catchments$keep_yn == TRUE, ]
-
-# 03-4 Clean up catchments ----
-
-# There are still some catchments with multiple watershed IDs
-# per radar station. The final task here will be to choose the
-# watershed ID that is geographically closest to the radar
-# station and toss any extraneous ones.
-catchments$keep_yn <- NA
-for (i in 1:nrow(h2)) {
-  site <- h2[["site"]][i]
-  message("Selecting catchment pieces closest to ", site, "...")
-  tmp <- catchments[catchments$site == site, ]
-  keep_index <- st_nearest_feature(h[h$site == site,], tmp)
-  catchments[["keep_yn"]][catchments$site == site][keep_index] <- TRUE
-}
+# catchments <- catchments[catchments$keep_yn == TRUE, ]
 
 
-# Check it out...
-
-x <- "Aaltanhash"
-x <- "Southgate"
-x <- "Watta"
-
-ggplot() +
-  geom_sf(data = catchments[catchments$site == x & catchments$keep_yn == TRUE,]) +
-  geom_sf(data = h[h$site == x,]) +
-  ggtitle(x)
-
-# Before tossing the 'non-closest' catchment pieces, let's check
-# that it's not physically touching the closest piece. If it's
-# touching the closest piece, we can safely assume a MAMU is 
-# capable of flying through to the next watershed piece (e.g.,
-# Watta!). Otherwise, if the other watershed pieces are *not* 
-# touching our closest 'index' piece, toss them.
-
-
-# Now, you can finally chuck the off ones.
-catchments <- catchments[which(catchments$keep_yn == TRUE), ]
 
 # There should now be 95 features, matching the original 95 headings...
 nrow(h) == nrow(catchments)
+
+
+
+
+
 
 # 04 EXTRACT CATCHMENT VALUES ---------------------------------------------
 
