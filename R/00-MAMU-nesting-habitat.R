@@ -38,7 +38,7 @@ dir.create("temp", showWarnings = FALSE)
 # Create `res` variable - the resolution in meters of all 
 # GIS calculations. The max resolution for the dataset is
 # 25m x 25m, but the runtime for the script will be 3+ hours.
-res <- 500 # res MUST be >25, as the DEM goes does to 25m accuracy.
+res <- 250 # res MUST be >25, as the DEM goes does to 25m accuracy.
 stopifnot("`res` must be >=25, as the DEM goes down to 25m accuracy." = res > 25)
 overwrite <- FALSE
 
@@ -51,12 +51,21 @@ library(sf)
 cons_reg <- st_read("GIS/cons_reg.shp")
 cons_reg <- st_transform(cons_reg, 3005) # Set BC Albers projection
 
+# 00-1 Prep nest data ----
 # Read in nest data
 nests <- st_read("GIS/MAMU_nests.gpkg")
+
+# Add buffers of uncertainty around the nests
+stopifnot("Nest locations must have an uncertainty associated with them (LOC_UNCE_1 column)." = !(any(is.na(nests$LOC_UNCE_1))))
+stopifnot("Nest location uncertainly calculations currently only support uncertainty expressed in meters (LOC_UNCE_2 column)." = all(tolower(unique(nests$LOC_UNCE_2)) %in% c("m", "meters", "meter")))
+
+nests <- st_buffer(nests, dist = nests$LOC_UNCE_1)
 
 # TODO: replace all the "if length files in DEM folder == 0
 # then run this code" w "if overwrite == TRUE" piece above -
 # this will make it targets-friendly
+# TODO: if files exist but overwrite == FALSE, just run the
+# code in-memory for all chunks
 
 # 01 DOWNLOAD DEM ---------------------------------------------------------
 
@@ -145,7 +154,6 @@ if (!("BC_DEM_EPSG3005.tiff" %in% list.files("GIS/DEM"))) {
 # `stars::write_stars` for actually saving the rasters to disk.
 # This will take approximately 10 minutes.
 dir.create("GIS/DEM/Regional_DEM", showWarnings = FALSE)
-library(terra)
 
 # ONLY RUN THIS IF FILES DO NOT EXIST YET
 if (length(list.files("GIS/DEM/Regional_DEM")) == 0) {
@@ -164,7 +172,7 @@ if (length(list.files("GIS/DEM/Regional_DEM")) == 0) {
 # To quickly visualize
 #plot(stars::read_stars("GIS/DEM/Regional_DEM/NMC_3005.tiff")) # etc.
 
-# 02-2 Apply elevation cutoffs ----
+# 02-2 Extract elevation cutoffs ----
 
 # The exact elevational cutoffs vary by region and are primarily
 # dictated by the growing conditions of the trees that MAMU
@@ -176,7 +184,9 @@ if (length(list.files("GIS/DEM/Regional_DEM")) == 0) {
 # analysis.
 
 # Extract nest elevations from DEM
-nests$elev_m <- terra::extract(dem_3005, nests)[[2]]
+# Using exactextract to extract the *mean* elevation within the
+# nest uncertainty radius
+nests$elev_m <- exactextractr::exact_extract(dem_3005, nests, 'mean')
 
 ggplot2::ggplot(data = nests, 
                 ggplot2::aes(x = cons_reg, 
@@ -198,19 +208,29 @@ ggplot2::ggplot(data = nests,
 # I've assigned it a cutoff of 800m in line with Northern MC so 
 # the file is handy in the future if needed.
 
+# We're now going to set elevation cutoffs that contain 95%
+# of the nests, from both directions (min and max elevations).
+# So, the cutoffs will be @ the 2.5%ile on each end.
 elevation_cutoffs <- setNames(data.frame(cons_reg$MMCR_NA,
                                          gsub('\\b(\\pL)\\pL{3,}|.','\\U\\1', cons_reg$MMCR_NA, perl = TRUE),
-                                         #c(700, 600, 700, 1200, 1000, 1000, 800)
-                                         unlist(lapply(cons_reg$MMCR_NA, function(x){quantile(nests[["elev_m"]][nests$cons_reg == x], 0.95, na.rm = TRUE)[[1]]}))
+                                         unlist(lapply(cons_reg$MMCR_NA, function(x){quantile(nests[["elev_m"]][nests$cons_reg == x], 0.025, na.rm = TRUE)[[1]]})),
+                                         unlist(lapply(cons_reg$MMCR_NA, function(x){quantile(nests[["elev_m"]][nests$cons_reg == x], 0.975, na.rm = TRUE)[[1]]}))
                                          ),
-                              c("region", "abbreviation", "elevation_m"))
+                              c("region", "abbreviation", "elev_min_m", "elev_max_m"))
+
 # If northern mainland coast and alaska border are NA, use CMC elevation cutoff
-if (is.na(elevation_cutoffs[["elevation_m"]][elevation_cutoffs$abbreviation == "NMC"])) elevation_cutoffs[["elevation_m"]][elevation_cutoffs$abbreviation == "NMC"] <- elevation_cutoffs[["elevation_m"]][elevation_cutoffs$abbreviation == "CMC"]
-if (is.na(elevation_cutoffs[["elevation_m"]][elevation_cutoffs$abbreviation == "AB"])) elevation_cutoffs[["elevation_m"]][elevation_cutoffs$abbreviation == "AB"] <- elevation_cutoffs[["elevation_m"]][elevation_cutoffs$abbreviation == "CMC"]
+# Minimum
+if (is.na(elevation_cutoffs[["elev_min_m"]][elevation_cutoffs$abbreviation == "NMC"])) elevation_cutoffs[["elev_min_m"]][elevation_cutoffs$abbreviation == "NMC"] <- elevation_cutoffs[["elev_min_m"]][elevation_cutoffs$abbreviation == "CMC"]
+if (is.na(elevation_cutoffs[["elev_min_m"]][elevation_cutoffs$abbreviation == "AB"])) elevation_cutoffs[["elev_min_m"]][elevation_cutoffs$abbreviation == "AB"] <- elevation_cutoffs[["elev_min_m"]][elevation_cutoffs$abbreviation == "CMC"]
+# Maximum
+if (is.na(elevation_cutoffs[["elev_max_m"]][elevation_cutoffs$abbreviation == "NMC"])) elevation_cutoffs[["elev_max_m"]][elevation_cutoffs$abbreviation == "NMC"] <- elevation_cutoffs[["elev_max_m"]][elevation_cutoffs$abbreviation == "CMC"]
+if (is.na(elevation_cutoffs[["elev_max_m"]][elevation_cutoffs$abbreviation == "AB"])) elevation_cutoffs[["elev_max_m"]][elevation_cutoffs$abbreviation == "AB"] <- elevation_cutoffs[["elev_max_m"]][elevation_cutoffs$abbreviation == "CMC"]
 
 # Round to nearest 10 meter
-elevation_cutoffs$elevation_m <- round(elevation_cutoffs$elevation_m, -1)
+elevation_cutoffs$elev_min_m <- round(elevation_cutoffs$elev_min_m, -1)
+elevation_cutoffs$elev_max_m <- round(elevation_cutoffs$elev_max_m, -1)
 
+# 02-3 Apply elevation cutoffs ----
 if (overwrite == TRUE) unlink("GIS/Elevation_cutoffs", recursive = TRUE)
 dir.create("GIS/Elevation_cutoffs", showWarnings = F)
 
@@ -226,16 +246,40 @@ if (length(list.files("GIS/Elevation_cutoffs/")) == 0|overwrite == TRUE){
       tmp <- terra::resample(tmp, r)
       rm(r)
     }
-    tmp <- terra::ifel(tmp < elevation_cutoffs$elevation_m[i] & tmp > 0, 1, NA)
-    filename <- file.path("GIS/Elevation_cutoffs", paste0(elevation_cutoffs$abbreviation[i], "_", elevation_cutoffs$elevation_m[i], "m.tiff"))
+    tmp <- terra::ifel(tmp > 0, tmp, NA)
+    tmp <- terra::ifel(tmp < elevation_cutoffs$elev_max_m[i], tmp, NA)
+    tmp <- terra::ifel(tmp < elevation_cutoffs$elev_min_m[i], 1, 2)
+    #tmp <- terra::ifel(tmp < elevation_cutoffs$elev_max_m[i] & tmp > elevation_cutoffs$elev_min_m[i], 1, NA)
+    filename <- file.path("GIS/Elevation_cutoffs", paste0(elevation_cutoffs$abbreviation[i], "_", elevation_cutoffs$elev_max_m[i], "m.tiff"))
     terra::writeRaster(tmp, filename, overwrite = overwrite)
   }
   beepr::beep()
-  rm(i, tmp, filename, elevation_cutoffs)
-} 
+  rm(i, tmp, filename)
+} else {
+  # TODO: make it run vs read in stuff by choice
+  # Else just run this in memory
+  ec <- list()
+  for (i in 1:nrow(elevation_cutoffs)) {
+    message("Reclassifying ", elevation_cutoffs$region[i])
+    tmp <- terra::rast(paste0("GIS/DEM/Regional_DEM/", elevation_cutoffs$abbreviation[i], "_3005.tiff"))
+    if (all(terra::res(tmp) != res)) {
+      r <- tmp
+      terra::res(r) <- res
+      tmp <- terra::resample(tmp, r)
+      rm(r)
+    }
+    tmp <- terra::ifel(tmp > 0, tmp, NA)
+    tmp <- terra::ifel(tmp < elevation_cutoffs$elev_max_m[i], tmp, NA)
+    tmp <- terra::ifel(tmp < elevation_cutoffs$elev_min_m[i], 1, 2)
+    #tmp <- terra::ifel(tmp < elevation_cutoffs$elev_max_m[i] & tmp > elevation_cutoffs$elev_min_m[i], 1, NA)
+    ec[[i]] <- tmp
+  }
+  beepr::beep()
+  rm(i, tmp)
+}
 
 
-# 02-3 Merge elevation cutoff rasters ----
+# 02-4 Merge elevation cutoff rasters ----
 
 # Now we can merge all these rasters into one single raster
 # for ease of use.
@@ -260,17 +304,20 @@ if (!("elevation_cutoffs.vrt" %in% list.files("GIS/Elevation_cutoffs"))|overwrit
   #terra::plot(elev)
   rm(ec, ec_collection, f)
 } else {
+  message("Reading in existing elevation cutoffs file...")
   elev <- terra::rast("GIS/Elevation_cutoffs/elevation_cutoffs.tiff")
   # Resample to match the resolution specified above
   if (all(terra::res(elev) != res)) {
+    message("Resampling elevation cutoffs to target resolution (", res, "m)...")
     r <- elev
     terra::res(r) <- res
     elev <- terra::resample(elev, r)
     rm(r)
   }
 }
+# TODO: add another 'else if' if you want to re-run w new res and not read in old file
 
-
+gc()
 
 
 # 03 DISTANCE FROM COAST CUTOFF -------------------------------------------
@@ -381,6 +428,7 @@ if (length(list.files("GIS/Distance_cutoffs/")) == 0|overwrite == TRUE){
   # include the Alaska DEM in this to correctly measure distance from
   # coast for the Alaska Border region. 
   coast_distance <- terra::merge(terra::resample(elev, sea), sea)
+  coast_distance <- terra::ifel(coast_distance > 0 , 1, coast_distance) # we don't care about the elevation cutoff minimums here - so reclassify them to only keep the max cutoffs
   coast_distance <- terra::gridDist(coast_distance, target = 0) # calculate distance from the sea!
   terra::plot(coast_distance)
   terra::plot(coast_distance <= 30000)
@@ -391,21 +439,26 @@ if (length(list.files("GIS/Distance_cutoffs/")) == 0|overwrite == TRUE){
   c30 <- terra::ifel(c30 == 1, 1, NA) # set any non-valid nesting areas == NA
   
   # Set it to match the resolution specified above
-  r <- c30
-  terra::res(r) <- res
-  c30 <- terra::resample(c30, r)
+  if (any(terra::res(c30) != res)) {
+    r <- c30
+    terra::res(r) <- res
+    c30 <- terra::resample(c30, r)
+    rm(r)
+  }
   
   # Save it
   if (length(list.files("GIS/Distance_cutoffs/")) == 0|overwrite == TRUE) terra::writeRaster(c30, "GIS/Distance_cutoffs/distance_cutoffs.tiff", overwrite = overwrite)
   
   # Clean up
-  rm(canvas, coast_distance, extent, land, sea, r, usa, canvascol, canvasrow)
+  rm(canvas, coast_distance, extent, land, usa, canvascol, canvasrow)
   gc()
   
 } else {
+  message("Reading in existing coast distance file...")
   c30 <- terra::rast("GIS/Distance_cutoffs/distance_cutoffs.tiff")
   # Resample to match the resolution specified above
   if (all(terra::res(c30) != res)) {
+    message("Resampling coast distance to target resolution (", res, "m)...")
     r <- c30
     terra::res(r) <- res
     c30 <- terra::resample(c30, r)
@@ -413,6 +466,7 @@ if (length(list.files("GIS/Distance_cutoffs/")) == 0|overwrite == TRUE){
   }
 }
 
+gc()
 
 
 # 04 NEST COST DISTANCE ---------------------------------------------------
@@ -461,6 +515,7 @@ if (!("cost_layer.tiff" %in% list.files("GIS/Cost_cutoffs"))|overwrite == TRUE) 
   # Save it - we will still use this layer later to extract the 
   # mean nesting cost per catchment
   if (!("cost_layer.tiff" %in% list.files("GIS/Cost_cutoffs"))|overwrite == TRUE) terra::writeRaster(cost, "GIS/Cost_cutoffs/cost_layer.tiff")
+
 } else {
   cost <- terra::rast("GIS/Cost_cutoffs/cost_layer.tiff")
   # Resample to match the resolution specified above
@@ -472,9 +527,12 @@ if (!("cost_layer.tiff" %in% list.files("GIS/Cost_cutoffs"))|overwrite == TRUE) 
   }
 }
 
+terra::plot(cost)
 
 # 04-3 Extract nest costs ----
-nests$cost <- terra::extract(cost, nests)[[2]]
+# Using exactextract to extract the *mean* cost within the
+# nest uncertainty radius
+nests$cost <- exactextractr::exact_extract(cost, nests, 'mean')
 
 ggplot2::ggplot(data = nests, 
                 ggplot2::aes(x = cons_reg, 
@@ -486,15 +544,21 @@ ggplot2::ggplot(data = nests,
 
 cost_cutoffs <- setNames(data.frame(cons_reg$MMCR_NA,
                                     gsub('\\b(\\pL)\\pL{3,}|.','\\U\\1', cons_reg$MMCR_NA, perl = TRUE),
-                                    unlist(lapply(cons_reg$MMCR_NA, function(x){quantile(nests[["cost"]][nests$cons_reg == x], 0.95, na.rm = TRUE)[[1]]}))
+                                    unlist(lapply(cons_reg$MMCR_NA, function(x){quantile(nests[["cost"]][nests$cons_reg == x], 0.025, na.rm = TRUE)[[1]]})),
+                                    unlist(lapply(cons_reg$MMCR_NA, function(x){quantile(nests[["cost"]][nests$cons_reg == x], 0.975, na.rm = TRUE)[[1]]}))
                                     ),
-                         c("region", "abbreviation", "cost"))
+                         c("region", "abbreviation", "cost_min", "cost_max"))
 # If northern mainland coast and alaska border are NA, use CMC elevation cutoff
-if (is.na(cost_cutoffs[["cost"]][cost_cutoffs$abbreviation == "NMC"])) cost_cutoffs[["cost"]][cost_cutoffs$abbreviation == "NMC"] <- cost_cutoffs[["cost"]][cost_cutoffs$abbreviation == "CMC"]
-if (is.na(cost_cutoffs[["cost"]][cost_cutoffs$abbreviation == "AB"])) cost_cutoffs[["cost"]][cost_cutoffs$abbreviation == "AB"] <- cost_cutoffs[["cost"]][cost_cutoffs$abbreviation == "CMC"]
+# Minimum
+if (is.na(cost_cutoffs[["cost_min"]][cost_cutoffs$abbreviation == "NMC"])) cost_cutoffs[["cost_min"]][cost_cutoffs$abbreviation == "NMC"] <- cost_cutoffs[["cost_min"]][cost_cutoffs$abbreviation == "CMC"]
+if (is.na(cost_cutoffs[["cost_min"]][cost_cutoffs$abbreviation == "AB"])) cost_cutoffs[["cost_min"]][cost_cutoffs$abbreviation == "AB"] <- cost_cutoffs[["cost_min"]][cost_cutoffs$abbreviation == "CMC"]
+# Maximum
+if (is.na(cost_cutoffs[["cost_max"]][cost_cutoffs$abbreviation == "NMC"])) cost_cutoffs[["cost_max"]][cost_cutoffs$abbreviation == "NMC"] <- cost_cutoffs[["cost_max"]][cost_cutoffs$abbreviation == "CMC"]
+if (is.na(cost_cutoffs[["cost_max"]][cost_cutoffs$abbreviation == "AB"])) cost_cutoffs[["cost_max"]][cost_cutoffs$abbreviation == "AB"] <- cost_cutoffs[["cost_max"]][cost_cutoffs$abbreviation == "CMC"]
 
 # Round to nearest 10 meter
-cost_cutoffs$cost <- round(cost_cutoffs$cost, -1)
+cost_cutoffs$cost_min <- round(cost_cutoffs$cost_min, -1)
+cost_cutoffs$cost_max <- round(cost_cutoffs$cost_max, -1)
 
 # 04-4 Apply cost cutoffs ----
 
@@ -505,55 +569,73 @@ if (length(list.files("GIS/Cost_cutoffs/")) == 0|overwrite == TRUE){
     message("Reclassifying ", cost_cutoffs$region[i])
     # First split apart/mask the main `cost` raster into regions
     tmp <- terra::mask(cost, cons_reg[cons_reg$MMCR_NA == cost_cutoffs$region[i],], touches = TRUE)
-    tmp <- terra::ifel(tmp < cost_cutoffs$cost[i] & tmp > 0, 1, NA)
-    filename <- file.path("GIS/Cost_cutoffs", paste0(cost_cutoffs$abbreviation[i], "_", cost_cutoffs$cost[i], ".tiff"))
+    tmp <- terra::ifel(tmp > 0, tmp, NA)
+    tmp <- terra::ifel(tmp < cost_cutoffs$cost_max[i], tmp, NA)
+    tmp <- terra::ifel(tmp < cost_cutoffs$cost_min[i], 1, 2)
+    #tmp <- terra::ifel(tmp < cost_cutoffs$cost[i] & tmp > 0, 1, NA)
+    filename <- file.path("GIS/Cost_cutoffs", paste0(cost_cutoffs$abbreviation[i], "_", cost_cutoffs$cost_max[i], ".tiff"))
     terra::writeRaster(tmp, filename, overwrite = overwrite)
   }
   beepr::beep()
-  rm(i, tmp, filename, cost_cutoffs)
-} 
+  rm(i, tmp, filename)
+} #else {
+#   # TODO: make this run if you don't want to overwrite but want to produce new vals 
+#   # jsut like in 'apply elevation cutoffs'
+#   cc <- list()
+#   for (i in 1:nrow(cost_cutoffs)) {
+#     message("Reclassifying ", cost_cutoffs$region[i])
+#     # First split apart/mask the main `cost` raster into regions
+#     tmp <- terra::mask(cost, cons_reg[cons_reg$MMCR_NA == cost_cutoffs$region[i],], touches = TRUE)
+#     tmp <- terra::ifel(tmp > 0, tmp, NA)
+#     tmp <- terra::ifel(tmp < cost_cutoffs$cost_max[i], tmp, NA)
+#     tmp <- terra::ifel(tmp < cost_cutoffs$cost_min[i], 1, 2)
+#     #tmp <- terra::ifel(tmp < cost_cutoffs$cost[i] & tmp > 0, 1, NA)
+#     cc[[i]] <- tmp
+#   }
+#   beepr::beep()
+#   rm(i, tmp)
+# }
 
 # To quickly visualize
 list.files("GIS/Cost_cutoffs")
-#terra::plot(terra::rast("GIS/Cost_cutoffs/CMC_2310.tiff")) # etc.
-
+#terra::plot(terra::rast("GIS/Cost_cutoffs/CMC_2670.tiff")) # etc.
+gc()
 
 # 04-5 Merge cost cutoff rasters ----
 
 # Now we can merge all these rasters into one single raster
 # for ease of use.
 
-if (!("cost_cutoffs.vrt" %in% list.files("GIS/Cost_cutoffs"))|overwrite == TRUE) {
+if (!("cost_cutoffs.tiff" %in% list.files("GIS/Cost_cutoffs"))|overwrite == TRUE) {
   # Only do this step if its the first time running or overwrite == TRUE
   # Read them into environment
   f <- list.files("GIS/Cost_cutoffs", full.names = T)
-  f <- f[!grepl("cost_cutoffs", f)]
+  f <- f[!grepl("cost_cutoffs.vrt|cost_cutoffs.tiff|cost_layer.tiff", f)]
   cc <- lapply(f, terra::rast) # 'cc' for cost cutoffs
   names(cc) <- basename(f)
   
   # Mosaic all the ec rasters together
   # This will take approximately 1-2 minutes
-  cc <- make_vrt("GIS/Cost_cutoffs/",
-                 filename = "GIS/Cost_cutoffs/cost_cutoffs.vrt",
-                 overwrite = overwrite)
   cc_collection <- terra::sprc(cc)
   cc <- terra::mosaic(cc_collection,
                       filename = "GIS/Cost_cutoffs/cost_cutoffs.tiff",
                       overwrite = overwrite)
   rm(cc_collection, f)
 } else {
+  message("Reading in existing cost cutoffs files...")
   cc <- terra::rast("GIS/Cost_cutoffs/cost_cutoffs.tiff")
   # Resample to match the resolution specified above
   if (all(terra::res(cc) != res)) {
+    message("Resampling cost cutoffs to target resolution (", res, ")...")
     r <- cc
     terra::res(r) <- res
     cc <- terra::resample(cc, r)
     rm(r)
   }
 }
+# TODO: add another 'else if' if you want to re-run w new res and not read in old file
 
-
-
+gc()
 
 # 05 FOREST COVER ---------------------------------------------------------
 
@@ -571,7 +653,7 @@ dir.create("GIS/Tree_cover/", showWarnings = FALSE)
 # This can also be done in QGIS/ArcGIS - mosaic the 3 map tiles
 # into one raster -> project/warp to EPSG3005 -> crop/mask to 
 # study area
-if (length(list.files("GIS/Tree_cover/")) == 0) {
+if (length(list.files("GIS/Forest_cover/")) == 0) {
   urls <- c("https://storage.googleapis.com/earthenginepartners-hansen/GFC-2023-v1.11/Hansen_GFC-2023-v1.11_treecover2000_60N_140W.tif",
             "https://storage.googleapis.com/earthenginepartners-hansen/GFC-2023-v1.11/Hansen_GFC-2023-v1.11_treecover2000_60N_130W.tif",
             "https://storage.googleapis.com/earthenginepartners-hansen/GFC-2023-v1.11/Hansen_GFC-2023-v1.11_treecover2000_50N_130W.tif"
@@ -609,8 +691,10 @@ if (length(list.files("GIS/Tree_cover/")) == 0) {
   beepr::beep()
   
 } else {
+  message("Reading in existing forest cover file...")
   forest <- terra::rast("GIS/Forest_cover/forest_cover.tiff")
   if (all(terra::res(forest) != res)) {
+    message("Resampling forest cover to target resolution (", res, "m)...")
     r <- forest
     terra::res(r) <- res
     forest <- terra::resample(forest, r)
@@ -618,15 +702,44 @@ if (length(list.files("GIS/Tree_cover/")) == 0) {
   }
 }
 
+# 05-2 Extract nest forest cover ----
+nests$forest <- exactextractr::exact_extract(forest, nests, 'mean')
 
-# Extract areas with >5% forest cover
-f95 <- forest > 5
+ggplot2::ggplot(data = nests, 
+                ggplot2::aes(x = cons_reg, 
+                             y = forest)) + 
+  ggplot2::geom_boxplot() + 
+  ggplot2::geom_jitter() +
+  ggplot2::theme_minimal()
 
-# ... aaaand leave it at that for now.
-# TODO: include f95 as layer if deemed necessary. 
+hist(nests$forest, breaks = 100)
+
+# 05-3 Apply forest cutoff ----
+# In the case of forests, we know with 100% confidence that
+# MAMU will nest in areas with 100% tree cover. As such, we
+# don't need to define a 'maximum tree cover' cutoff for 
+# the forested areas layer. Instead, we need to choose a 
+# minimum cutoff. In the same vein, setting a variable minimum
+# forest cover cutoff by region might be cutting out too much
+# habitat area. This forest data doesn't contain information
+# on species composition, whereas elevation cutoffs are done
+# with the max elevation of prefered nest tree species by 
+# region in mind.
+# Instead, we'll just cut out the bottom 2.5% tree cover (6
+# nests out of 242 in the dataset).
+min_forest <- quantile(nests$forest, 0.025)
+
+# `fc` for forest cutoff
+fc <- terra::ifel(forest < min_forest, NA, 1)
+
+if (!any(grepl("forest_cutoff.tiff", list.files("GIS/Forest_cover/")))|overwrite == TRUE){
+  terra::writeRaster(fc, "GIS/Forest_cover/forest_cutoff.tiff", overwrite = overwrite)
+}
+
+gc()
 
 
-# 06 MERGE ELEVATION AND COAST DISTANCE CUTOFFS ---------------------------
+# 06 MERGE CUTOFFS --------------------------------------------------------
 
 # Finally, merge the cutoff rasters together to create a 
 # "MAMU containment zone" area that has a high probability of
@@ -660,37 +773,52 @@ if (all(terra::res(elev) != res)) {
   r <- elev
   terra::res(r) <- res
   elev <- terra::resample(elev, r)
+  beepr::beep()
+  rm(r)
 }
-beepr::beep()
 
 # Resample `c30`
 if (all(terra::res(c30) != res)) {
   r <- c30
   terra::res(r) <- res
   c30 <- terra::resample(c30, r)
+  beepr::beep()
+  rm(r)
 }
-beepr::beep()
 
 # Resample `cc`
 if (all(terra::res(cc) != res)) {
   r <- cc
   terra::res(r) <- res
   cc <- terra::resample(cc, r)
+  beepr::beep()
+  rm(r)
 }
-beepr::beep()
+
+# Resample `fc`
+if (all(terra::res(fc) != res)) {
+  r <- fc
+  terra::res(r) <- res
+  cc <- terra::resample(fc, r)
+  beepr::beep()
+  rm(r)
+}
 
 # Confirm that the raster extents align
 terra::ext(c30) == terra::ext(cc)
 terra::ext(c30) == terra::ext(elev)
 terra::ext(cc) == terra::ext(elev)
+terra::ext(fc) == terra::ext(elev)
 
-cc <- terra::resample(cc, elev)
+# Resample everything to match c30 and cc
+elev <- terra::resample(elev, cc)
+fc <- terra::resample(fc, cc)
 
 terra::ext(c30) == terra::ext(cc)
 terra::ext(c30) == terra::ext(elev)
 terra::ext(cc) == terra::ext(elev)
+terra::ext(fc) == terra::ext(elev)
 
-rm(r)
 
 # 06-2 Merge nest layers ----
 
@@ -699,7 +827,34 @@ rm(r)
 
 # `mnh` for "MAMU nesting habitat"
 # This will take approximately 3-4 minutes
-mnh <- elev + c30 + cc
+mnh <- sum(cc, c30, elev, na.rm = TRUE)
+terra::plot(mnh)
+
+# We're going to save two layers - first, 'mamu accessible',
+# i.e. they can reach it at all to nest (it's below elevation,
+# within 30km, and within cost). Second, we're going to save
+# 'mamu likely', which will include accessible regions but
+# then also cut out places they are unlikely to nest (it's
+# below minimum required elevation, cost, or forest cover).
+
+# First layer to save - MAMU accessible areas
+# Anything accesible was stored as >= 1 in each raster layer.
+# Because 3 raster layers went into mnh, we can choose any
+# cells >= 3 for the "mamu accessible zone".
+maz <- terra::ifel(mnh >= 3, 1, NA)
+terra::plot(maz)
+if (!any(grepl("MAMU_accessible_zone.tiff", list.files("GIS")))|overwrite == TRUE) terra::writeRaster(maz, "GIS/MAMU_accessible_zone.tiff", overwrite = overwrite)
+
+# Second layer to save - MAMU nesting areas
+# Here we add in the forest cutoff layer, as we want to 
+# exclude any non-forested areas from the nesting habitat.
+mnh <- sum(mnh, fc, na.rm = TRUE)
+terra::plot(mnh)
+max_mnh <- terra::minmax(mnh, compute = FALSE)[2] # extract max value
+mnh <- terra::ifel(mnh == max_mnh, 1, NA)
+terra::plot(mnh)
+if (!(any(grepl("MAMU_nesting_habitat.tiff", list.files("GIS"))))|overwrite == TRUE) terra::writeRaster(mnh, "GIS/MAMU_nesting_habitat.tiff", overwrite = overwrite)
+
 
 # 06-3 Calculate habitat area within each conservation region ----
 
@@ -719,12 +874,13 @@ sum(cons_reg[["mnh_km"]][cons_reg$MMCR_NA %in% c("West and North Vancouver Islan
 # 06-4 Save MAMU nesting habitat ----
 
 if (!(any(grepl("MAMU_nesting_habitat.tiff", list.files("GIS"))))|overwrite == TRUE) {
-  terra::writeRaster(mnh, "GIS/MAMU_nesting_habitat.tiff", overwrite = overwrite)
   st_write(cons_reg, "GIS/cons_reg.shp", append = FALSE) # overwrite the conservation region shapefile with a shp containing the habitat area numbers
 }
 
 
 # 07 CLEAN UP -------------------------------------------------------------
+
+rm(list = ls())
 
 # Clean up any temp files
 unlink("temp", recursive = TRUE)
