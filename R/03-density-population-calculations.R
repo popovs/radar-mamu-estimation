@@ -10,6 +10,8 @@
 # per region times the amount of available habitat area to 
 # come up with a population estimate across all of BC.
 
+# TODO: Clean up `cons_reg` stuff
+
 # 01 SETUP ----------------------------------------------------------------
 
 # This script assumes you have run scripts 00 though 02, and that
@@ -17,14 +19,14 @@
 # the present R environment OR can be loaded in from the 'data' 
 # or 'GIS' directory.
 catchments <- sf::st_read("GIS/radar_derived_catchments.gpkg")
-cons_reg <- sf::st_read("GIS/cons_reg.shp")
-
-names(cons_reg)[1] <- "region"
+#cons_reg <- sf::st_read("GIS/cons_reg.shp")
+#names(cons_reg)[1] <- "region"
+regions <- st_read("GIS/regions.gpkg")
 
 # Check that cons_reg has the four `mnh` area columns in it
 # Otherwise, spit message that script 00 may need to be re-run
-stopifnot("The conservation region shapefile does not contain `mnh` columns within it. You need to run section four of script `00-MAMU-nesting-habitat.R`." = sum(grepl("mnh", names(cons_reg))) == 4)
-
+#stopifnot("The conservation region shapefile does not contain `mnh` columns within it. You need to run section four of script `00-MAMU-nesting-habitat.R`." = sum(grepl("mnh", names(cons_reg))) == 4)
+stopifnot("The conservation region shapefile does not contain `mnh` columns within it. You need to run section four of script `00-MAMU-nesting-habitat.R`." = sum(grepl("mnh", names(regions))) == 4)
 
 # 01-1 Merge prediction datasets with catchments ----
 
@@ -100,9 +102,9 @@ density2022 <- p2022 %>%
             density_upr = mean(density_upr))
 
 # Merge conservation region with density
-density <- merge(density, cons_reg, by = "region", all.x = TRUE)
-density_allyears <- merge(density_allyears, cons_reg, by = "region", all.x = TRUE)
-density2022 <- merge(density2022, cons_reg, by = "region", all.x = TRUE)
+density <- merge(density, regions, by = "region", all.x = TRUE)
+density_allyears <- merge(density_allyears, regions, by = "region", all.x = TRUE)
+density2022 <- merge(density2022, regions, by = "region", all.x = TRUE)
 
 # Finally, extrapolate the density by region to the total area
 density$mamu <- density$density * density$mnh_ha

@@ -7,6 +7,8 @@
 # differing seasons/day of year and/or suboptimal radar
 # setups (smaller radar radius or lower radar tilt).
 
+# TODO: Clean up `cons_reg` stuff
+# TODO: use doy with max birds for each region
 
 # 01 SETUP ----------------------------------------------------------------
 
@@ -28,10 +30,11 @@ surveys <- MAMU::process_radar_data("data/ECCC_FLNR_MAMU-RadarData-20240307.xlsx
 
 # Read in the conservation regions data
 library(sf)
-cons_reg <- st_read("GIS/cons_reg.shp")
-cons_reg <- st_transform(cons_reg, 3005) # Set BC Albers projection
-cons_reg <- cons_reg[,1] # Drop everything but first column
-names(cons_reg) <- c("region", "geometry") # Rename cols
+# cons_reg <- st_read("GIS/cons_reg.shp")
+# cons_reg <- st_transform(cons_reg, 3005) # Set BC Albers projection
+# cons_reg <- cons_reg[,1] # Drop everything but first column
+# names(cons_reg) <- c("region", "geometry") # Rename cols
+regions <- st_read("GIS/regions.gpkg")
 
 
 # 01-3 Prepare `s` dataframe ----
@@ -89,7 +92,7 @@ s <- s[complete.cases(st_drop_geometry(s)),]
 # Add conservation region to each record
 # Note that it's important to do this at the end, as the intersection
 # will change order of the records around a little bit!
-s <- st_intersection(s, cons_reg)
+s <- st_intersection(s, regions)
 
 # Check work
 plot(s[, "region"])
