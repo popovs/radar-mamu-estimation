@@ -25,7 +25,6 @@
 # https://gis.stackexchange.com/questions/424897/why-is-sf-struggling-to-run-plots-quickly-on-uk-datasets?rq=1
 
 # TODO: set it so if overwrite == FALSE, still creates the dude in memory
-# TODO: remove ggplots
 
 # 01 SETUP ----------------------------------------------------------------
 
@@ -34,6 +33,7 @@
 library(MAMU) # MUST be >= 0.2.1
 library(dplyr)
 library(sf)
+library(ggplot2)
 
 dir.create("temp", showWarnings = FALSE)
 
@@ -154,14 +154,6 @@ message("Done bootstrapping.")
 # Tidy it up...
 h <- cbind(h[1], data.frame(h$rad))
 
-#library(Hmisc)
-# h <- h %>%
-#   select(name, rad) %>%
-#   group_by(name) %>%
-#   summarise(data = list(smean.cl.boot(pick(everything()), conf.int = .95, B = 1000, na.rm = TRUE))) %>%
-#   tidyr::unnest_wider(data) %>%
-#   as.data.frame()
-
 # Calculate cone width
 h$theta <- h$upper - h$lower
 
@@ -177,7 +169,12 @@ names(h)[1] <- "site"
 h <- st_as_sf(h) %>%
   st_transform(3005)
 
-rm(stn_lookup)
+# Merge in region 
+regions <- st_read("GIS/regions.gpkg")
+h <- st_intersection(h, regions)
+h <- h[order(h$site),]
+
+rm(stn_lookup, s)
 
 # 02 GENERATE CONES -------------------------------------------------------
 
@@ -207,7 +204,7 @@ while (length(isNaN) > 0) {
     cones[[i]] <- radar_cone(pt = h[i,],
                              radius = 30000,
                              theta = 90,
-                             heading = h$inc_out2[[i]],
+                             heading = h$mean[[i]],
                              res = 25)
   }
   
@@ -240,14 +237,7 @@ for (i in 1:nrow(h)) {
     st_convex_hull() %>%
     st_as_sf()
   x$site <- h[i,][["site"]]
-  #if (st_geometry_type(x) == "MULTIPOLYGON") x <- st_convex_hull(x) # merge broken pixels together into single polygon if multipart
-  # TODO:: st_convex_hull should include the original station coordinate
   cones[[i]] <- x
-  # if (i == 1) {
-  #   catchments <- x
-  # } else {
-  #   catchments <- rbind(catchments, x)
-  # }
   rm(x)
 }
 
@@ -268,8 +258,7 @@ gc()
 # Evidence indicates that MAMU generally fly within a given
 # watershed when flying to a nesting site. 
 # TODO: CITE!!!!!\
-# TODO: if this works, move to GIS folder!
-watersheds <- st_read("../Watersheds/conservation_region_watersheds.gpkg")
+watersheds <- st_read("GIS/Watersheds/code_2_watersheds.gpkg")
 
 # Get rid of tiny tiny watersheds + river deltas
 # These mess up the pathfinding algorithm when assuming 
@@ -293,7 +282,6 @@ names(watersheds) <- cones$site
 # Bind it all into one df; keep the names as the id column
 watersheds <- bind_rows(watersheds, .id = 'site')
 
-library(ggplot2)
 ggplot() +
   geom_sf(data = watersheds,
           aes(color = site),
@@ -302,7 +290,16 @@ ggplot() +
           fill = NA) +
   geom_sf(data = h)
 
-# 03-2 Remove watersheds with <5% cone coverage ----
+dev.off()
+
+# 03-2 Remove watersheds with <2% cone coverage ----
+
+# Remove watersheds with <2% cone coverage -- EXCEPT
+# for Haida Gwaii!! HG contains many, many small 
+# cliffside catchments that empty directly into the
+# sea -- and nesting data shows they will readily
+# nest in these tiny catchments, unlike the mainland. 
+# So HG minimum will be <1% cone coverage.
 
 # I.e., remove any watershed slivers
 intersect_area <- st_intersection(cones, watersheds) %>%
@@ -311,16 +308,23 @@ intersect_area <- st_intersection(cones, watersheds) %>%
   dplyr::select(site, WSD_ID, intersect_area) %>%
   st_drop_geometry() %>%
   group_by(site, WSD_ID) %>%
-  summarize(intersect_area = sum(intersect_area), .groups = "keep")
+  summarize(intersect_area = sum(intersect_area), .groups = "keep") %>%
+  group_by(site) %>%
+  mutate(total_area = sum(intersect_area),
+         prct_coverage = intersect_area / total_area * 100)
 
-watersheds <- merge(watersheds, st_drop_geometry(cones), by = "site") # merge cone area in
+#watersheds <- merge(watersheds, st_drop_geometry(cones), by = "site") # merge cone area in
 watersheds <- merge(watersheds, intersect_area, by = c("site", "WSD_ID"))
 
-watersheds$prct_cone_overlap <- (watersheds$intersect_area / watersheds$cone_area_ha) * 100
-watersheds$prct_cone_overlap <- units::drop_units(watersheds$prct_cone_overlap)
+#watersheds$prct_cone_overlap <- (watersheds$intersect_area / watersheds$cone_area_ha) * 100
+#watersheds$prct_cone_overlap <- units::drop_units(watersheds$prct_cone_overlap)
+watersheds$prct_coverage <- units::drop_units(watersheds$prct_coverage)
 
-# Drop anything w less than 5% of the cone overlapping it
-watersheds <- watersheds[watersheds$prct_cone_overlap > 5,]
+watersheds$centroid_x <- st_coordinates(st_centroid(watersheds))[,1]
+watersheds$centroid_y <- st_coordinates(st_centroid(watersheds))[,2]
+
+#watersheds$keep_yn <- watersheds$prct_cone_overlap > 3.5
+watersheds$keep_yn <- (watersheds$prct_coverage > 2 | (watersheds$region == "HG" & watersheds$prct_coverage > 1))
 
 # 03-2A Inspect each one... ----
 dir.create("temp/cone_inspection", showWarnings = F)
@@ -328,12 +332,18 @@ lapply(h$site, function(x){
   message(x)
   p1 <- ggplot() +
     geom_sf(data = watersheds[watersheds$site == x, ],
-            aes(color = x),
+            aes(color = keep_yn),
             show.legend = FALSE) +
     geom_sf(data = cones[cones$site == x, ],
             fill = NA) +
     geom_sf(data = h[h$site == x, ]) +
-    ggtitle(x)
+    geom_text(data = watersheds[watersheds$site == x, ],
+              aes(label = round(prct_coverage, 2),
+                  x = centroid_x,
+                  y = centroid_y),
+              size = 1) +
+    ggtitle(x) +
+    theme(axis.title = element_blank())
   p2 <- ggplot(data = headings[headings$name == x & headings$flightpath_type == "Incoming",]) + 
     geom_histogram(aes(x = heading)) + 
     geom_vline(xintercept = h[["mean"]][h$site == x],
@@ -367,24 +377,344 @@ lapply(h$site, function(x){
          p_all)
 })
 
-
-# Dissolve watersheds together by site
-# watersheds <- watersheds %>%
-#   select(site) %>%
-#   group_by(site) %>%
-#   dplyr::summarize()
+# Drop anything w less than 2% of the cone overlapping it
+watersheds <- watersheds[watersheds$keep_yn,]
 
 rm(wat_cat)
 
-# 03-3 Intersect with accessible areas ----
+# 03-3 Merge watersheds into catchments ----
+
+# Save all watersheds for plotting
+all_watersheds <- watersheds
+
+# Dissolve watersheds together by site
+watersheds <- watersheds %>%
+  select(site) %>%
+  group_by(site) %>%
+  dplyr::summarize()
+
+# 04 COST DISTANCE WITHIN CATCHMENTS --------------------------------------
+
+# From the mouth of the selected watersheds, run a cost
+# distance simulation as if a MAMU were flying up the 
+# watershed. Then apply the 95% maximum cost cutoff as
+# derived from the nest data for each region.
+
+
+# 04-1 Read DEM ----
+
+message("Reading in existing DEM file...")
+dem_3005 <- terra::rast("GIS/DEM/BC_DEM_EPSG3005.tiff")
+# Resample DEM to match the resolution specified above
+if (all(terra::res(dem_3005) != res)) {
+  message("Resampling DEM to target resolution (", res, "m)...")
+  r <- dem_3005
+  terra::res(r) <- res
+  dem_3005 <- terra::resample(dem_3005, r)
+  rm(r)
+}
+
+# 04-2 Intersect DEM with watersheds and run cost distance ----
+
+catchments <- lapply(h$site, function(x) {
+  message("Creating catchment for ", x)
+  tmp <- watersheds[watersheds$site == x,]
+  # TODO: find better way to get birds to cross water. 
+  # perhaps if cone crosses over NA area, assume it's == 0
+  
+  # tmp <- st_coordinates(tmp)[,1:2] %>%  # extract concave hull of watershed, so we can include ocean areas in the raster
+  #   st_multipoint() %>% 
+  #   st_sfc(crs = 3005) %>% 
+  #   st_concave_hull(ratio = 1) %>%
+  #   st_as_sf()
+  tmp <- terra::crop(dem_3005, tmp, mask = TRUE)
+  tmp2 <- terra::crop(dem_3005, cones[cones$site == x, ], mask = TRUE) # also extract anything in the cone path - e.g. water - so birds can cross over water areas in the cone's path
+  tmp <- terra::merge(tmp, tmp2)
+  # Choose the point closest on the raster to the radar
+  # station as the origin point
+  # Extract origin coordinate
+  i <- h[h$site == x,]
+  j <- st_union(st_as_sf(terra::as.polygons(tmp)))
+  origin <- st_nearest_points(i, j)
+  origin <- st_coordinates(origin)
+  origin <- origin[,1:2] # drop 'L1' column
+  i <- st_coordinates(i)
+  origin <- rbind(origin, i)
+  # drop the duplicated rows - that's our point `h`, and we only
+  # care about origin point in/on the polygon
+  if (nrow(unique(origin)) == 1) { # vanilla `ifelse` doesn't play nicely with matrices
+    origin <- unique(origin)
+  } else if (nrow(unique(origin == 2))) {
+    origin <- origin[!(duplicated(origin) | duplicated(origin, fromLast = TRUE)), ]
+  } else {
+    message("Something weird going on with ", x)
+  }
+  origin <- matrix(origin, ncol = 2)
+  # Assign -1 to origin
+  if (is.na(terra::cellFromXY(tmp, origin))) message("Unable to find origin for ", x)
+  tmp[terra::cellFromXY(tmp, origin)] <- -1
+  tmp <- terra::costDist(tmp, -1, scale = 1000, maxiter = 100)
+  tmp <- terra::ifel(tmp > 0, tmp, NA)
+  tmp <- terra::crop(tmp, watersheds[watersheds$site == x,], mask = TRUE) # now crop to watersheds shape
+})
+
+names(catchments) <- h$site
+
+#rm(dem_3005)
+
+# 04-3 Extract regional nest costs ----
+
+nests <- st_read("GIS/MAMU_nests.gpkg")
+nests <- st_buffer(nests, dist = nests$LOC_UNCE_1)
+
+regions <- st_read("GIS/regions.gpkg")
+nests <- st_intersection(nests, regions)
+
+cost <- terra::rast("GIS/Cost_cutoffs/cost_layer.tiff")
+# Resample to match the resolution specified above
+if (all(terra::res(cost) != res)) {
+  r <- cost
+  terra::res(r) <- res
+  cost <- terra::resample(cost, r)
+  rm(r)
+}
+
+nests$cost <- exactextractr::exact_extract(cost, nests, 'mean')
+
+cost_cutoffs <- setNames(data.frame(regions$region,
+                                    unlist(lapply(regions$region, function(x){quantile(nests[["cost"]][nests$region == x], 0.025, na.rm = TRUE)[[1]]})),
+                                    unlist(lapply(regions$region, function(x){quantile(nests[["cost"]][nests$region == x], 0.975, na.rm = TRUE)[[1]]}))
+                                    ),
+                         c("region", "cost_min", "cost_max"))
+# If northern mainland coast and alaska border are NA, use CMC elevation cutoff
+# Minimum
+if (is.na(cost_cutoffs[["cost_min"]][cost_cutoffs$region == "NC"])) cost_cutoffs[["cost_min"]][cost_cutoffs$region == "NC"] <- cost_cutoffs[["cost_min"]][cost_cutoffs$region == "CC"]
+if (is.na(cost_cutoffs[["cost_min"]][cost_cutoffs$region == "AKB"])) cost_cutoffs[["cost_min"]][cost_cutoffs$region == "AKB"] <- cost_cutoffs[["cost_min"]][cost_cutoffs$region == "CC"]
+if (is.na(cost_cutoffs[["cost_min"]][cost_cutoffs$region == "NVI"])) cost_cutoffs[["cost_min"]][cost_cutoffs$region == "NVI"] <- mean(cost_cutoffs[["cost_min"]][cost_cutoffs$region %in% c("EVI", "SWVI", "MWVI")], na.rm = TRUE)
+# Maximum
+if (is.na(cost_cutoffs[["cost_max"]][cost_cutoffs$region == "NC"])) cost_cutoffs[["cost_max"]][cost_cutoffs$region == "NC"] <- cost_cutoffs[["cost_max"]][cost_cutoffs$region == "CC"]
+if (is.na(cost_cutoffs[["cost_max"]][cost_cutoffs$region == "AKB"])) cost_cutoffs[["cost_max"]][cost_cutoffs$region == "AKB"] <- cost_cutoffs[["cost_max"]][cost_cutoffs$region == "CC"]
+if (is.na(cost_cutoffs[["cost_max"]][cost_cutoffs$region == "NVI"])) cost_cutoffs[["cost_max"]][cost_cutoffs$region == "NVI"] <- mean(cost_cutoffs[["cost_max"]][cost_cutoffs$region %in% c("EVI", "SWVI", "MWVI")], na.rm = TRUE)
+
+# Round to nearest 10 meter
+cost_cutoffs$cost_min <- round(cost_cutoffs$cost_min, -1)
+cost_cutoffs$cost_max <- round(cost_cutoffs$cost_max, -1)
+
+rm(cost, regions)
+
+# 04-3A Inspect... ----
+
+# Grab region attributes
+watersheds <- merge(watersheds, st_drop_geometry(h[,c("site", "region")]), by = "site")
+
+# Grab regional cost cutoffs
+watersheds <- merge(watersheds, cost_cutoffs)
+
+library(tidyterra)
+
+dir.create("temp/cost_inspection", showWarnings = F)
+lapply(names(catchments), function(x){
+  message(x)
+  p1 <- ggplot() + 
+    geom_spatraster_contour_filled(data = catchments[[x]],
+                                   show.legend = FALSE) +
+    geom_spatraster_contour(data = catchments[[x]],
+                            breaks = c(#watersheds[["cost_min"]][watersheds$site == x],
+                                       watersheds[["cost_max"]][watersheds$site == x])) +
+    scale_fill_whitebox_d() +
+    geom_sf(data = cones[cones$site == x, ],
+            fill = NA) +
+    geom_sf(data = h[h$site == x, ]) +
+    geom_sf(data = st_intersection(nests, watersheds[watersheds$site == x,]),
+            color = "red", 
+            fill = "red") +
+    ggtitle(x, subtitle = paste(watersheds[["region"]][watersheds$site == x], "max cost =", watersheds[["cost_max"]][watersheds$site == x])) +
+    theme(axis.title = element_blank())
+  p2 <- ggplot(data = headings[headings$name == x & headings$flightpath_type == "Incoming",]) + 
+    geom_histogram(aes(x = heading)) + 
+    geom_vline(xintercept = h[["mean"]][h$site == x],
+               color = "red") +
+    geom_vline(xintercept = h[["lower"]][h$site == x],
+               color = "grey",
+               linetype = "dashed") +
+    geom_vline(xintercept = h[["upper"]][h$site == x],
+               color = "grey",
+               linetype = "dashed") +
+    xlim(0, 360) + 
+    ggtitle("Incoming") + 
+    theme(axis.title = element_blank()) +
+    theme_minimal()
+  p3 <- ggplot(data = headings[headings$name == x & headings$flightpath_type == "Outgoing",]) + 
+    geom_histogram(aes(x = heading)) + 
+    geom_vline(xintercept = h[["mean"]][h$site == x],
+               color = "red") +
+    geom_vline(xintercept = h[["lower"]][h$site == x],
+               color = "grey",
+               linetype = "dashed") +
+    geom_vline(xintercept = h[["upper"]][h$site == x],
+               color = "grey",
+               linetype = "dashed") +
+    xlim(0, 360) + 
+    ggtitle("Outgoing") + 
+    theme(axis.title = element_blank()) +
+    theme_minimal()
+  p_all <- ggpubr::ggarrange(p1, ggpubr::ggarrange(p2, p3, ncol = 1), nrow = 1)
+  ggsave(paste0("temp/cost_inspection/", x, ".png"),
+         p_all)
+})
+
+
+# 04-4 Apply cost cutoff ----
+
+catchments <- lapply(h$site, function(x) {
+  message("Extracting max-cost catchment for ", x)
+  # Extract catchment + apply cutoff
+  tmp <- catchments[[x]]
+  cutoff <- watersheds[["cost_max"]][watersheds$site == x]
+  tmp <- terra::ifel(tmp > cutoff, NA, 1)
+  # Vectorize
+  tmp <- terra::as.polygons(tmp, crs = "epsg:3005")
+  tmp <- sf::st_as_sf(tmp)
+})
+
+catchments <- dplyr::bind_rows(catchments)
+catchments$site <- h$site
+catchments <- catchments[, "site"]
+
+
+# 05 DIRECTIONALITY CUTOFF ------------------------------------------------
+
+# We've extracted the watershed regions that contain birds,
+# but a few of them could be whittled down further - e.g.
+# see Brittain or Kwinamass. Birds won't be flying *backwards*
+# into our catchment areas. 
+
+# 05-1 Cut out pieces behind heading ----
+# Let's assume birds won't fly backwards. 
+# Cut away any catchment area directly behind 
+# the flight heading. 
+
+catchments2 <- lapply(h$site, function(x) {
+  message("Removing areas behind cone for ", x)
+  # Create the cut line, perpendicular to h. The line
+  # should be long enough to be sure to cut any weird
+  # catchment danglies off. 10km each side should be
+  # long enough. 
+  stn <- h[h$site == x, ]
+  x0 <- st_coordinates(stn)[1]
+  y0 <- st_coordinates(stn)[2]
+  alpha <- (180 - stn$mean) * (pi / 180) # convert degrees to radians + rotate 90°
+  d <- 30000 # 30km
+  x1 <- x0 + (d * cos(alpha))
+  y1 <- y0 + (d * sin(alpha))
+  x2 <- x0 - (d * cos(alpha))
+  y2 <- y0 - (d * sin(alpha))
+  string <- data.frame(geom = NA)
+  string$geom <- sprintf("LINESTRING(%s %s, %s %s, %s %s)", x1, y1, x0, y0, x2, y2)
+  string <- st_as_sf(string, wkt = "geom", crs = 3005)
+  string <- st_as_sfc(string)
+  # Cut the catchment with the string
+  c <- catchments[catchments$site == x, ]
+  c <- lwgeom::st_split(c, string)
+  c <- st_make_valid(c)
+  c <- st_collection_extract(c, "POLYGON")
+  # Create a line directly under (one unit of resolution) the cut
+  beta <- (90 - stn$mean) * (pi / 180)
+  xx <- x0 - (res * cos(beta))
+  yy <- y0 - (res * sin(beta))
+  x1 <- xx + (5000 * cos(alpha)) # let's make this line much shorter, 10km total
+  y1 <- yy + (5000 * sin(alpha))
+  x2 <- xx - (5000 * cos(alpha))
+  y2 <- yy - (5000 * sin(alpha))
+  #xxyy <- st_point(c(xx, yy)) %>% st_sfc(crs = 3005)
+  string <- data.frame(geom = NA)
+  string$geom <- sprintf("LINESTRING(%s %s, %s %s, %s %s)", x1, y1, xx, yy, x2, y2)
+  string <- st_as_sf(string, wkt = "geom", crs = 3005)
+  string <- st_as_sfc(string)
+  # Delete the section directly under the the cut
+  #c <- c[!(st_contains(c, xxyy, sparse = FALSE)),]
+  c <- c[!(st_intersects(c, string, sparse = F)),]
+  c <- c %>% group_by(site) %>% dplyr::summarise() # merge any pieces that may have been cut
+  # Clean up the edges a bit
+  c <- st_buffer(c, res) %>%
+    smoothr::smooth() %>%
+    st_intersection(watersheds[watersheds$site == x, ]) %>%
+    filter(site == site.1) %>%
+    select(site, region)
+  # Multipart polygon to singlepart
+  c <- st_cast(c, "POLYGON", warn = FALSE)
+  # Now select the piece closest to the station
+  #c <- c[st_nearest_feature(stn, c),]
+  c <- c[st_intersects(c, cones[cones$site == x,], sparse = FALSE), ]
+})
+
+catchments2 <- dplyr::bind_rows(catchments2)
+
+# 05-1A Inspect... ----
+dir.create("temp/catchment_inspection", showWarnings = F)
+lapply(catchments$site, function(x){
+  message(x)
+  p1 <- ggplot() +
+    geom_sf(data = all_watersheds[all_watersheds$site == x, ],
+            aes(color = x),
+            show.legend = FALSE) +
+    geom_sf(data = catchments2[catchments2$site == x, ],
+            fill = "grey",
+            color = NA,
+            alpha = 0.7,
+            show.legend = FALSE) +
+    geom_sf(data = cones[cones$site == x, ],
+            fill = NA) +
+    geom_sf(data = h[h$site == x, ]) +
+    ggtitle(x, subtitle = h[["loc"]][h$site == x])
+  p2 <- ggplot(data = headings[headings$name == x & headings$flightpath_type == "Incoming",]) + 
+    geom_histogram(aes(x = heading)) + 
+    geom_vline(xintercept = h[["mean"]][h$site == x],
+               color = "red") +
+    geom_vline(xintercept = h[["lower"]][h$site == x],
+               color = "grey",
+               linetype = "dashed") +
+    geom_vline(xintercept = h[["upper"]][h$site == x],
+               color = "grey",
+               linetype = "dashed") +
+    xlim(0, 360) + 
+    ggtitle("Incoming") + 
+    theme(axis.title = element_blank()) +
+    theme_minimal()
+  p3 <- ggplot(data = headings[headings$name == x & headings$flightpath_type == "Outgoing",]) + 
+    geom_histogram(aes(x = heading)) + 
+    geom_vline(xintercept = h[["mean"]][h$site == x],
+               color = "red") +
+    geom_vline(xintercept = h[["lower"]][h$site == x],
+               color = "grey",
+               linetype = "dashed") +
+    geom_vline(xintercept = h[["upper"]][h$site == x],
+               color = "grey",
+               linetype = "dashed") +
+    xlim(0, 360) + 
+    ggtitle("Outgoing") + 
+    theme(axis.title = element_blank()) +
+    theme_minimal()
+  p_all <- ggpubr::ggarrange(p1, ggpubr::ggarrange(p2, p3, ncol = 1), nrow = 1)
+  ggsave(paste0("temp/catchment_inspection/", x, ".png"),
+         p_all)
+})
+
+catchments <- catchments2
+rm(catchments2)
+
+# 06 ACCESSIBLE AREAS -----------------------------------------------------
+
+# 06-1 Intersect with accessible areas ----
 
 # Load up accessible nesting habitat tiff
 # This time using stars - far more efficient to vectorize
 # a stars object
-if (any(grepl("maz", ls()))) {
+if (any(grepl("\bmaz\b", ls()))) {
   maz <- stars::st_as_stars(maz)
 } else {
-  maz <- stars::read_stars("GIS/MAMU_accessible_zone.tiff")
+  #maz <- stars::read_stars("GIS/MAMU_accessible_zone.tiff")
+  maz <- stars::read_stars("GIS/Elevation_cutoffs/elevation_cutoffs.tiff")
 }
 
 # Polygonize
@@ -396,32 +726,71 @@ maz <- st_as_sf(maz,
 maz <- st_union(maz) # merge into one polygon
 
 # Simplify this giant maz polygon
-maz <- smooth(maz, method = "chaikin")
-
+maz <- smoothr::smooth(maz, method = "chaikin")
 
 # This will take just under ~1 minute
-catchments <- st_intersection(watersheds, maz)
+wat_maz <- st_intersection(catchments, maz)
 rm(maz)
 
-# 03-3A Inspect each one... ----
+# 06-2 Select piece closest to origin ----
+
+wat_maz <- lapply(h$site, function(x) {
+  message("Selecting pieces accessible from the origin for ", x)
+  origin <- h[h$site == x, ]
+  tmp <- wat_maz[wat_maz$site == x, ]
+  tmp <- st_make_valid(tmp) %>%
+    st_collection_extract("POLYGON") %>%
+    st_cast("POLYGON", warn = FALSE)
+  tmp <- tmp[st_nearest_feature(origin, tmp),]
+})
+
+wat_maz <- dplyr::bind_rows(wat_maz)
+
+# 06-1A Inspect each one... ----
+# This will write over previous catchment inspection
 dir.create("temp/catchment_inspection", showWarnings = F)
 lapply(h$site, function(x){
   message(x)
   p1 <- ggplot() +
-    geom_sf(data = watersheds[watersheds$site == x, ],
+    geom_sf(data = all_watersheds[all_watersheds$site == x, ],
             aes(color = x),
             show.legend = FALSE) +
     geom_sf(data = catchments[catchments$site == x, ],
             color = NA,
-            aes(fill = WSD_ID),
+            fill = "grey",
+            alpha = 0.5,
+            show.legend = FALSE) +
+    geom_sf(data = wat_maz[wat_maz$site == x, ],
+            color = NA, 
+            fill = "#26D1EA",
             alpha = 0.3,
             show.legend = FALSE) +
     geom_sf(data = cones[cones$site == x, ],
             fill = NA) +
     geom_sf(data = h[h$site == x, ]) +
     ggtitle(x)
-  p2 <- ggplot(data = headings[headings$name == x & headings$flightpath_type == "Incoming",]) + 
-    geom_histogram(aes(x = heading)) + 
+  # p1 <- ggplot() +
+  #   geom_spatraster_contour_filled(data = catchments[[x]],
+  #                                  show.legend = FALSE) +
+  #   geom_sf(data = wat_maz[wat_maz$site == x,],
+  #           color = "#26D1EA",
+  #           fill = "white",
+  #           alpha = 0.3) +
+  #   geom_spatraster_contour(data = catchments[[x]],
+  #                           breaks = c(#watersheds[["cost_min"]][watersheds$site == x],
+  #                             watersheds[["cost_max"]][watersheds$site == x]),
+  #                           linewidth = 1) +
+  #   scale_fill_whitebox_d() +
+  #   geom_sf(data = cones[cones$site == x, ],
+  #           fill = NA) +
+  #   geom_sf(data = h[h$site == x, ]) +
+  #   geom_sf(data = st_intersection(nests, watersheds[watersheds$site == x,]),
+  #           color = "red",
+  #           fill = "red") +
+  #   ggtitle(x, subtitle = paste(watersheds[["region"]][watersheds$site == x], "max cost =", watersheds[["cost_max"]][watersheds$site == x])) +
+  #   theme(axis.title = element_blank())
+  p2 <- ggplot(data = headings[headings$name == x & headings$flightpath_type == "Incoming",]) +
+    geom_histogram(aes(x = heading)) +
     geom_vline(xintercept = h[["mean"]][h$site == x],
                color = "red") +
     geom_vline(xintercept = h[["lower"]][h$site == x],
@@ -430,12 +799,12 @@ lapply(h$site, function(x){
     geom_vline(xintercept = h[["upper"]][h$site == x],
                color = "grey",
                linetype = "dashed") +
-    xlim(0, 360) + 
-    ggtitle("Incoming") + 
+    xlim(0, 360) +
+    ggtitle("Incoming") +
     theme(axis.title = element_blank()) +
     theme_minimal()
-  p3 <- ggplot(data = headings[headings$name == x & headings$flightpath_type == "Outgoing",]) + 
-    geom_histogram(aes(x = heading)) + 
+  p3 <- ggplot(data = headings[headings$name == x & headings$flightpath_type == "Outgoing",]) +
+    geom_histogram(aes(x = heading)) +
     geom_vline(xintercept = h[["mean"]][h$site == x],
                color = "red") +
     geom_vline(xintercept = h[["lower"]][h$site == x],
@@ -444,8 +813,8 @@ lapply(h$site, function(x){
     geom_vline(xintercept = h[["upper"]][h$site == x],
                color = "grey",
                linetype = "dashed") +
-    xlim(0, 360) + 
-    ggtitle("Outgoing") + 
+    xlim(0, 360) +
+    ggtitle("Outgoing") +
     theme(axis.title = element_blank()) +
     theme_minimal()
   p_all <- ggpubr::ggarrange(p1, ggpubr::ggarrange(p2, p3, ncol = 1), nrow = 1)
@@ -453,403 +822,8 @@ lapply(h$site, function(x){
          p_all)
 })
 
-
-# 03-4 Select accessible areas ----
-
-# Now we've cut out the inaccessible zones, we can see some
-# of our catchments are cut up into pieces. (e.g., see 
-# Aaltanhash). We need to choose the pieces that are actually
-# reachable from the radar station. This will entail two 
-# assumptions:
-#   1) Any catchment pieces that are adjacent to/touch the 
-#      origin piece are accessible to a flying MAMU.
-#   2) The catchment piece closest to the radar station is thh
-#      'origin' catchment piece
-
-# 03-4A Merge adjacent catchment pieces ----
-# Dissolve catchments together by site, then split multipart
-# polygons into singlepart 
-# Need to cast to multipart first bc of bug: https://github.com/r-spatial/sf/issues/763
-catchments <- catchments %>%
-  select(site) %>%
-  group_by(site) %>%
-  dplyr::summarize() %>%
-  st_cast("MULTIPOLYGON") %>%
-  st_cast("POLYGON", warn = FALSE)
-
-catchments$id <- rownames(catchments)
-
-# 03-4B Select pieces closest to origin ----
-
-# If a flying bird can enter the origin piece, logic dictates
-# that it can then subsequently fly into any neighboring areas
-# that are also accessible. Therefore, select any pieces that
-# touch the origin piece.
-
-# For each radar station site and each corresponding catchment,
-# choose the origin piece (catchment piece that is closest to
-# the radar station)
-catchments2 <- list()
-catchments2 <- lapply(h$site, function(x) {
-  message("Finding origin site for ", x, "...")
-  hx <- h[h$site == x,]
-  cx <- catchments[catchments$site == x,]
-  cx$origin <- FALSE
-  cx[["origin"]][st_nearest_feature(hx, cx)] <- TRUE
-  cx
-})
-catchments2 <- dplyr::bind_rows(catchments2)
-
-# Inspect again...
-lapply(h$site, function(x){
-  message(x)
-  p1 <- ggplot() +
-    geom_sf(data = watersheds[watersheds$site == x, ],
-            aes(color = x),
-            show.legend = FALSE) +
-    geom_sf(data = catchments2[catchments2$site == x, ],
-            color = NA,
-            aes(fill = origin),
-            alpha = 0.3,
-            show.legend = FALSE) +
-    geom_sf(data = cones[cones$site == x, ],
-            fill = NA) +
-    geom_sf(data = h[h$site == x, ]) +
-    ggtitle(x)
-  p2 <- ggplot(data = headings[headings$name == x & headings$flightpath_type == "Incoming",]) + 
-    geom_histogram(aes(x = heading)) + 
-    geom_vline(xintercept = h[["mean"]][h$site == x],
-               color = "red") +
-    geom_vline(xintercept = h[["lower"]][h$site == x],
-               color = "grey",
-               linetype = "dashed") +
-    geom_vline(xintercept = h[["upper"]][h$site == x],
-               color = "grey",
-               linetype = "dashed") +
-    xlim(0, 360) + 
-    ggtitle("Incoming") + 
-    theme(axis.title = element_blank()) +
-    theme_minimal()
-  p3 <- ggplot(data = headings[headings$name == x & headings$flightpath_type == "Outgoing",]) + 
-    geom_histogram(aes(x = heading)) + 
-    geom_vline(xintercept = h[["mean"]][h$site == x],
-               color = "red") +
-    geom_vline(xintercept = h[["lower"]][h$site == x],
-               color = "grey",
-               linetype = "dashed") +
-    geom_vline(xintercept = h[["upper"]][h$site == x],
-               color = "grey",
-               linetype = "dashed") +
-    xlim(0, 360) + 
-    ggtitle("Outgoing") + 
-    theme(axis.title = element_blank()) +
-    theme_minimal()
-  p_all <- ggpubr::ggarrange(p1, ggpubr::ggarrange(p2, p3, ncol = 1), nrow = 1)
-  ggsave(paste0("temp/catchment_inspection/", x, ".png"),
-         p_all)
-})
-
-# Replace catchments w catchments2
-catchments2 <- catchments2[catchments2$origin == TRUE,]
-catchments <- catchments2
-rm(catchments2)
-
-
-
-# 03-3 xxxCUT SECTION? Select correct watershed ----
-
-# The catchments are now essentially chopped up cones divided
-# up by either the non-nesting zones from `mnh` or into 
-# multiple watersheds. Now we need to choose the correct
-# piece of the catchment that relates to our radar station and
-# discard the rest of the miscellaneous values.
-
-# Next, choose whichever watershed ID falls in line/intersects 
-# with the heading
-# https://stackoverflow.com/questions/69820690/finding-coordinates-from-heading-and-distance-in-r
-
-# h2 <- st_transform(h, crs = 4326)
-# h2$lon.1 <- NA
-# h2$lat.1 <- NA
-# 
-# for (i in 1:nrow(h2)) {
-#   ic <- st_coordinates(h2[i,])
-#   b <- sf::st_drop_geometry(h2[i, "inc_out2"])[[1]]
-#   nc <- geosphere::destPoint(ic, b = b, d = 30000)
-#   h2[i, "lon.1"] <- nc[1]
-#   h2[i, "lat.1"] <- nc[2]
-# }
-# rm(ic, b, nc, i)
-# 
-# h2 <- st_drop_geometry(h2)
-# h2$geom <- sprintf("LINESTRING(%s %s, %s %s)",
-#                    h2$lon, h2$lat,
-#                    h2$lon.1, h2$lat.1)
-# h2 <- st_as_sf(h2, wkt = "geom")
-# st_crs(h2) <- 4326
-# h2 <- st_transform(h2, 3005)
-# 
-# 
-# # Check it out...
-# x <- "Southgate"
-# x <- "Aaltanhash"
-# 
-# ggplot() +
-#   geom_sf(data = catchments[catchments$site == x,],
-#           aes(color = WSD_ID)) +
-#   geom_sf(data = h[h$site == x,]) +
-#   geom_sf(data = h2[h2$site == x,])
-# 
-# ggplot() +
-#   geom_sf(data = catchments[catchments$site == x,][st_intersects(catchments[catchments$site == x,], h2[h2$site == x,], sparse = F),],
-#           aes(color = WSD_ID)) +
-#   geom_sf(data = h[h$site == x,]) +
-#   geom_sf(data = h2[h2$site == x,])
-
-# `h2` is now our dataframe of headings (lines that are 30km 
-# long oriented in the direction of each station's mean
-# heading). 
-# The intersection between each line and the catchment pieces
-# it touches are the 'true' catchment. All other pieces can be
-# dropped.
-# Now cycle through each catchment and extract out the pieces
-# that intersect with it's corresponding `h2` line.
-
-
-# catchments$area_ha <- units::set_units(sf::st_area(catchments), "ha")
-# catchments <- catchments[order(catchments$site, catchments$area_ha),]
-# catchments$keep_yn <- NA
-# 
-# for (i in 1:nrow(h2)) {
-#   site <- h2[["site"]][i]
-#   message("Cleaning up ", site, "...")
-#   catchments[["keep_yn"]][catchments$site == site] <- st_intersects(catchments[catchments$site == site,], h2[h2$site == site,], sparse = F)
-# }
-
-# 
-# keep_cat_yn <- lapply(h2$site, function(x) {
-#   st_intersects(catchments[catchments$site == x,], h2[h2$site == x,], sparse = F)
-# })
-# catchments$keep_yn <- unlist(keep_cat_yn)
-
-# Check it out...
-
-# x <- "Aaltanhash"
-# x <- "Southgate"
-# x <- "Watta"
-# 
-# ggplot() +
-#   geom_sf(data = catchments[catchments$site == x,][st_intersects(catchments[catchments$site == x,], h2[h2$site == x,], sparse = F),],
-#           aes(color = WSD_ID)) +
-#   geom_sf(data = h[h$site == x,]) +
-#   geom_sf(data = h2[h2$site == x,]) +
-#   ggtitle(x)
-# 
-# ggplot() +
-#   geom_sf(data = catchments[catchments$site == x & catchments$keep_yn == TRUE,]) +
-#   geom_sf(data = h[h$site == x,]) +
-#   ggtitle(x)
-
-
-# Remove non-intersecting catchment pieces
-# catchments <- catchments[catchments$keep_yn == TRUE, ]
-
-
-
-# There should now be 95 features, matching the original 95 headings...
-nrow(h) == nrow(catchments)
-
-
-
-# 04 DIRECTIONALITY CUTOFF ------------------------------------------------
-
-# We've extracted the watershed regions that contain birds,
-# but a few of them could be whittled down further - e.g.
-# see Brittain or Kwinamass. Birds won't be flying *backwards*
-# into our catchment areas. 
-
-# 04-1 Calculate cost cones ----
-# Cost cones
-cost_cones <- lapply(1:nrow(h), function(x){
-  message("Calculating cost cone for ", h[x,]$site)
-  tmp <- radar_cone(pt = h[x,],
-                    radius = 30000,
-                    theta = h$theta[[x]], # using 95CI heading boundaries
-                    heading = h$mean[[x]],
-                    invert = TRUE, # we want our bird flight direction to be zero - zero difficult flying through it
-                    res = res) 
-  # Now we're going to assume the exact *inverse* of the heading
-  # cone is where the bird will NOT go. We'll set a 1/3 cone with
-  # CONFIDENCE as no-go
-  tmp2 <- radar_cone(pt = h[x,],
-                     radius = 30000,
-                     theta = 120,
-                     heading = h$mean[[x]] - 180,
-                     res = res) 
-  tmp2 <- terra::ifel(tmp2 < 1, tmp, NA) # If tmp2 < 1, REPLACE WITH VALUES FROM TMP
-  # Now do our cost difficulty!
-  # It will be NO DIFFICULTY AT ALL to fly within the cone area (tmp2 == 0).
-  # It will be INCREASINGLY DIFFICULT to fly away from cone area (tmp > 0).
-  # It will be IMPOSSIBLE to fly directly behind the cone area (1/3 wedge where tmp is NA).
-  # Our (x,y) origin point will be -1 (where we are flying FROM).
-  xy <- sf::st_coordinates(h[x,])
-  xy <- terra::cellFromXY(tmp2, xy) # extract the cell number that contains our origin point
-  tmp2[xy] <- -1 # set our origin cell value to -1
-  cost <- terra::costDist(tmp2, target = -1)
-  # Next we need to choose our cutoff point. We're going to assume our bird
-  # can access 50% of the remaining area.
-  cutoff <- quantile(terra::values(cost), 0.5, na.rm = TRUE)
-  # Now vectorize
-  cost <- terra::ifel(cost < cutoff, 1, NA)
-  cost <- terra::as.polygons(cost, crs = "epsg:3005")
-  cost <- sf::st_as_sf(cost)
-  cost <- smoothr::smooth(cost, method = "ksmooth")
-  cost$site <- h[x,]$site
-  cost <- cost[,c("site", "geometry")]
-  return(cost)
-})
-
-cost_cones <- bind_rows(cost_cones)
-plot(cost_cones)
-
-# 04-2 Intersect with catchments ----
-
-# Subset each catchment and intersect with it's 
-# corresponding cost cone.
-catchments2 <- lapply(catchments$site, function(x) {
-  message("Intersecting ", x)
-  i <- st_make_valid(catchments[catchments$site == x, ])
-  j <- st_make_valid(cost_cones[cost_cones$site == x, ])
-  st_intersection(i, j)
-})
-
-catchments2 <- bind_rows(catchments2)
-
-# Inspect again...
-lapply(h$site, function(x){
-  message(x)
-  p1 <- ggplot() +
-    geom_sf(data = watersheds[watersheds$site == x, ],
-            aes(color = x),
-            show.legend = FALSE) +
-    geom_sf(data = catchments[catchments$site == x, ],
-            color = NA,
-            fill = "#a9a9a9",
-            alpha = 0.3,
-            show.legend = FALSE) +
-    geom_sf(data = catchments2[catchments2$site == x, ],
-            color = NA,
-            aes(fill = origin),
-            alpha = 0.3,
-            show.legend = FALSE) +
-    geom_sf(data = cones[cones$site == x, ],
-            fill = NA) +
-    geom_sf(data = h[h$site == x, ]) +
-    ggtitle(x)
-  p2 <- ggplot(data = headings[headings$name == x & headings$flightpath_type == "Incoming",]) + 
-    geom_histogram(aes(x = heading)) + 
-    geom_vline(xintercept = h[["mean"]][h$site == x],
-               color = "red") +
-    geom_vline(xintercept = h[["lower"]][h$site == x],
-               color = "grey",
-               linetype = "dashed") +
-    geom_vline(xintercept = h[["upper"]][h$site == x],
-               color = "grey",
-               linetype = "dashed") +
-    xlim(0, 360) + 
-    ggtitle("Incoming") + 
-    theme(axis.title = element_blank()) +
-    theme_minimal()
-  p3 <- ggplot(data = headings[headings$name == x & headings$flightpath_type == "Outgoing",]) + 
-    geom_histogram(aes(x = heading)) + 
-    geom_vline(xintercept = h[["mean"]][h$site == x],
-               color = "red") +
-    geom_vline(xintercept = h[["lower"]][h$site == x],
-               color = "grey",
-               linetype = "dashed") +
-    geom_vline(xintercept = h[["upper"]][h$site == x],
-               color = "grey",
-               linetype = "dashed") +
-    xlim(0, 360) + 
-    ggtitle("Outgoing") + 
-    theme(axis.title = element_blank()) +
-    theme_minimal()
-  p_all <- ggpubr::ggarrange(p1, ggpubr::ggarrange(p2, p3, ncol = 1), nrow = 1)
-  ggsave(paste0("temp/catchment_inspection/", x, ".png"),
-         p_all)
-})
-
-
-# Replace catchments w catchments2
-catchments2 <- catchments2[catchments2$origin == TRUE,]
-catchments <- catchments2
-rm(catchments2, cost_cones)
-
-
-
-# 05 xxxCUT SECTION? DISTANCE FROM ORIGIN -------------------------------------------------
-
-# Now we have our feasible MAMU travel catchments. If a MAMU
-# had an infinite distance it could travel, it could reach 
-# anywhere within the network. However, we will cut off flights
-# with a 30km distance from the origin (for inland areas, this
-# will likely hit the edge of the allowable MAMU zone quicker).
-
-# 05-1 Rasterize catchments ----
-
-# raster_cats <- lapply(1:nrow(catchments), function(x) {
-#   message("Rasterizing ", catchments[["site"]][x])
-#   tmp <- catchments[x,]
-#   template <- terra::rast(terra::vect(tmp), res = ifelse(res > 25, res/10, res))
-#   out <- terra::rasterize(terra::vect(tmp), y = template, touches = TRUE) # give it a slight buffer so we don't lose any area unintentionally
-#   return(out)
-#   })
-# 
-# # 05-2 Calculate distance from origin ----
-# 
-# catchments2 <- lapply(1:nrow(h), function(x){
-#   message("Calculating distance from ", h[["site"]][x], " radar station...")
-#   # Extract origin coordinate
-#   i <- h[x,]
-#   j <- catchments[x,]
-#   origin <- st_nearest_points(i, j)
-#   origin <- st_coordinates(origin)
-#   origin <- origin[,1:2] # drop 'L1' column
-#   i <- st_coordinates(i)
-#   origin <- rbind(origin, i)
-#   # drop the duplicated rows - that's our point `h`, and we only 
-#   # care about origin point in/on the polygon
-#   if (nrow(unique(origin)) == 1) { # vanilla `ifelse` doesn't play nicely with matrices
-#     origin <- unique(origin)
-#   } else {
-#     origin <- origin[!(duplicated(origin) | duplicated(origin, fromLast = TRUE)), ]
-#   }
-#   origin <- matrix(origin, ncol = 2)
-#   # Assign origin cell in raster a value of '0'
-#   tmp <- raster_cats[[x]]
-#   tmp[terra::cellFromXY(tmp, origin)] <- 0 # Set the origin value == 0
-#   # Compute grid distance from origin
-#   tmp <- terra::gridDist(tmp, 0)
-#   # Extract anything < 30km
-#   tmp <- terra::ifel(tmp <= 30000, 1, NA)
-#   # Vectorize
-#   tmp <- terra::as.polygons(tmp, crs = "epsg:3005")
-#   tmp <- sf::st_as_sf(tmp)
-#   tmp$site <- h[["site"]][x]
-#   tmp <- tmp[,"site"] # drop 'layer' column
-#   tmp <- smoothr::smooth(tmp, method = "ksmooth")
-#   tmp <- st_make_valid(tmp)
-#   return(tmp)
-# })
-# 
-# catchments2 <- dplyr::bind_rows(catchments2)
-# 
-# 
-# # Save them
-# catchments <- catchments2
-# rm(catchments2)
-
-
+catchments <- wat_maz
+rm(wat_maz)
 
 # 06 MINIMUM CUTOFF ZONES -------------------------------------------------
 
@@ -876,21 +850,25 @@ mnh <- st_as_sf(mnh,
 mnh <- st_union(mnh) # merge into one polygon
 
 # Simplify this giant mnh polygon
-mnh <- smooth(mnh, method = "chaikin")
-
+mnh <- smoothr::smooth(mnh, method = "chaikin")
 
 # This will take just under ~1 minute
-catchments <- st_intersection(catchments, mnh)
+catchments2 <- st_intersection(catchments, mnh)
 
 # Inspect final catchments...
 dir.create("temp/final_catchment_inspection", showWarnings = F)
 lapply(h$site, function(x){
   message(x)
   p1 <- ggplot() +
-    geom_sf(data = watersheds[watersheds$site == x, ],
+    geom_sf(data = all_watersheds[all_watersheds$site == x, ],
             aes(color = x),
             show.legend = FALSE) +
     geom_sf(data = catchments[catchments$site == x, ],
+            color = NA, 
+            fill = "#26D1EA",
+            alpha = 0.3,
+            show.legend = FALSE) +
+    geom_sf(data = catchments2[catchments2$site == x, ],
             color = NA,
             fill = "#343434",
             alpha = 0.3,
@@ -931,6 +909,7 @@ lapply(h$site, function(x){
   ggsave(paste0("temp/final_catchment_inspection/", x, ".png"),
          p_all)
 })
+
 
 # 06 EXTRACT CATCHMENT VALUES ---------------------------------------------
 
