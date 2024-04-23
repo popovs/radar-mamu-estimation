@@ -263,8 +263,10 @@ watersheds <- st_read("GIS/Watersheds/code_2_watersheds.gpkg")
 # Get rid of tiny tiny watersheds + river deltas
 # These mess up the pathfinding algorithm when assuming 
 # MAMU can or cannot cross from one watershed to another
+# EXCEPT for Haida Gwaii. Nest data shows they'll nest in 
+# these tiny scraps of watersheds.
 watersheds$AREA_SQM <- st_area(watersheds)
-watersheds <- watersheds[watersheds$AREA_SQM > units::as_units(150000, "m^2"),]
+watersheds <- watersheds[watersheds$AREA_SQM > units::as_units(150000, "m^2") | watersheds$region == "HG",]
 #watersheds <- watersheds[!is.na(watersheds$WTRSHDCD_2),]
 
 # Get a matrix of which watersheds intersect with cones
@@ -299,7 +301,7 @@ dev.off()
 # cliffside catchments that empty directly into the
 # sea -- and nesting data shows they will readily
 # nest in these tiny catchments, unlike the mainland. 
-# So HG minimum will be <1% cone coverage.
+# So with HG just choose everything.
 
 # I.e., remove any watershed slivers
 intersect_area <- st_intersection(cones, watersheds) %>%
@@ -324,7 +326,7 @@ watersheds$centroid_x <- st_coordinates(st_centroid(watersheds))[,1]
 watersheds$centroid_y <- st_coordinates(st_centroid(watersheds))[,2]
 
 #watersheds$keep_yn <- watersheds$prct_cone_overlap > 3.5
-watersheds$keep_yn <- (watersheds$prct_coverage > 2 | (watersheds$region == "HG" & watersheds$prct_coverage > 1))
+watersheds$keep_yn <- (watersheds$prct_coverage > 2 | watersheds$region == "HG")
 
 # 03-2A Inspect each one... ----
 dir.create("temp/cone_inspection", showWarnings = F)
@@ -419,14 +421,6 @@ if (all(terra::res(dem_3005) != res)) {
 catchments <- lapply(h$site, function(x) {
   message("Creating catchment for ", x)
   tmp <- watersheds[watersheds$site == x,]
-  # TODO: find better way to get birds to cross water. 
-  # perhaps if cone crosses over NA area, assume it's == 0
-  
-  # tmp <- st_coordinates(tmp)[,1:2] %>%  # extract concave hull of watershed, so we can include ocean areas in the raster
-  #   st_multipoint() %>% 
-  #   st_sfc(crs = 3005) %>% 
-  #   st_concave_hull(ratio = 1) %>%
-  #   st_as_sf()
   tmp <- terra::crop(dem_3005, tmp, mask = TRUE)
   tmp2 <- terra::crop(dem_3005, cones[cones$site == x, ], mask = TRUE) # also extract anything in the cone path - e.g. water - so birds can cross over water areas in the cone's path
   tmp <- terra::merge(tmp, tmp2)
@@ -481,12 +475,71 @@ if (all(terra::res(cost) != res)) {
 
 nests$cost <- exactextractr::exact_extract(cost, nests, 'mean')
 
+nests %>% 
+  ggplot(data = ., 
+         aes(x = region,
+             y = cost)) + 
+    geom_boxplot() + 
+    geom_jitter() +
+    theme_minimal()
+
+# Remove overall nest cost outliers
+# IQR method
+#upper_outliers <- boxplot.stats(nests$cost)$out[boxplot.stats(nests$cost)$out > median(nests$cost, na.rm = TRUE)]
+# Quantile method
+upper_outliers <- quantile(nests[["cost"]], 0.95, na.rm = TRUE)
+nests$cost_outlier_yn <- nests$cost >= min(upper_outliers)
+
+nests %>% 
+  filter(cost_outlier_yn == FALSE) %>%
+  ggplot(data = ., 
+         aes(x = region,
+             y = cost)) + 
+  geom_boxplot() + 
+  geom_jitter() +
+  theme_minimal()
+
+# Now remove regional outliers
+# TODO: this will need to be improved if/when more nest data is added. For now,
+# the small sample size of EVI is difficult to filter, but it appears to 
+# throw off the nest costs for the entire island. Ideally, filtering out
+# outliers from each region is enough on its own and there's no need to
+# filter out overall outliers beforehand.
+# mean(nests[["cost"]][nests$region == x & nests$cost_outlier_yn == FALSE], na.rm = TRUE) + IQR(nests[["cost"]][nests$region == x & nests$cost_outlier_yn == FALSE])
 cost_cutoffs <- setNames(data.frame(regions$region,
-                                    unlist(lapply(regions$region, function(x){quantile(nests[["cost"]][nests$region == x], 0.025, na.rm = TRUE)[[1]]})),
-                                    unlist(lapply(regions$region, function(x){quantile(nests[["cost"]][nests$region == x], 0.975, na.rm = TRUE)[[1]]}))
+                                    unlist(lapply(regions$region, function(x){quantile(nests[["cost"]][nests$region == x & nests$cost_outlier_yn == FALSE], 0.025, na.rm = TRUE)[[1]]})),
+                                    unlist(lapply(regions$region, function(x){
+                                      quantile(nests[["cost"]][nests$region == x & nests$cost_outlier_yn == FALSE], 
+                                               1.00, # we're just going to select the max value in each one, now that the outliers have been cut out 
+                                               na.rm = TRUE)[[1]]})),
+                                    unlist(lapply(regions$region, function(x) {
+                                      tmp <- nests[!(nests$cost_outlier_yn),]
+                                      upper_outlier <- boxplot.stats(tmp[["cost"]][tmp$region == x])$out
+                                      upper_outlier <- upper_outlier[upper_outlier > median(tmp[["cost"]][tmp$region == x], na.rm = TRUE)]
+                                      upper_outlier <- ifelse(length(upper_outlier) == 0, NA, min(upper_outlier))
+                                    }))
                                     ),
-                         c("region", "cost_min", "cost_max"))
+                         c("region", "cost_min", "cost_max", "outlier_cutoff"))
+
+# If there's no distinct regional outlier cutoff, 
+# apply the overall outlier cutoff
+cost_cutoffs[["outlier_cutoff"]][is.na(cost_cutoffs$outlier_cutoff)] <- min(upper_outliers)
+
+# Loop through each region and find the maximum nest cutoff,
+# by region, that still lies below the outlier cutoff
+# This is a bit clunky but works
+# JK: For now, just choose the max in each region after overall outliers 
+# cut out....
+# cost_cutoffs$cost_max <- unlist(lapply(regions$region, function(x){
+#   tmp <- nests[["cost"]][nests$region == x]
+#   ifelse(all(is.na(tmp)), 
+#          NA, 
+#          max(tmp[tmp < cost_cutoffs[["outlier_cutoff"]][cost_cutoffs$region == x]], na.rm = TRUE)
+#          )
+#   }))
+
 # If northern mainland coast and alaska border are NA, use CMC elevation cutoff
+# If North Vancouver Island is NA, use the mean of all the other island regions
 # Minimum
 if (is.na(cost_cutoffs[["cost_min"]][cost_cutoffs$region == "NC"])) cost_cutoffs[["cost_min"]][cost_cutoffs$region == "NC"] <- cost_cutoffs[["cost_min"]][cost_cutoffs$region == "CC"]
 if (is.na(cost_cutoffs[["cost_min"]][cost_cutoffs$region == "AKB"])) cost_cutoffs[["cost_min"]][cost_cutoffs$region == "AKB"] <- cost_cutoffs[["cost_min"]][cost_cutoffs$region == "CC"]
@@ -497,10 +550,10 @@ if (is.na(cost_cutoffs[["cost_max"]][cost_cutoffs$region == "AKB"])) cost_cutoff
 if (is.na(cost_cutoffs[["cost_max"]][cost_cutoffs$region == "NVI"])) cost_cutoffs[["cost_max"]][cost_cutoffs$region == "NVI"] <- mean(cost_cutoffs[["cost_max"]][cost_cutoffs$region %in% c("EVI", "SWVI", "MWVI")], na.rm = TRUE)
 
 # Round to nearest 10 meter
-cost_cutoffs$cost_min <- round(cost_cutoffs$cost_min, -1)
+#cost_cutoffs$cost_min <- round(cost_cutoffs$cost_min, -1)
 cost_cutoffs$cost_max <- round(cost_cutoffs$cost_max, -1)
 
-rm(cost, regions)
+rm(cost, regions, upper_outliers)
 
 # 04-3A Inspect... ----
 
@@ -650,6 +703,11 @@ catchments2 <- lapply(h$site, function(x) {
 
 catchments2 <- dplyr::bind_rows(catchments2)
 
+# Also, let's drop any catchments with tiny areas that might
+# confuse the wat_maz selectio algorithm (e.g., see Port Chanal)
+catchments2$area_m2 <- units::drop_units(st_area(catchments2))
+catchments2 <- catchments2[catchments2$area_m2 > 2000, ]
+
 # 05-1A Inspect... ----
 dir.create("temp/catchment_inspection", showWarnings = F)
 lapply(catchments$site, function(x){
@@ -734,6 +792,7 @@ rm(maz)
 
 # 06-2 Select piece closest to origin ----
 
+# Select pieces within a 10km radius of the origin
 wat_maz <- lapply(h$site, function(x) {
   message("Selecting pieces accessible from the origin for ", x)
   origin <- h[h$site == x, ]
@@ -741,7 +800,12 @@ wat_maz <- lapply(h$site, function(x) {
   tmp <- st_make_valid(tmp) %>%
     st_collection_extract("POLYGON") %>%
     st_cast("POLYGON", warn = FALSE)
-  tmp <- tmp[st_nearest_feature(origin, tmp),]
+  if (origin$region == "HG") {
+    tmp <- tmp[st_intersects(tmp, st_buffer(origin, 10000), sparse = FALSE),]
+  } else {
+    tmp <- tmp[st_nearest_feature(origin, tmp),]
+  }
+  return(tmp)
 })
 
 wat_maz <- dplyr::bind_rows(wat_maz)
