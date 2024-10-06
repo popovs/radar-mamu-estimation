@@ -19,16 +19,28 @@
 # the present R environment OR can be loaded in from the 'data' 
 # or 'GIS' directory.
 catchments <- sf::st_read("GIS/radar_derived_catchments.gpkg")
+catchments <- catchments[,names(catchments)[!grepl("region", names(catchments))]] # drop region to prevent "region.x" "region.y" after merge
 #cons_reg <- sf::st_read("GIS/cons_reg.shp")
 #names(cons_reg)[1] <- "region"
 regions <- st_read("GIS/regions.gpkg")
 
+# Read in MAMU nesting habitat raster
+mnh <- terra::rast("GIS/MAMU_nesting_habitat.tiff")
+
+# 01-1 Exact extract ----
+
+# TODO: just run exact extract here, instead of script 00
 # Check that cons_reg has the four `mnh` area columns in it
 # Otherwise, spit message that script 00 may need to be re-run
 #stopifnot("The conservation region shapefile does not contain `mnh` columns within it. You need to run section four of script `00-MAMU-nesting-habitat.R`." = sum(grepl("mnh", names(cons_reg))) == 4)
 stopifnot("The conservation region shapefile does not contain `mnh` columns within it. You need to run section four of script `00-MAMU-nesting-habitat.R`." = sum(grepl("mnh", names(regions))) == 4)
 
-# 01-1 Merge prediction datasets with catchments ----
+catchments$mnh_count <- exactextractr::exact_extract(mnh, catchments, "count")
+catchments$mnh_m2 <- catchments$mnh_count * terra::res(mnh)^2 # each raster cell is res m x res m (e.g., 25m x 25m), aka res meters squared
+catchments$mnh_km <- catchments$mnh_m2 / 1000000 # go from m2 to km2
+catchments$mnh_ha <- catchments$mnh_km * 100 # multiply by 100 to go from km2 to hectares
+
+# 01-2 Merge prediction datasets with catchments ----
 
 # Merge in `p` objects with catchments
 p <- merge(p, catchments, by = "site", all.x = TRUE)
@@ -39,19 +51,21 @@ p2022 <- merge(p2022, catchments, by = "site", all.x = TRUE)
 # Notably, increase in habitat area correlates to more
 # birds for all regions except Vancouver Island.
 library(units)
-ggplot(p2022, aes(x = area_ha, y = pred_fit, color = region)) +
+p2022 %>%
+  filter(!is.na(mnh_ha) & mnh_ha > 0) %>%
+  ggplot(aes(x = mnh_ha, y = pred_fit, color = region)) +
   geom_point() +
   geom_smooth(method = "lm") +
   #facet_wrap(~region) +
   labs(x = "Area (ha)",
        y = "2022 MAMU population estimate")
 
-# 01-2 Summary statistics ----
+# 01-3 Summary statistics ----
 
-ss <- unique(p[!is.na(p$area_ha),c("site", "region", "area_ha")])
+ss <- unique(p[!is.na(p$mnh_ha),c("site", "region", "mnh_ha")])
 
-summary(ss$area_ha)
-psych::describeBy(ss$area_ha, ss$region, mat = TRUE, quant = c(0.25, 0.75)) %>% 
+summary(ss$mnh_ha)
+psych::describeBy(ss$mnh_ha, ss$region, mat = TRUE, quant = c(0.25, 0.75)) %>% 
   arrange(mean) #%>%
   #select(-group1, -item) %>%
   #colSums()
@@ -64,38 +78,39 @@ psych::describeBy(ss$area_ha, ss$region, mat = TRUE, quant = c(0.25, 0.75)) %>%
 # for each region
 
 # First, calculate the density of birds in each catchment.
-p$density <- p$pred_fit / p$area_ha
-p$density_lwr <- p$ci_lwr / p$area_ha
-p$density_upr <- p$ci_upr / p$area_ha
+p$density <- p$pred_fit / p$mnh_ha
+p$density_lwr <- p$ci_lwr / p$mnh_ha
+p$density_upr <- p$ci_upr / p$mnh_ha
 
-p_allyears$density <- p_allyears$pred_fit / p_allyears$area_ha
-p_allyears$density_lwr <- p_allyears$ci_lwr / p_allyears$area_ha
-p_allyears$density_upr <- p_allyears$ci_upr / p_allyears$area_ha
+p_allyears$density <- p_allyears$pred_fit / p_allyears$mnh_ha
+p_allyears$density_lwr <- p_allyears$ci_lwr / p_allyears$mnh_ha
+p_allyears$density_upr <- p_allyears$ci_upr / p_allyears$mnh_ha
 
-p2022$density <- p2022$pred_fit / p2022$area_ha
-p2022$density_lwr <- p2022$ci_lwr / p2022$area_ha
-p2022$density_upr <- p2022$ci_upr / p2022$area_ha
+p2022$density <- p2022$pred_fit / p2022$mnh_ha
+p2022$density_lwr <- p2022$ci_lwr / p2022$mnh_ha
+p2022$density_upr <- p2022$ci_upr / p2022$mnh_ha
 
 # Next, calculate the mean density per region (for datasets with 
 # multiple years, calculate mean density per region by year).
 library(dplyr)
 
+# TODO: deal with mnh_ha == 0 areas
 density <- p %>% 
-  filter(!is.na(area_ha)) %>%
+  filter(!is.na(mnh_ha) & mnh_ha != 0) %>%
   group_by(year, region) %>%
   summarize(density = mean(density),
             density_lwr = mean(density_lwr),
             density_upr = mean(density_upr))
 
 density_allyears <- p_allyears %>% 
-  filter(!is.na(area_ha)) %>%
+  filter(!is.na(mnh_ha) & mnh_ha != 0) %>%
   group_by(year, region) %>%
   summarize(density = mean(density),
             density_lwr = mean(density_lwr),
             density_upr = mean(density_upr))
 
 density2022 <- p2022 %>% 
-  filter(!is.na(area_ha)) %>%
+  filter(!is.na(mnh_ha) & mnh_ha != 0) %>%
   group_by(region) %>% 
   summarize(density = mean(density),
             density_lwr = mean(density_lwr),
@@ -150,9 +165,9 @@ density2022 %>%
          mamu_upr = round(mamu_upr),
          mnh_ha = mnh_ha / 1000000,
          density = density * 1000) %>%
-  arrange(desc(mamu)) #%>%
-  #select(-region) %>%
-  #colSums() # note ignore the density column here, you need to calc that by hand
+  arrange(desc(mamu)) %>%
+  select(-region) %>%
+  colSums() # note ignore the density column here, you need to calc that by hand
 
 
 # 03 PLOT IT --------------------------------------------------------------
@@ -165,6 +180,7 @@ previous_estimates <- setNames(data.frame(c(2002, 2007, 2002, 2010, 2012),
 
 # Plot it
 density %>%
+  filter(region != "HG") %>% # HG is still not great, getting high density
   select(year, mamu, mamu_lwr, mamu_upr) %>%
   mutate(year_n = as.numeric(year) + 1995) %>%
   dplyr::group_by(year_n) %>%

@@ -851,7 +851,9 @@ if (!any(grepl("MAMU_accessible_zone.tiff", list.files("GIS")))|overwrite == TRU
 # Second layer to save - MAMU nesting areas
 # Here we add in the forest cutoff layer, as we want to 
 # exclude any non-forested areas from the nesting habitat.
-mnh <- sum(elev, cc, c30, fc, na.rm = TRUE)
+#mnh <- sum(elev, cc, c30, fc, na.rm = TRUE)
+# TODO: choose final nest acceptability
+mnh <- sum(elev, cc, fc, na.rm = TRUE) # not so sure about c30 for the island
 terra::plot(mnh)
 max_mnh <- terra::minmax(mnh, compute = FALSE)[2] # extract max value
 mnh <- terra::ifel(mnh == max_mnh, 1, NA)
