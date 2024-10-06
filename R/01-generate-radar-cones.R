@@ -919,42 +919,69 @@ mnh <- smoothr::smooth(mnh, method = "chaikin")
 # This will take just under ~1 minute
 catchments2 <- st_intersection(catchments, mnh)
 
-# Inspect final catchments...
+# 06-1 Final inspection.... ----
+
+# Re-read in watersheds - we want all of them to be plottable
+all_watersheds <- watersheds <- st_read("GIS/Watersheds/code_2_watersheds.gpkg")
+
+#devtools::install_github("statsmaths/ggmaptile")
+library(ggmaptile)
+
 dir.create("temp/final_catchment_inspection", showWarnings = F)
 lapply(h$site, function(x){
   message(x)
+  
+  # Pull catchment bbox and add 5km plotting buffer
+  bbox <- st_bbox(catchments[catchments$site == x, ])
+  bbox[1:2] <- bbox[1:2] - 5000 # add 5km buffer for visualizing
+  bbox[3:4] <- bbox[3:4] + 5000
+  
+  # Pull ESRI imagery for the site
+  esri <- get_tiles(x = bbox,
+                    provider = "Esri.WorldImagery",
+                    zoom = 12,
+                    crop = TRUE)
+  
+  # Put plots together
   p1 <- ggplot() +
-    geom_sf(data = all_watersheds[all_watersheds$site == x, ],
-            aes(color = x),
+    geom_spatraster_rgb(data = esri) +
+    geom_sf(data = all_watersheds,
+            color = "red",
+            fill = NA,
             show.legend = FALSE) +
-    geom_sf(data = catchments[catchments$site == x, ],
-            color = NA, 
-            fill = "#26D1EA",
-            alpha = 0.3,
+    geom_sf(data = catchments,
+            aes(fill = site),
+            color = "#AFAFAF", 
+            lwd = 0.2,
+            #fill = "#26D1EA",
+            alpha = 0.4,
             show.legend = FALSE) +
-    geom_sf(data = catchments2[catchments2$site == x, ],
-            color = NA,
-            fill = "#343434",
-            alpha = 0.3,
-            show.legend = FALSE) +
+    geom_text_repel(data = h, 
+                    aes(label = site,
+                        x = X,
+                        y = Y),
+                    size = 3,
+                    nudge_x = 100,
+                    nudge_y = 100,
+                    color = "black",
+                    bg.color = "white",
+                    bg.r = 0.15) +
+    # geom_sf(data = catchments2[catchments2$site == x, ],
+    #         color = NA,
+    #         fill = "#343434",
+    #         alpha = 0.3,
+    #         show.legend = FALSE) +
     geom_sf(data = cones[cones$site == x, ],
-            fill = NA) +
-    geom_sf(data = h[h$site == x, ]) +
-    ggtitle(x)
-  p2 <- ggplot(data = headings[headings$name == x & headings$flightpath_type == "Incoming",]) + 
-    geom_histogram(aes(x = heading)) + 
-    geom_vline(xintercept = h[["mean"]][h$site == x],
-               color = "red") +
-    geom_vline(xintercept = h[["lower"]][h$site == x],
-               color = "grey",
-               linetype = "dashed") +
-    geom_vline(xintercept = h[["upper"]][h$site == x],
-               color = "grey",
-               linetype = "dashed") +
-    xlim(0, 360) + 
-    ggtitle("Incoming") + 
-    theme(axis.title = element_blank()) +
-    theme_minimal()
+            fill = "orange",
+            color = "#D85426",
+            alpha = 0.3) +
+    geom_sf(data = h,
+            color = "orange") +
+    coord_sf(xlim = c(bbox[1], bbox[3]),
+             ylim = c(bbox[2], bbox[4]),
+             expand = FALSE) +
+    ggtitle(x) +
+    theme(axis.title = element_blank())
   p3 <- ggplot(data = headings[headings$name == x & headings$flightpath_type == "Outgoing",]) + 
     geom_histogram(aes(x = heading)) + 
     geom_vline(xintercept = h[["mean"]][h$site == x],
@@ -977,6 +1004,11 @@ lapply(h$site, function(x){
 
 # 06 EXTRACT CATCHMENT VALUES ---------------------------------------------
 
+# Merge any catchments with multiple pieces
+catchments <- catchments %>%
+  select(site) %>%
+  group_by(site) %>%
+  dplyr::summarize()
 
 # Recalculate catchment area
 catchments$area_ha <- units::set_units(sf::st_area(catchments), "ha")
