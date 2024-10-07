@@ -70,6 +70,12 @@ merge_dem <- function(vrt_path,
 
 resample_dem <- function(dem_path, res) {
   dem <- terra::rast(dem_path)
-  # CHECK resolution of dem - only run the 'resample' bit
-  # if the res != resolution of dem
+  # CHECK resolution of dem - only 'resample' if it doesn't match
+  if (!all(res == terra::res(dem))) {
+    message("Resampling DEM to target resolution of ", res, " m...")
+    r <- dem
+    terra::res(r) <- res
+    dem <- terra::resample(dem, r)
+  }
+  return(dem)
 }

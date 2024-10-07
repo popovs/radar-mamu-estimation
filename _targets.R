@@ -19,7 +19,8 @@ library(tarchetypes) # Needed for `tar_map()`
 # easily replicated in QGIS to the same effect. The benefit of
 # this code is the exact reproducibility.
 
-# Set resolution (in meterse)
+# Set resolution (in meterse) for all raster analysis
+# smaller number = MUCH SLOWER
 res <- 250 # res MUST be >25, as the DEM goes does to 25m accuracy.
 
 # Set target options:
@@ -80,7 +81,7 @@ list(
              merge_dem(vrt_path = DEM_VRT,
                        output_file = file.path(DEM_dir, "BC_DEM_EPSG3005.tiff"),
                        overwrite = TRUE),
-             format = "file")#,
+             format = "file"),
   # Resample to pipeline resolution (but no need to save it as its own tiff file)
-  #tar_target(DEM, [resample func here])
+  tar_target(DEM, resample_dem(dem_path = BC_DEM_3005, res = res))
 )

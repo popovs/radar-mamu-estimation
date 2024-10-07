@@ -1,14 +1,47 @@
 name|type|data|command|depend|seed|path|time|size|bytes|format|repository|iteration|parent|children|seconds|warnings|error
-BC_DEM_3005|stem|aa041fda4962861d|e1a5bc6721368582|4e91fa36e23046c7|656307386|temp/DEM-test/BC_DEM_EPSG3005.tiff|t20003.2407233518s|1360a12f5671fc26|21285977|file|local|vector|||26.872||
-DEM_dir|object|011e9c9cb3e54b29|||||||||||||||
-DEM_tile_files|stem|bdda173ecd276de4|83796a4c75d38635|68865c1622b02d2f|-448028147||t20003.2146987764s|b2629a245b827e2b|131|format_custom&read=ZnVuY3Rpb24gKHBhdGgpIAp7CiAgICBxczI6OnFzX3JlYWQocGF0aCkKfQ&write=ZnVuY3Rpb24gKG9iamVjdCwgcGF0aCkgCnsKICAgIHFzMjo6cXNfc2F2ZShvYmplY3QgPSBvYmplY3QsIGZpbGUgPSBwYXRoKQp9&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||2.781||
+BC_DEM_3005|stem|69ac9c9c3268e7aa|e1a5bc6721368582|ce5ff28454aca67d|656307386|GIS/DEM/BC_DEM_EPSG3005.tiff|t20003.2737798382s|3d4645896e29b0df|4116055486|file|local|vector|||1821.091||
+DEM|stem|f70196c35137a8e2|57b40c9eb577d411|d3e0d2f55f3e0aa9|-2072642764||t20003.6432648367s|a1a5a970ca3e7378|342115|format_custom&read=ZnVuY3Rpb24gKHBhdGgpIAp7CiAgICBxczI6OnFzX3JlYWQocGF0aCkKfQ&write=ZnVuY3Rpb24gKG9iamVjdCwgcGF0aCkgCnsKICAgIHFzMjo6cXNfc2F2ZShvYmplY3QgPSBvYmplY3QsIGZpbGUgPSBwYXRoKQp9&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||41.984||
+DEM_dir|object|3ede7f85ca1dcad2|||||||||||||||
+DEM_tile_files|stem|ea81754ab196a1d6|83796a4c75d38635|d940a3ed0ff09134|-448028147||t20003.2462494587s|832f740438912ccc|253|format_custom&read=ZnVuY3Rpb24gKHBhdGgpIAp7CiAgICBxczI6OnFzX3JlYWQocGF0aCkKfQ&write=ZnVuY3Rpb24gKG9iamVjdCwgcGF0aCkgCnsKICAgIHFzMjo6cXNfc2F2ZShvYmplY3QgPSBvYmplY3QsIGZpbGUgPSBwYXRoKQp9&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0.001||
 DEM_tiles|stem||1ee13fdff421fd8c|9c75c001479cd84e|478765275||t20003.1794460248s||0|file|local|vector|||4.211||unable to load shared object UserssarahpopovLibraryCachesorg.Rproject.RRrenvcachev5R4.1x86_64appledarwin17.0terra1.771e8611881ab70a4fb7a1f629b31e6fcffterralibsterra.so  dlopenUserssarahpopovLibraryCachesorg.Rproject.RRrenvcachev5R4.1x86_64appledarwin17.0terra1.771e8611881ab70a4fb7a1f629b31e6fcffterralibsterra.so, 0x0006 Library not loaded usrlocaloptgdalliblibgdal.33.dylib  Referenced from 59AC6BC47E4E34E09E5496F429E65416 UserssarahpopovLibraryCachesorg.Rproject.RRrenvcachev5R4.1x86_64appledarwin17.0terra1.771e8611881ab70a4fb7a1f629b31e6fcffterralibsterra.so  Reason tried usrlocaloptgdalliblibgdal.33.dylib no such file, SystemVolumesPrebootCryptexesOSusrlocaloptgdalliblibgdal.33.dylib no such file, usrlocaloptgdalliblibgdal.33.dylib no such file, LibraryFrameworksR.frameworkResourcesliblibgdal.33.dylib no such file, LibraryJavaJavaVirtualMachines
-DEM_tiles_102i|stem|eaee46f19879b12e|e11bd01969c69cd7|6313db6592afe20d|146832231|temp/DEM-test/DEM_tiles/102i.dem|t20003.2115591695s|7b13f77bc3713ba4|162225152|file|local|vector|||12.725||
-DEM_tiles_102p|stem|b8c717cab3d9aa6f|c44023ff008138be|6313db6592afe20d|-715500246|temp/DEM-test/DEM_tiles/102p.dem|t20003.2116387867s|4dc7ffb04947b1e6|108157952|file|local|vector|||6.597||
+DEM_tiles_102i|stem|eaee46f19879b12e|e11bd01969c69cd7|89ad09d692d53052|146832231|GIS/DEM/DEM_tiles/102i.dem|t20003.2516938817s|7b13f77bc3713ba4|162225152|file|local|vector|||9.625||
+DEM_tiles_102o|stem|a6a48a7ea9d943ba|5d94a62ac20277bf|89ad09d692d53052|-1507484011|GIS/DEM/DEM_tiles/102o.dem|t20003.2523287223s|85ae449be8f73c31|39330816|file|local|vector|||2.696||
+DEM_tiles_102p|stem|b8c717cab3d9aa6f|c44023ff008138be|89ad09d692d53052|-715500246|GIS/DEM/DEM_tiles/102p.dem|t20003.2437529072s|4dc7ffb04947b1e6|108157952|file|local|vector|||7.121||
+DEM_tiles_103a|stem|4f8f35f0b315324a|60d7390a1dad0f03|89ad09d692d53052|1405715956|GIS/DEM/DEM_tiles/103a.dem|t20003.2444994776s|bb7105b4ded63943|285112320|file|local|vector|||22.015||
+DEM_tiles_103b|stem|0d382b7b449fc9a8|6a5f0816e18ce995|89ad09d692d53052|-319963741|GIS/DEM/DEM_tiles/103b.dem|t20003.2446807583s|b53a3e8d53be84c9|213841920|file|local|vector|||15.441||
+DEM_tiles_103c|stem|c17720710c24e2b2|ed1a052fb0e5dc76|89ad09d692d53052|-974273918|GIS/DEM/DEM_tiles/103c.dem|t20003.2449575308s|60cc8352930f1b22|73744384|file|local|vector|||4.703||
+DEM_tiles_103f|stem|228dadf96019d9c1|339c9c18e4ace280|89ad09d692d53052|1798382379|GIS/DEM/DEM_tiles/103f.dem|t20003.246246768s|b53a3e8d53be84c9|213841920|file|local|vector|||18.409||
+DEM_tiles_103g|stem|c008dba5116d84ea|abeda7c6c84f608d|89ad09d692d53052|304486824|GIS/DEM/DEM_tiles/103g.dem|t20003.2519071028s|bb7105b4ded63943|285112320|file|local|vector|||19.015||
+DEM_tiles_103g_1|stem|c008dba5116d84ea|abeda7c6c84f608d|89ad09d692d53052|-236560415|GIS/DEM/DEM_tiles/103g.dem|t20003.2519071028s|bb7105b4ded63943|285112320|file|local|vector|||18.26||
+DEM_tiles_103h|stem|c6661b890da2991a|10e56e396d027d80|89ad09d692d53052|675274862|GIS/DEM/DEM_tiles/103h.dem|t20003.2472853714s|bb7105b4ded63943|285112320|file|local|vector|||31.024||
+DEM_tiles_103i|stem|2ab4a0f00e84fef9|0b6b5ac94553b9a4|89ad09d692d53052|-183462260|GIS/DEM/DEM_tiles/103i.dem|t20003.2480460002s|bb7105b4ded63943|285112320|file|local|vector|||33.547||
+DEM_tiles_103j|stem|b7d87794dd21f7c1|1156fe75179351f0|89ad09d692d53052|-623843104|GIS/DEM/DEM_tiles/103j.dem|t20003.2496674386s|bb7105b4ded63943|285112320|file|local|vector|||17.625||
+DEM_tiles_103j_1|stem|b7d87794dd21f7c1|1156fe75179351f0|89ad09d692d53052|1174952851|GIS/DEM/DEM_tiles/103j.dem|t20003.2496674386s|bb7105b4ded63943|285112320|file|local|vector|||19.131||
+DEM_tiles_103k|stem|50ce9f764270db12|640eaa16b1889fd6|89ad09d692d53052|256353103|GIS/DEM/DEM_tiles/103k.dem|t20003.248700529s|80adf1363fb22660|110608384|file|local|vector|||7.155||
+DEM_tiles_103o|stem|5e3759e9009f1e2c|8ecfc6e22350b830|89ad09d692d53052|-1474029851|GIS/DEM/DEM_tiles/103o.dem|t20003.2497349562s|71ce13643acedb09|71301120|file|local|vector|||5.606||
+DEM_tiles_103p|stem|afc4dea7e079a7f0|7d3ed0235d8f26bb|89ad09d692d53052|1222905990|GIS/DEM/DEM_tiles/103p.dem|t20003.252294801s|bb7105b4ded63943|285112320|file|local|vector|||33.26||
+DEM_tiles_104a|stem|b052f1a3fca48ca0|7db5a5bb64251c34|89ad09d692d53052|1550565974|GIS/DEM/DEM_tiles/104a.dem|t20003.2526986814s|bb7105b4ded63943|285112320|file|local|vector|||31.864||
+DEM_tiles_104b|stem|f207d07c15d3124a|b7d8755c1606e88a|89ad09d692d53052|-515168395|GIS/DEM/DEM_tiles/104b.dem|t20003.2440691539s|bb7105b4ded63943|285112320|file|local|vector|||27.195||
+DEM_tiles_92b|stem|247612aab8100584|0bb4faf1d4254d2f|89ad09d692d53052|-1142057417|GIS/DEM/DEM_tiles/92b.dem|t20003.2436675757s|bb7105b4ded63943|285112320|file|local|vector|||20.128||
+DEM_tiles_92c|stem|00e937f219bd39ce|fdaa410b224f13c2|89ad09d692d53052|-378231135|GIS/DEM/DEM_tiles/92c.dem|t20003.2442425169s|ddddf3a44addb11e|216292352|file|local|vector|||14.747||
+DEM_tiles_92e|stem|c5465ab2cfa9e97a|c2b236598a13d2d9|89ad09d692d53052|-1969006200|GIS/DEM/DEM_tiles/92e.dem|t20003.2449004573s|bb7105b4ded63943|285112320|file|local|vector|||18.798||
+DEM_tiles_92f|stem|60e61cf5de8c0b6f|a3c72f190b8a93aa|89ad09d692d53052|1327568806|GIS/DEM/DEM_tiles/92f.dem|t20003.2453021965s|bb7105b4ded63943|285112320|file|local|vector|||29.668||
+DEM_tiles_92g|stem|3294c81daa63c25f|dee53604a4ae86f3|89ad09d692d53052|-734565099|GIS/DEM/DEM_tiles/92g.dem|t20003.2456508258s|bb7105b4ded63943|285112320|file|local|vector|||29.899||
+DEM_tiles_92h|stem|21dbe78d8d478033|e0a2a64330dee695|89ad09d692d53052|1554824786|GIS/DEM/DEM_tiles/92h.dem|t20003.2460309407s|bb7105b4ded63943|285112320|file|local|vector|||32.625||
+DEM_tiles_92j|stem|33e5fb89bbb4e5a3|a69cf4ba369bc183|89ad09d692d53052|2006027097|GIS/DEM/DEM_tiles/92j.dem|t20003.2469236772s|bb7105b4ded63943|285112320|file|local|vector|||38.933||
+DEM_tiles_92k|stem|776b2bbba730193e|a68bef7e0d55a663|89ad09d692d53052|1165241936|GIS/DEM/DEM_tiles/92k.dem|t20003.2476550345s|bb7105b4ded63943|285112320|file|local|vector|||31.722||
+DEM_tiles_92l|stem|42063dcb6f6bb4d3|192fec086f50d301|89ad09d692d53052|-95912825|GIS/DEM/DEM_tiles/92l.dem|t20003.248615029s|bb7105b4ded63943|285112320|file|local|vector|||31.084||
+DEM_tiles_92m|stem|d77b5f9bf7eb4aef|5f8b2e033221592d|89ad09d692d53052|1556227601|GIS/DEM/DEM_tiles/92m.dem|t20003.2490765385s|bb7105b4ded63943|285112320|file|local|vector|||32.35||
+DEM_tiles_92n|stem|2e35e89267b44fb2|712121a0f9bab1d4|89ad09d692d53052|803287973|GIS/DEM/DEM_tiles/92n.dem|t20003.2494434103s|bb7105b4ded63943|285112320|file|local|vector|||31.473||
+DEM_tiles_93c|stem|a4a86c5a853bd3c2|13c37b915b54732e|89ad09d692d53052|905237851|GIS/DEM/DEM_tiles/93c.dem|t20003.2500570696s|bb7105b4ded63943|285112320|file|local|vector|||27.713||
+DEM_tiles_93d|stem|f1eb77eddad64c23|ca426c8684de256c|89ad09d692d53052|-1667523400|GIS/DEM/DEM_tiles/93d.dem|t20003.2504879974s|bb7105b4ded63943|285112320|file|local|vector|||37.013||
+DEM_tiles_93e|stem|48eaa5e5db5185f5|c247a81f4349a1d8|89ad09d692d53052|674294930|GIS/DEM/DEM_tiles/93e.dem|t20003.2508592044s|bb7105b4ded63943|285112320|file|local|vector|||31.846||
+DEM_tiles_93l|stem|89b61f27ba7616f7|74074e56fdcf21d7|89ad09d692d53052|-1924309350|GIS/DEM/DEM_tiles/93l.dem|t20003.2512140643s|bb7105b4ded63943|285112320|file|local|vector|||30.441||
+DEM_tiles_93m|stem|a5a77f034f7c854b|63bb60113236a5c6|89ad09d692d53052|605651583|GIS/DEM/DEM_tiles/93m.dem|t20003.2515797423s|bb7105b4ded63943|285112320|file|local|vector|||31.363||
 DEM_tiles_files|stem||e51f927f75eb3337|15cfa799a8317b8b|1492045984||t20003.1757560152s||0|rds|local|vector|||4.039||unable to load shared object UserssarahpopovLibraryCachesorg.Rproject.RRrenvcachev5R4.1x86_64appledarwin17.0terra1.771e8611881ab70a4fb7a1f629b31e6fcffterralibsterra.so  dlopenUserssarahpopovLibraryCachesorg.Rproject.RRrenvcachev5R4.1x86_64appledarwin17.0terra1.771e8611881ab70a4fb7a1f629b31e6fcffterralibsterra.so, 0x0006 Library not loaded usrlocaloptgdalliblibgdal.33.dylib  Referenced from 59AC6BC47E4E34E09E5496F429E65416 UserssarahpopovLibraryCachesorg.Rproject.RRrenvcachev5R4.1x86_64appledarwin17.0terra1.771e8611881ab70a4fb7a1f629b31e6fcffterralibsterra.so  Reason tried usrlocaloptgdalliblibgdal.33.dylib no such file, SystemVolumesPrebootCryptexesOSusrlocaloptgdalliblibgdal.33.dylib no such file, usrlocaloptgdalliblibgdal.33.dylib no such file, LibraryFrameworksR.frameworkResourcesliblibgdal.33.dylib no such file, LibraryJavaJavaVirtualMachines
 DEM_tiles_path|stem||17b1c483ace639d3|68865c1622b02d2f|-14672831||t20003.1903483589s||0|format_custom&read=ZnVuY3Rpb24gKHBhdGgpIAp7CiAgICBxczI6OnFzX3JlYWQocGF0aCkKfQ&write=ZnVuY3Rpb24gKG9iamVjdCwgcGF0aCkgCnsKICAgIHFzMjo6cXNfc2F2ZShvYmplY3QgPSBvYmplY3QsIGZpbGUgPSBwYXRoKQp9&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0.851|no nonmissing arguments to max returning Inf|could not find packages terra in library paths
 DEM_tiles_path_files|stem||17b1c483ace639d3|68865c1622b02d2f|158166478||t20003.1889726501s||0|rds|local|vector|||0.837|no nonmissing arguments to max returning Inf|could not find packages terra in library paths
-DEM_VRT|stem|ff4a1c138732c353|262f4432a72509a2|86450b5448724ccd|2088768014|temp/DEM-test/BC_DEM_VRT.vrt|t20003.2343132108s|bc5afef1029f6be8|1562|file|local|vector|||0.064||
+DEM_VRT|stem|df777eace93baaff|262f4432a72509a2|8bc84429198d0331|2088768014|/Users/sarahpopov/Documents/ECCC/Drever contract/MAMU Forestry/Radar catchments workflow/GIS/DEM/BC_DEM_VRT.vrt|t20003.2527018717s|1d3beb20fac80151|14430|file|local|vector|||0.034||
 download_dem_tile|function|d9c78a0746330f1d|||||||||||||||
 download_dem_tiles|function|d119b3f118d5ce86|||||||||||||||
 merge_dem|function|92b9c0c23400ccf6|||||||||||||||
@@ -17,17 +50,5 @@ prepare_nests|function|d32c7217c7fc35c6|||||||||||||||
 prepare_regions|function|96b5ec35ea755b61|||||||||||||||
 regions|stem|00801f1764e6c0e5|b1e8009968e3ec47|c5a921f53c9f1142|-140773339||t20003.1363610463s|05b279053db885a8|1736180|format_custom&read=ZnVuY3Rpb24gKHBhdGgpIAp7CiAgICBxczI6OnFzX3JlYWQocGF0aCkKfQ&write=ZnVuY3Rpb24gKG9iamVjdCwgcGF0aCkgCnsKICAgIHFzMjo6cXNfc2F2ZShvYmplY3QgPSBvYmplY3QsIGZpbGUgPSBwYXRoKQp9&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0.663||
 res|object|926fba0b13bbd9f6|||||||||||||||
-resample_dem|function|636c62f395c94d1b|||||||||||||||
-tiles_to_download|object|543142babf4e9d0b|||||||||||||||
-res|object|926fba0b13bbd9f6
-prepare_nests|function|d32c7217c7fc35c6
-download_dem_tile|function|d9c78a0746330f1d
-tiles_to_download|object|56671662f75087e7
-merge_dem|function|92b9c0c23400ccf6
-resample_dem|function|636c62f395c94d1b
-DEM_dir|object|3ede7f85ca1dcad2
-prepare_regions|function|96b5ec35ea755b61
-DEM_tiles_92b|stem|247612aab8100584|0bb4faf1d4254d2f|89ad09d692d53052|-1142057417|GIS/DEM/DEM_tiles/92b.dem|t20003.2436675757s|bb7105b4ded63943|285112320|file|local|vector|||20.128||
-DEM_tiles_102p|stem|b8c717cab3d9aa6f|c44023ff008138be|89ad09d692d53052|-715500246|GIS/DEM/DEM_tiles/102p.dem|t20003.2437529072s|4dc7ffb04947b1e6|108157952|file|local|vector|||7.121||
-DEM_tiles_104b|stem|f207d07c15d3124a|b7d8755c1606e88a|89ad09d692d53052|-515168395|GIS/DEM/DEM_tiles/104b.dem|t20003.2440691539s|bb7105b4ded63943|285112320|file|local|vector|||27.195||
-DEM_tiles_92c|stem|00e937f219bd39ce|fdaa410b224f13c2|89ad09d692d53052|-378231135|GIS/DEM/DEM_tiles/92c.dem|t20003.2442425169s|ddddf3a44addb11e|216292352|file|local|vector|||14.747||
+resample_dem|function|29841680757b8d8f|||||||||||||||
+tiles_to_download|object|56671662f75087e7|||||||||||||||
