@@ -62,4 +62,3 @@ temp*
 GIS/*
 !GIS/cons_reg.*
 !GIS/regions.gpkg
-!GIS/radar_derived_catchments.gpkg
