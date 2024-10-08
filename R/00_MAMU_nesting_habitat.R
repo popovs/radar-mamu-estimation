@@ -79,3 +79,15 @@ resample_dem <- function(dem_path, res) {
   }
   return(dem)
 }
+
+
+# REGIONAL ELEVATION CUTOFFS ----------------------------------------------
+
+crop_dem <- function(dem, region_name, regions) {
+  message("Cropping and saving ", region_name)
+  regions <- regions[regions$region == region_name, ]
+  tmp <- terra::crop(dem, regions)
+  tmp <- terra::mask(tmp, regions) # This can be done in one step with terra::crop(mask = T), but was resulting in buggy raster values - so doing it in two steps here.
+  return(tmp)
+}
+

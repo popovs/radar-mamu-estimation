@@ -6,6 +6,7 @@
 # Load packages required to define the pipeline:
 library(targets)
 library(tarchetypes) # Needed for `tar_map()`
+library(geotargets) # Needed to save `terra` SpatRaster targets
 
 # DISCLAIMER 1: THIS WHOLE SCRIPT WILL TAKE SEVERAL HOURS TO RUN.
 # There are likely faster or more efficient ways of doing this,
@@ -40,18 +41,23 @@ tar_option_set(
 tar_source()
 
 # Objects to reference in pipeline
+# BC DEM Ortho tiles
 tiles_to_download <- data.frame(tiles = c("103k", "103j", "103f", "103g", "103c", "103b", "102o", # haida gwaii
                                           "103o", "103p", "103j", "103i", "103g", "103h", "103a", "93e", "93d", "93c", "93l", "93m", "102p", "92m", "92n", "104a", "104b", # north/central coast
                                           "102i", "92l", "92k", "92e", "92f", "92c", "92b", # vancouver island
                                           "92j", "92g", "92h" # lower mainland
                                           ))
+# File directory to store DEM data
 DEM_dir <- "GIS/DEM"
+# Regions to iterate GIS operations over
+regions_map <- sf::st_drop_geometry(sf::st_read("GIS/regions.gpkg"))
 
 # Run tar_make() to execute the pipeline
 list(
+  # TODO: track regions and nests files themselves to track changes & execute pipeline if necessary
   tar_target(regions, prepare_regions()),
   tar_target(nests, prepare_nests(regions = regions)),
-  # PREPARE DEM 
+  #### PREPARE DEM ####
   # All the DEM data products will be saved as raster files on the
   # disk rather than simply as _targets objects, so that QGIS can
   # access and plot them. The targets pipeline will track changes
@@ -83,5 +89,26 @@ list(
                        overwrite = TRUE),
              format = "file"),
   # Resample to pipeline resolution (but no need to save it as its own tiff file)
-  tar_target(DEM, resample_dem(dem_path = BC_DEM_3005, res = res))
+  tar_terra_rast(DEM, resample_dem(dem_path = BC_DEM_3005, res = res)),
+  #### REGIONAL ELEVATION CUTOFFS ####
+  # Intersect DEM with each conservation region
+  tar_map(
+    values = regions_map, # params need to be passed as a df/tibble, defined OUTSIDE the pipeline
+    tar_terra_rast(regional_DEM, 
+                   crop_dem(
+                     dem = DEM,
+                     region_name = region, # `region` in this case refers to the `region` column in `regions_map` df
+                     regions = regions # `regions` is the regions sf object (very first target)
+                     )) 
+    ),
+  # Extract nest elevations
+  # The exact elevational cutoffs vary by region and are primarily
+  # dictated by the growing conditions of the trees that MAMU
+  # prefer to nest in. Large coniferous trees that can support
+  # MAMU nests can grow in higher elevations at lower latitudes.
+  # Conversely, the further north you go, the lower the maximum
+  # MAMU nesting elevation. The nest data is the main source of 
+  # cutoffs. Adding more nest data will trigger a re-run of this
+  # analysis.
+  tar_target(nest_elev_m, exactextractr::exact_extract(DEM, nests, 'mean'))
 )
