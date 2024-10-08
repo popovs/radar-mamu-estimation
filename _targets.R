@@ -91,16 +91,6 @@ list(
   # Resample to pipeline resolution (but no need to save it as its own tiff file)
   tar_terra_rast(DEM, resample_dem(dem_path = BC_DEM_3005, res = res)),
   #### REGIONAL ELEVATION CUTOFFS ####
-  # Intersect DEM with each conservation region
-  tar_map(
-    values = regions_map, # params need to be passed as a df/tibble, defined OUTSIDE the pipeline
-    tar_terra_rast(regional_DEM, 
-                   crop_dem(
-                     dem = DEM,
-                     region_name = region, # `region` in this case refers to the `region` column in `regions_map` df
-                     regions = regions # `regions` is the regions sf object (very first target)
-                     )) 
-    ),
   # Extract nest elevations
   # The exact elevational cutoffs vary by region and are primarily
   # dictated by the growing conditions of the trees that MAMU
@@ -110,5 +100,33 @@ list(
   # MAMU nesting elevation. The nest data is the main source of 
   # cutoffs. Adding more nest data will trigger a re-run of this
   # analysis.
-  tar_target(nest_elev_m, exactextractr::exact_extract(DEM, nests, 'mean'))
+  # Using exactextract to extract the mean elevation within the 
+  # nest uncertainty radius (nests were buffered in `prepare_nests()`)
+  tar_target(nest_elev_m, exactextractr::exact_extract(DEM, nests, 'mean')),
+  # Calculate and store regional elevation cutoffs in a table
+  tar_group_by(elevation_cutoffs,
+               nest_elev_quantile(nests, elev_data = nest_elev_m),
+               region), # group by region col so targets later knows to run `reclass_elevation()` by row-level grouping
+  # Create regional cutoff DEMs
+  mapped <- tar_map(
+    values = regions_map, # params need to be passed as a df/tibble, defined OUTSIDE the pipeline
+    # Intersect DEM with each conservation region
+    tar_terra_rast(regional_DEM, 
+                   crop_dem(
+                     dem = DEM,
+                     region_name = region, # `region` in this case refers to the `region` column in `regions_map` df
+                     regions = regions # `regions` is the regions sf object (very first target)
+                   )),
+    # Apply elevation cutoffs for each region
+    tar_terra_rast(regional_cutoffs,
+                   reclass_elevation(
+                     dem = regional_DEM,
+                     region = region,
+                     elev_cutoffs = elevation_cutoffs,
+                     ))
+    ),
+  # Combine into single raster
+  # `ec` for 'elevation cutoffs'
+  tar_combine(regional_sprc, mapped[[2]], command = terra::sprc(list(!!!.x)) |> terra::wrap()), # need to wrap it to prevent "invalid pointer" error: https://stackoverflow.com/questions/74855695/load-raster-data-with-terra-in-targets-pipeline
+  tar_terra_rast(ec, terra::unwrap(regional_sprc) |> terra::mosaic(fun = "max")) # choose 'max' - by default assume value is 2, or inaccessible, in cases where mosaicing rasters results in some 1 or 2 overlap
 )
