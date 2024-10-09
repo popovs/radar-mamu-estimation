@@ -28,7 +28,8 @@ res <- 250 # res MUST be >25, as the DEM goes does to 25m accuracy.
 tar_option_set(
   packages = c("MAMU", # remotes::install_github("popovs/MAMU")
                "sf",
-               "terra"),
+               "terra",
+               "rnaturalearth"),
   format = tar_format( # Default qs is superceded by qs2. Install qs2 and specify read & write fxns
     read = function(path) { qs2::qs_read(path) }, 
     write = function(object, path) { qs2::qs_save(object = object, file = path) }
@@ -128,5 +129,24 @@ list(
   # Combine into single raster
   # `ec` for 'elevation cutoffs'
   tar_combine(regional_sprc, mapped[[2]], command = terra::sprc(list(!!!.x)) |> terra::wrap()), # need to wrap it to prevent "invalid pointer" error: https://stackoverflow.com/questions/74855695/load-raster-data-with-terra-in-targets-pipeline
-  tar_terra_rast(ec, terra::unwrap(regional_sprc) |> terra::mosaic(fun = "max")) # choose 'max' - by default assume value is 2, or inaccessible, in cases where mosaicing rasters results in some 1 or 2 overlap
+  tar_terra_rast(ec, terra::unwrap(regional_sprc) |> terra::mosaic(fun = "max")), # choose 'max' - by default assume value is 2, or accessible, in cases where mosaicing rasters results in some 1 or 2 overlap
+  #### DISTANCE FROM COAST CUTOFF ####
+  # Next we will create a separate raster of all points with
+  # 30 km distance from the coast, as BC nest survey data
+  # indicates that 99% of MAMU nests are within 30 km of the
+  # coastline. We are going to assume a 30 km distance from 
+  # shore flying around mountain barriers  but allowing for 
+  # flight over water.
+  # BLOCK OFF LAND AREAS
+  # The DEM data doesn't include the USA or inland BC.
+  # These land areas need to be blocked off so the distance
+  # algorithm can differentiate between land areas and
+  # water areas.
+  # Get USA land areas
+  tar_terra_vect(usa_land, get_usa_land(extent = terra::ext(ec))),
+  # Block off inland BC areas
+  tar_terra_vect(bc_land, get_bc_land(extent = terra::ext(ec))),
+  tar_terra_vect(land, merge_land(usa_land, bc_land)),
+  # Create canvas of target area
+  
 )

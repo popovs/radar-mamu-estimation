@@ -126,3 +126,43 @@ reclass_elevation <- function(dem, elev_cutoffs, region, ...) { # ... param to i
 }
 
 
+# DISTANCE FROM COAST CUTOFF ----------------------------------------------
+
+get_usa_land <- function(extent) {
+  usa <- rnaturalearth::ne_states("united states of america")
+  usa <- usa[usa$name %in% c("Alaska", "Washington"), ]
+  usa <- sf::st_as_sf(usa)
+  usa <- sf::st_transform(usa, 3005)
+  usa <- sf::st_crop(usa, extent)
+  usa <- terra::vect(usa)
+  return(usa)
+}
+
+get_bc_land <- function(extent) {
+  # Rather than block off inland BC with a rough BC-shaped
+  # polygon from Natural Earth, we're just going to use crude
+  # rectangles. The reason for this is the DEM coastline is far
+  # more detailed than the course NE polygon, and we would risk
+  # losing coastline data if we masked the DEM with such a 
+  # course polygon. So rectangles it is.
+  # Specify a few rectangles w coordinates from bottom left corner clockwise to bottom right corner
+  x1 <- rbind(c(1280841, extent[3]), c(1280841, extent[4]), c(extent[2], extent[4]), c(extent[2], extent[3]))
+  x2 <- rbind(c(1109405, 651763), c(1109405, extent[4]), c(extent[2], extent[4]), c(extent[2], 651763))
+  x3 <- rbind(c(979227, 877974), c(979227, extent[4]), c(extent[2], extent[4]), c(extent[2], 877974))
+  x4 <- rbind(c(827708, 1154691), c(827708, extent[4]), c(extent[2], extent[4]), c(extent[2], 1154691))
+  x5 <- rbind(c(610000, 1300000), c(610000, extent[4]), c(extent[2], extent[4]), c(extent[2], 1300000))
+  # lol this is terribly inefficient but it works
+  land <- list(x1, x2, x3, x4, x5)
+  land <- lapply(land, terra::vect, type = "polygons", crs = "epsg:3005")
+  land1 <- terra::union(land[[1]], land[[2]])
+  land2 <- terra::union(land1, land[[3]])
+  land3 <- terra::union(land2, land[[4]])
+  land4 <- terra::union(land3, land[[5]])
+  land <- terra::aggregate(land4)
+  return(land)
+}
+
+merge_land <- function(usa_land, bc_land) {
+  land <- terra::aggregate(terra::union(usa_land, bc_land))
+  return(land)
+}

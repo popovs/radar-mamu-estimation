@@ -483,6 +483,18 @@
       "Repository": "CRAN",
       "Hash": "15e9634c0fcd294799e9b2e929ed1b86"
     },
+    "geotargets": {
+      "Package": "geotargets",
+      "Version": "0.1.0.9000",
+      "Source": "GitHub",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteRepo": "geotargets",
+      "RemoteUsername": "njtierney",
+      "RemoteRef": "HEAD",
+      "RemoteSha": "596bf4cfb1e0216dc39295f2c5a08d7864f41d1e",
+      "Hash": "bf085d19ec24551b5bc04769d02c8db8"
+    },
     "ggimg": {
       "Package": "ggimg",
       "Version": "0.1.2",
