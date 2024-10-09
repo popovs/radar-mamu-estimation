@@ -119,7 +119,7 @@ list(
                      regions = regions # `regions` is the regions sf object (very first target)
                    )),
     # Apply elevation cutoffs for each region
-    tar_terra_rast(regional_cutoffs,
+    tar_terra_rast(regional_elev_cutoffs,
                    reclass_elevation(
                      dem = regional_DEM,
                      region = region,
@@ -127,9 +127,11 @@ list(
                      ))
     ),
   # Combine into single raster
-  # `ec` for 'elevation cutoffs'
-  tar_combine(regional_sprc, mapped[[2]], command = terra::sprc(list(!!!.x)) |> terra::wrap()), # need to wrap it to prevent "invalid pointer" error: https://stackoverflow.com/questions/74855695/load-raster-data-with-terra-in-targets-pipeline
-  tar_terra_rast(ec, terra::unwrap(regional_sprc) |> terra::mosaic(fun = "max")), # choose 'max' - by default assume value is 2, or accessible, in cases where mosaicing rasters results in some 1 or 2 overlap
+  # `elev` for 'elevation cutoffs'
+  tar_combine(elev_sprc, mapped[[2]], command = terra::sprc(list(!!!.x)) |> terra::wrap()), # need to wrap it to prevent "invalid pointer" error: https://stackoverflow.com/questions/74855695/load-raster-data-with-terra-in-targets-pipeline
+  tar_terra_rast(elev, terra::unwrap(elev_sprc) |> 
+                   terra::mosaic(fun = "max") |> # choose 'max' - by default assume value is 2, or accessible, in cases where mosaicing rasters results in some 1 or 2 overlap
+                   terra::resample(DEM)), # resample to match DEM resolution
   #### DISTANCE FROM COAST CUTOFF ####
   # Next we will create a separate raster of all points with
   # 30 km distance from the coast, as BC nest survey data
@@ -137,16 +139,35 @@ list(
   # coastline. We are going to assume a 30 km distance from 
   # shore flying around mountain barriers  but allowing for 
   # flight over water.
-  # BLOCK OFF LAND AREAS
   # The DEM data doesn't include the USA or inland BC.
   # These land areas need to be blocked off so the distance
   # algorithm can differentiate between land areas and
   # water areas.
   # Get USA land areas
-  tar_terra_vect(usa_land, get_usa_land(extent = terra::ext(ec))),
+  tar_terra_vect(usa_land, get_usa_land(extent = terra::ext(elev))),
   # Block off inland BC areas
-  tar_terra_vect(bc_land, get_bc_land(extent = terra::ext(ec))),
-  tar_terra_vect(land, merge_land(usa_land, bc_land)),
+  tar_terra_vect(bc_land, get_bc_land(extent = terra::ext(elev))),
+  tar_terra_vect(land_mask, merge_land(usa_land, bc_land)),
   # Create canvas of target area
-  
+  tar_terra_rast(canvas, create_canvas(target_rast = elev)),
+  # Block off land and extract `land` and `sea` areas
+  tar_terra_rast(land, block_land(dem = DEM, 
+                                  canvas = canvas, 
+                                  land = land_mask)),
+  tar_terra_rast(sea, terra::ifel(land == 0, 0, NA))
+  # Calculate coast distance
+  # Now we need to combine our land data with the `elev` data to
+  # create the raster with which we are going to do distance
+  # calculations with. The `elev` data will cut off barriers
+  # that the algorithm will have to travel around when 
+  # calculating distance, while the `canvas` area will supply
+  # land and sea data.
+  #   - Mountain barriers -> traveling around
+  #   - Land areas -> traveling through
+  #   - Sea areas -> traveling from
+  # We will need to employ some if/else logic to correctly combine
+  # these three data layers.
+  # NOTE: IF WE INCLUDE ALASKA BORDER REGION LATER, we will need to 
+  # include the Alaska DEM in this to correctly measure distance from
+  # coast for the Alaska Border region. 
 )

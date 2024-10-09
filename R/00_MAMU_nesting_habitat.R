@@ -166,3 +166,48 @@ merge_land <- function(usa_land, bc_land) {
   land <- terra::aggregate(terra::union(usa_land, bc_land))
   return(land)
 }
+
+create_canvas <- function(target_rast) {
+  # Extract res of target
+  # Going to assume all data products are square res... 
+  # so just take the first number and assume it's equal to the second
+  res <- terra::res(target_rast)[1]
+  extent <- terra::ext(target_rast)
+  
+  # If the resolution is too high, we're going to
+  # make it a courser resolution by a factor of 10 - so each
+  # pixel will be e.g. 250m x 250m rather than 25m x 25m - otherwise,
+  # many of the subsequent raster calculations will fail or 
+  # take far far too long. This means that we will be calculating
+  # distance from the coast to a maximum of 1/4 km accuracy.
+  
+  # Create canvas
+  if (res >= 100) {
+    canvasrow <- nrow(target_rast)
+    canvascol <- ncol(target_rast)
+  } else {
+    canvasrow <- nrow(target_rast) / 10
+    canvascol <- ncol(target_rast) / 10
+  }
+  
+  canvas <- terra::rast(extent = extent, # `extent` defined in 03-1 above 
+                        nrow = canvasrow, 
+                        ncol = canvascol, 
+                        nlyr = 1)
+  terra::values(canvas) <- 0 # assume everything is the sea (0)
+  terra::crs(canvas) <- "epsg:3005"
+  return(canvas)
+}
+
+block_land <- function(dem, canvas, land) {
+  canvas <- terra::mask(canvas, land, inverse = TRUE) # Chunky interior land blocks
+  canvas <- terra::ifel(is.na(canvas), 1, canvas) # masked areas == land == 1
+  
+  land <- terra::ifel(dem > 0, 1, 0) # now extract land areas from DEM
+  land <- terra::resample(land, canvas) # resample `land` to match `canvas` extent/resolution
+  
+  out <- terra::merge(land, canvas, first = TRUE) # now merge the two
+  return(out)
+}
+  
+
