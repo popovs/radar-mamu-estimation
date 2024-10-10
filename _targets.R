@@ -20,10 +20,6 @@ library(geotargets) # Needed to save `terra` SpatRaster targets
 # easily replicated in QGIS to the same effect. The benefit of
 # this code is the exact reproducibility.
 
-# Set resolution (in meterse) for all raster analysis
-# smaller number = MUCH SLOWER
-res <- 250 # res MUST be >25, as the DEM goes does to 25m accuracy.
-
 # Set target options:
 tar_option_set(
   packages = c("MAMU", # remotes::install_github("popovs/MAMU")
@@ -42,6 +38,18 @@ tar_option_set(
 tar_source()
 
 #### STATIC PIPELINE OBJECTS ####
+
+# Set resolution (in meterse) for all raster analysis
+# Per the BC DEM website, this raster product is at a 25m 
+# resolution, but gridded to a 0.75 arc-second scale. 
+# https://www2.gov.bc.ca/gov/content/data/geographic-data-services/topographic-data/elevation/digital-elevation-model
+# This means all our raster data is at a somewhat odd 
+# 17.37227 x 17.37227 resolution:
+#res(BC_DEM_3005)
+# As such, the highest resolution we can safely go for is 25m.
+# Note that a smaller number = MUCH SLOWER SCRIPT
+res <- 250 # res MUST be >25, as the DEM goes does to 25m accuracy.
+
 # BC DEM Ortho tiles
 tiles_to_download <- data.frame(tiles = c("103k", "103j", "103f", "103g", "103c", "103b", "102o", # haida gwaii
                                           "103o", "103p", "103j", "103i", "103g", "103h", "103a", "93e", "93d", "93c", "93l", "93m", "102p", "92m", "92n", "104a", "104b", # north/central coast
@@ -257,5 +265,21 @@ list(
   # Instead, we'll just cut out the bottom 2.5% tree cover (6
   # nests out of 242 in the dataset).
   # `fc` for forest cutoff
-  tar_terra_rast(fc, terra::ifel(forest < quantile(nest_forest, 0.025, na.rm = TRUE), NA, 1))
-)
+  tar_terra_rast(fc, terra::ifel(forest < quantile(nest_forest, 0.025, na.rm = TRUE), NA, 1)),
+  #### MERGE CUTOFFS ####
+  # Finally, merge the cutoff rasters together to create a 
+  # "MAMU containment zone" area that has a high probability of
+  # containing high quality MAMU nesting habitat. This raster 
+  # will be used as our maximum MAMU area within BC that we will 
+  # extrapolate our population estimates to.
+  # All the raster prep functions above set the resolution to match
+  # `res` and the extent to match `DEM`. Therefore we can safely
+  # layer all our raster layers.
+  # Create MAMU Accessible Zone (MAZ)
+  # First layer - 'MAMU accessible', i.e. it's below elevation cutoff,
+  # within 30km of ocean, and within cost distance. Does not 
+  # necessarily imply it's all suitable nesting habitat; rather, 
+  # this area is assumed to encompass ~95% of all suitable
+  # nesting habitat within each region.
+  tar_terra_rast(maz, ((elev > 0 ) * (cc > 0) * (coast_dist > 0))) # Anything accessible was stored as either '1' or '2' in each raster layer.
+) 

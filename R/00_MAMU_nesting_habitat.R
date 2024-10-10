@@ -288,3 +288,6 @@ merge_forest <- function(forest_sprc, regions, DEM) {
   forest <- terra::resample(forest, DEM) # Resample to our target study region
   return(forest)
 }
+
+
+
