@@ -41,7 +41,7 @@ tar_option_set(
 # Run the R scripts in the R/ folder with your custom functions:
 tar_source()
 
-# Objects to reference in pipeline
+#### STATIC PIPELINE OBJECTS ####
 # BC DEM Ortho tiles
 tiles_to_download <- data.frame(tiles = c("103k", "103j", "103f", "103g", "103c", "103b", "102o", # haida gwaii
                                           "103o", "103p", "103j", "103i", "103g", "103h", "103a", "93e", "93d", "93c", "93l", "93m", "102p", "92m", "92n", "104a", "104b", # north/central coast
@@ -50,9 +50,21 @@ tiles_to_download <- data.frame(tiles = c("103k", "103j", "103f", "103g", "103c"
                                           ))
 # File directory to store DEM data
 DEM_dir <- "GIS/DEM"
+
 # Regions to iterate GIS operations over
 regions_map <- sf::st_drop_geometry(sf::st_read("GIS/regions.gpkg"))
 
+# Download the University of Maryland global forest cover dataset
+# https://glad.earthengine.app/view/global-forest-change#bl=off;old=0;dl=off;lon=-486.9726343690056;lat=51.450799512228464;zoom=6;
+# Forest cover tiles
+forest_urls <- data.frame(names = c("60N_140W", "60N_130W", "50N_130W"),
+                          url = c("https://storage.googleapis.com/earthenginepartners-hansen/GFC-2023-v1.11/Hansen_GFC-2023-v1.11_treecover2000_60N_140W.tif",
+                                  "https://storage.googleapis.com/earthenginepartners-hansen/GFC-2023-v1.11/Hansen_GFC-2023-v1.11_treecover2000_60N_130W.tif",
+                                  "https://storage.googleapis.com/earthenginepartners-hansen/GFC-2023-v1.11/Hansen_GFC-2023-v1.11_treecover2000_50N_130W.tif"))
+# File directory to store forest data
+forest_dir <- "GIS/Forest_cover"
+
+#### PIPELINE ####
 # Run tar_make() to execute the pipeline
 list(
   # TODO: track regions and nests files themselves to track changes & execute pipeline if necessary
@@ -172,7 +184,7 @@ list(
                    terra::mosaic(fun = "max") |> # choose 'max' - by default assume value is 2, or accessible, in cases where mosaicing rasters results in some 1 or 2 overlap
                    terra::resample(DEM)), # resample to match DEM resolution
   # `cc` for 'cost cutoffs'
-  tar_combine(cc_sprc, mapped[[1]], command = terra::sprc(list(!!!.x)) |> terra::wrap()), # need to wrap it to prevent "invalid pointer" error: https://stackoverflow.com/questions/74855695/load-raster-data-with-terra-in-targets-pipeline
+  tar_combine(cc_sprc, mapped[[3]], command = terra::sprc(list(!!!.x)) |> terra::wrap()), # need to wrap it to prevent "invalid pointer" error: https://stackoverflow.com/questions/74855695/load-raster-data-with-terra-in-targets-pipeline
   tar_terra_rast(cc, terra::unwrap(cc_sprc) |>
                    terra::mosaic(fun = "max") |> # choose 'max' - by default assume value is 2, or accessible, in cases where mosaicing rasters results in some 1 or 2 overlap
                    terra::resample(DEM)),
@@ -214,5 +226,36 @@ list(
   # NOTE: IF WE INCLUDE ALASKA BORDER REGION LATER, we will need to 
   # include the Alaska DEM in this to correctly measure distance from
   # coast for the Alaska Border region. 
-  tar_terra_rast(coast_dist, coast_distance(elev = elev, sea = sea, dist_km = 30))
+  tar_terra_rast(coast_dist, coast_distance(elev = elev, sea = sea, dist_km = 30)),
+  #### FOREST COVER CUTOFF ####
+  # MAMU are almost certainly not nesting in urban or other completely
+  # treeless areas. Cut those out.
+  # Download the University of Maryland global forest cover dataset
+  # https://glad.earthengine.app/view/global-forest-change#bl=off;old=0;dl=off;lon=-486.9726343690056;lat=51.450799512228464;zoom=6;
+  tar_map(
+    values = forest_urls, # params need to be passed as a df/tibble, defined OUTSIDE the pipeline
+    names = names,
+    # Download DEM tiles
+    tar_target(forest_tiles,
+               download_forest_tiles(url = url,
+                                     output_dir = forest_dir),
+               format = "file")
+  ),
+  # Combine into single raster
+  tar_combine(forest_sprc, mapped[[1]], command = terra::sprc(list(!!!.x)) |> terra::wrap()), # need to wrap it to prevent "invalid pointer" error: https://stackoverflow.com/questions/74855695/load-raster-data-with-terra-in-targets-pipeline
+  tar_terra_rast(forest, merge_forest(forest_sprc, regions, DEM)),
+  # Extract nest forest cover
+  tar_target(nest_forest, exactextractr::exact_extract(forest, nests, 'mean')),
+  # Apply forest cutoff
+  # In the case of forests, we know with 100% confidence that
+  # MAMU will nest in areas with 100% tree cover. As such, we
+  # don't need to define a 'maximum tree cover' cutoff for 
+  # the forested areas layer. Instead, we need to choose a 
+  # minimum cutoff. In the same vein, setting a variable minimum
+  # forest cover cutoff by region might be cutting out too much
+  # habitat area. 
+  # Instead, we'll just cut out the bottom 2.5% tree cover (6
+  # nests out of 242 in the dataset).
+  # `fc` for forest cutoff
+  tar_terra_rast(fc, terra::ifel(forest < quantile(nest_forest, 0.025, na.rm = TRUE), NA, 1))
 )

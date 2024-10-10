@@ -262,3 +262,29 @@ cost_distance <- function(dem) {
   return(cost)
 }
 
+
+
+# FOREST COVER CUTOFF -----------------------------------------------------
+
+download_forest_tiles <- function(url, output_dir) {
+  # Create output dir
+  output_dir <- file.path(output_dir)
+  dir.create(output_dir, showWarnings = FALSE)
+  output_file <- file.path(output_dir, basename(url))
+  # These files will take longer than one minute to download, so
+  # increase the download timeout to 5 mins
+  options(timeout = 300)
+  # Download % forest cover data (year 2000) for BC
+  utils::download.file(url = url, destfile = output_file)
+  return(output_file)
+}
+
+merge_forest <- function(forest_sprc, regions, DEM) {
+  forest_sprc <- terra::unwrap(forest_sprc)
+  forest <- terra::mosaic(forest_sprc)
+  forest <- terra::project(forest, "EPSG:3005") # This will take the longest
+  forest <- terra::mask(forest, regions)
+  forest <- terra::crop(forest, regions)
+  forest <- terra::resample(forest, DEM) # Resample to our target study region
+  return(forest)
+}
