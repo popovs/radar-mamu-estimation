@@ -154,7 +154,7 @@ list(
   tar_terra_rast(land, block_land(dem = DEM, 
                                   canvas = canvas, 
                                   land = land_mask)),
-  tar_terra_rast(sea, terra::ifel(land == 0, 0, NA))
+  tar_terra_rast(sea, terra::ifel(land == 0, 0, NA)),
   # Calculate coast distance
   # Now we need to combine our land data with the `elev` data to
   # create the raster with which we are going to do distance
@@ -170,4 +170,5 @@ list(
   # NOTE: IF WE INCLUDE ALASKA BORDER REGION LATER, we will need to 
   # include the Alaska DEM in this to correctly measure distance from
   # coast for the Alaska Border region. 
+  tar_terra_rast(coast_dist, coast_distance(elev = elev, sea = sea, dist_km = 30))
 )
