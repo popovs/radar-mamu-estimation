@@ -23,9 +23,12 @@ library(geotargets) # Needed to save `terra` SpatRaster targets
 # Set target options:
 tar_option_set(
   packages = c("MAMU", # remotes::install_github("popovs/MAMU")
+               "janitor",
                "sf",
                "terra",
-               "rnaturalearth"),
+               "rnaturalearth",
+               "dplyr",
+               "readxl"),
   format = tar_format( # Default qs is superceded by qs2. Install qs2 and specify read & write fxns
     read = function(path) { qs2::qs_read(path) }, 
     write = function(object, path) { qs2::qs_save(object = object, file = path) }
@@ -249,9 +252,23 @@ list(
                                      output_dir = forest_dir),
                format = "file")
   ),
-  # Combine into single raster
-  tar_combine(forest_sprc, mapped[[1]], command = terra::sprc(list(!!!.x)) |> terra::wrap()), # need to wrap it to prevent "invalid pointer" error: https://stackoverflow.com/questions/74855695/load-raster-data-with-terra-in-targets-pipeline
-  tar_terra_rast(forest, merge_forest(forest_sprc, regions, DEM)),
+  # Track files within the forest_dir
+  tar_target(forest_tile_files, list.files(file.path(forest_dir), full.names = TRUE)),
+  # Make VRT
+  tar_target(forest_VRT, 
+             terra::vrt(x = forest_tile_files,
+                        filename = file.path(forest_dir, "forest.vrt"),
+                        overwrite = TRUE,
+                        return_filename = TRUE), # for format "file" targets, the output MUST be a filepath
+             format = "file"),
+  # Merge forest tiles and reproject to 3005 (~30 mins)
+  tar_target(forest_cover, 
+             merge_dem(vrt_path = forest_VRT,
+                       output_file = file.path(forest_dir, "forest_cover.tiff"),
+                       overwrite = TRUE),
+             format = "file"),
+  # Resample to pipeline resolution (but no need to save it as its own tiff file)
+  tar_terra_rast(forest, resample_dem(dem_path = forest_cover, res = res)),
   # Extract nest forest cover
   tar_target(nest_forest, exactextractr::exact_extract(forest, nests, 'mean')),
   # Apply forest cutoff
@@ -281,5 +298,26 @@ list(
   # necessarily imply it's all suitable nesting habitat; rather, 
   # this area is assumed to encompass ~95% of all suitable
   # nesting habitat within each region.
-  tar_terra_rast(maz, ((elev > 0 ) * (cc > 0) * (coast_dist > 0))) # Anything accessible was stored as either '1' or '2' in each raster layer.
+  tar_terra_rast(maz, ((elev > 0 ) * (cc > 0) * (coast_dist > 0))), # Anything accessible was stored as either '1' or '2' in each raster layer.
+  #### GENERATE RADAR CONES ####
+  # Here, radar survey 'catchments' containing marbled murrelet 
+  # nesting habitat will be generated, using a few basic 
+  # assumptions about bird habitat + BC Digital Elevation Model 
+  # (DEM) data. 
+  # First, we read in bird headings data. We're using a simplified
+  # assumption here and taking the mean of all the bird flight
+  # headings here. While the heading on the radar screen might
+  # not necessarily translate 1-to-1 to the real world flight
+  # direction, the error in this will be captured by the cone
+  # we generate around the mean heading.
+  # Read in MAMU radar survey data
+  tar_target(s_file, "data/ECCC_FLNR_MAMU-RadarData-20240307.xlsx", format = "file"),
+  tar_target(s, prepare_surveys(s_file)),
+  # Extract individual station coords
+  tar_target(stn, prepare_stn(s)),
+  # Read in flight headings data
+  tar_target(h_file, "data/headings.xlsx", format = "file"),
+  tar_target(h_0, prepare_headings(h_file)),
+  # Calculate polar mean flight headings
+  tar_target(h, calc_polar_mean(headings = h_0, n_reps = 1000, alpha = 0.05))
 ) 
