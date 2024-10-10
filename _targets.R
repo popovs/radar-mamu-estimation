@@ -106,9 +106,37 @@ list(
   tar_target(nest_elev_m, exactextractr::exact_extract(DEM, nests, 'mean')),
   # Calculate and store regional elevation cutoffs in a table
   tar_group_by(elevation_cutoffs,
-               nest_elev_quantile(nests, elev_data = nest_elev_m),
+               nest_quantiles(nests, 
+                              quant_data = nest_elev_m,
+                              prefix = "elev_m"),
                region), # group by region col so targets later knows to run `reclass_elevation()` by row-level grouping
-  # Create regional cutoff DEMs
+  #### NEST COST DISTANCE ####
+  # Next, we calculate the flight cost values of each nest. 
+  # Evidence shows that MAMU take the least-cost flightpaths to
+  # their nests; that is, they tend to fly along valley contours
+  # rather than straight across ridges (even if the ridges are
+  # below their nest cutoff elevations). Here we will calculate a
+  # raster of the flight cost (elevation * distance from coast)
+  # to generate a landscape where birds are more or less likely to
+  # nest. This will be used to: 1) delineate the nesting catchment 
+  # boundaries later and 2) eliminate "high cost" nesting areas 
+  # that may still be included within the elevation cutoff and 
+  # coast distance rasters.
+  tar_terra_rast(cost, cost_distance(DEM)),
+  # Extract nest cost
+  # Same process as extracting elevation values + applying cutoffs
+  tar_target(nest_cost, exactextractr::exact_extract(cost, nests, 'mean')),
+  # Calculate and store regional cost cutoffs in a table
+  tar_group_by(cost_cutoffs,
+               nest_quantiles(nests, 
+                              quant_data = nest_cost,
+                              prefix = "cost"),
+               region),
+  #### ITERATE OVER REGIONAL CUTOFFS ####
+  # For each region, iterate the following:
+  # 1. Chop up the DEM into regions
+  # 2. Apply elevation cutoffs to each regional DEM
+  # 3. Apply cost distance cutoffs to each regional DEM
   mapped <- tar_map(
     values = regions_map, # params need to be passed as a df/tibble, defined OUTSIDE the pipeline
     # Intersect DEM with each conservation region
@@ -120,11 +148,22 @@ list(
                    )),
     # Apply elevation cutoffs for each region
     tar_terra_rast(regional_elev_cutoffs,
-                   reclass_elevation(
+                   reclass_raster(
                      dem = regional_DEM,
                      region = region,
-                     elev_cutoffs = elevation_cutoffs,
-                     ))
+                     cutoffs = elevation_cutoffs,
+                     min_col = "elev_m_min",
+                     max_col = "elev_m_max"
+                     )),
+    # Apply cost cutoffs for each region 
+    tar_terra_rast(regional_cost_cutoffs,
+                   reclass_raster(
+                     dem = regional_DEM,
+                     region = region,
+                     cutoffs = cost_cutoffs,
+                     min_col = "cost_min",
+                     max_col = "cost_max"
+                   ))
     ),
   # Combine into single raster
   # `elev` for 'elevation cutoffs'
@@ -132,6 +171,11 @@ list(
   tar_terra_rast(elev, terra::unwrap(elev_sprc) |> 
                    terra::mosaic(fun = "max") |> # choose 'max' - by default assume value is 2, or accessible, in cases where mosaicing rasters results in some 1 or 2 overlap
                    terra::resample(DEM)), # resample to match DEM resolution
+  # `cc` for 'cost cutoffs'
+  tar_combine(cc_sprc, mapped[[1]], command = terra::sprc(list(!!!.x)) |> terra::wrap()), # need to wrap it to prevent "invalid pointer" error: https://stackoverflow.com/questions/74855695/load-raster-data-with-terra-in-targets-pipeline
+  tar_terra_rast(cc, terra::unwrap(cc_sprc) |>
+                   terra::mosaic(fun = "max") |> # choose 'max' - by default assume value is 2, or accessible, in cases where mosaicing rasters results in some 1 or 2 overlap
+                   terra::resample(DEM)),
   #### DISTANCE FROM COAST CUTOFF ####
   # Next we will create a separate raster of all points with
   # 30 km distance from the coast, as BC nest survey data

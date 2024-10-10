@@ -92,36 +92,39 @@ crop_dem <- function(dem, region_name, regions) {
 }
 
 
-nest_elev_quantile <- function(nests, elev_data, quantiles = c(0.025, 0.975)) {
+nest_quantiles <- function(nests, quant_data, prefix, quantiles = c(0.025, 0.975)) {
   # TODO: if this overwrites the data, it might trigger an endless pipeline reassessment loop
   # TODO: regions within nest data might not necessarily line up with regions_map in pipeline
-  nests$elev_m <- elev_data
+  nests$quant_col <- quant_data
   # Calculate quantiles
-  quants <- aggregate(elev_m ~ region, nests, FUN = quantile, quantiles[1], na.rm = TRUE)
-  quants[3] <- aggregate(elev_m ~ region, nests, FUN = quantile, quantiles[2], na.rm = TRUE)[2]
-  names(quants) <- c("region", "elev_m_min", "elev_m_max")
+  quants <- aggregate(quant_col ~ region, nests, FUN = quantile, quantiles[1], na.rm = TRUE)
+  quants[3] <- aggregate(quant_col ~ region, nests, FUN = quantile, quantiles[2], na.rm = TRUE)[2]
+  # Set up output names
+  min_col <- paste0(prefix, "_min")
+  max_col <- paste0(prefix, "_max")
+  names(quants) <- c("region", min_col, max_col)
   # Round to nearest 10 
   quants[,2:3] <- round(quants[,2:3], -1)
   # Fill in missing values, if they're missing
   # If NVI is NULL, use mean of the other 3 regions of VI
   # If AKB and NC are NULL, use CC cutoffs
-  if (!"NVI" %in% quants$region) quants <- rbind(quants, c("NVI", round(mean(quants[grep("VI", quants$region), "elev_m_min"])), round(mean(quants[grep("VI", quants$region), "elev_m_max"]))))
-  if (!"AKB" %in% quants$region) quants <- rbind(quants, c("AKB", quants[["elev_m_min"]][quants$region == "CC"], quants[["elev_m_max"]][quants$region == "CC"]))
-  if (!"NC" %in% quants$region)  quants <- rbind(quants, c("NC", quants[["elev_m_min"]][quants$region == "CC"], quants[["elev_m_max"]][quants$region == "CC"]))
+  if (!"NVI" %in% quants$region) quants <- rbind(quants, c("NVI", round(mean(quants[grep("VI", quants$region), min_col])), round(mean(quants[grep("VI", quants$region), max_col]))))
+  if (!"AKB" %in% quants$region) quants <- rbind(quants, c("AKB", quants[[min_col]][quants$region == "CC"], quants[[max_col]][quants$region == "CC"]))
+  if (!"NC" %in% quants$region)  quants <- rbind(quants, c("NC", quants[[min_col]][quants$region == "CC"], quants[[max_col]][quants$region == "CC"]))
   # rbind converts numerics to character... convert them back
-  quants$elev_m_min <- as.numeric(quants$elev_m_min)
-  quants$elev_m_max <- as.numeric(quants$elev_m_max)
+  quants[[min_col]] <- as.numeric(quants[[min_col]])
+  quants[[max_col]] <- as.numeric(quants[[max_col]])
   return(quants)
 }
 
-reclass_elevation <- function(dem, elev_cutoffs, region, ...) { # ... param to ignore other cols in the dataframe when it gets passed in
-  elev_cutoffs <- elev_cutoffs[elev_cutoffs$region == region,]
-  message("Reclassifying ", elev_cutoffs$region, "...")
-  elev_min <- elev_cutoffs$elev_m_min
-  elev_max <- elev_cutoffs$elev_m_max
+reclass_raster <- function(dem, cutoffs, min_col, max_col, region, ...) { # ... param to ignore other cols in the dataframe when it gets passed in
+  cutoffs <- cutoffs[cutoffs$region == region,]
+  message("Reclassifying ", cutoffs$region, "...")
+  min <- cutoffs[[min_col]]
+  max <- cutoffs[[max_col]]
   dem <- terra::ifel(dem > 0, dem, NA)
-  dem <- terra::ifel(dem < elev_max, dem, NA)
-  dem <- terra::ifel(dem < elev_min, 1, 2)
+  dem <- terra::ifel(dem < max, dem, NA)
+  dem <- terra::ifel(dem < min, 1, 2)
   return(dem)
 }
 
@@ -223,5 +226,39 @@ coast_distance <- function(elev, sea, dist_km) {
   c_dist <- terra::ifel(c_dist == 1, 1, NA) # set any non-valid nesting areas == NA
   
   return(c_dist)
+}
+
+
+# NEST COST DISTANCE ------------------------------------------------------
+
+cost_distance <- function(dem) {
+  ## Prepare cost layer ##
+  
+  # Extract res of target
+  # Going to assume all data products are square res... 
+  # so just take the first number and assume it's equal to the second
+  res <- terra::res(dem)[1]
+  
+  # First, similar to above, lower the resolution of high res
+  # DEM by a factor of 10, or else the calculations will fail.
+  if (res < 100) {
+    c <- dem
+    terra::res(c) <- res * 10
+    c <- terra::resample(dem, c)
+  } else {
+    c <- dem
+  }
+  
+  # Ensure no negative values in the raster, or the costDist
+  # function will fail.
+  c <- terra::ifel(c < 0, 0, c)
+  
+  ## Calculate cost ##
+  # The cost distance function calculates distance from shore (i.e.,
+  # the `gridDist` function we just used above) and multiplies it
+  # by the 'cost' layer (elevation). Higher elevations are more
+  # costly to fly over. 
+  cost <- terra::costDist(c, target = 0, scale = 1000) # divide values by 1000 so output numbers are smaller
+  return(cost)
 }
 
