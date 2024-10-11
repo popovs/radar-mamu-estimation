@@ -279,15 +279,3 @@ download_forest_tiles <- function(url, output_dir) {
   return(output_file)
 }
 
-merge_forest <- function(forest_sprc, regions, DEM) {
-  forest_sprc <- terra::unwrap(forest_sprc)
-  forest <- terra::mosaic(forest_sprc)
-  forest <- terra::project(forest, "EPSG:3005") # This will take the longest
-  forest <- terra::mask(forest, regions)
-  forest <- terra::crop(forest, regions)
-  forest <- terra::resample(forest, DEM) # Resample to our target study region
-  return(forest)
-}
-
-
-
