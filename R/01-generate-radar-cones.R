@@ -134,3 +134,76 @@ calc_polar_mean <- function(headings, n_reps, alpha) {
   
   return(h)
 }
+
+
+generate_cones <- function(h, stn, radius, res) {
+  # Merge `h` and `stn`
+  h <- merge(h, stn, by.x = "name", by.y = "site")
+  names(h)[1] <- "site"
+  
+  h <- sf::st_as_sf(h) |>
+    sf::st_transform(3005)
+  
+  # Create cones from bootstrapped wedge values in `h`
+  cones <- lapply(1:nrow(h), function(x){
+    message("Generating cone for ", h$site[[x]], "...")
+    radar_cone(pt = h[x,],
+               radius = radius,
+               theta = h$theta[[x]], # using 95CI heading boundaries
+               heading = h$mean[[x]],
+               res = res) 
+  })
+  
+  # Check that all of them actually rendered correctly - for some
+  # reason the above sometimes results in NULL rasters.... suspected 
+  # memory issue.
+  isNaN <- lapply(cones, terra::minmax)
+  isNaN <- data.table::transpose(as.data.frame(isNaN))
+  isNaN <- row.names(isNaN[is.na(isNaN$V1),]) # Extract all the cones with null values
+  isNaN <- as.numeric(isNaN)
+  
+  while (length(isNaN) > 0) {
+    # Re-run the radar_cone function for NaN rasters...
+    for (i in isNaN) {
+      message("Error with ", h$site[[i]], ". Re-generating cone for ", h$site[[i]], "...")
+      cones[[i]] <- radar_cone(pt = h[i,],
+                               radius = 30000,
+                               theta = 90,
+                               heading = h$mean[[i]],
+                               res = 25)
+    }
+    
+    isNaN <- lapply(cones, terra::minmax)
+    isNaN <- data.table::transpose(as.data.frame(isNaN))
+    isNaN <- row.names(isNaN[is.na(isNaN$V1),]) # Extract all the cones with null values
+    isNaN <- as.numeric(isNaN)
+  }
+  
+  # Vectorize cones
+  for (i in 1:nrow(h)) {
+    message("Vectorizing ", h[i,][["site"]])
+    x <- cones[[i]]
+    x <- x == 1
+    x <- terra::as.polygons(x, crs = "epsg:3005")
+    x <- sf::st_as_sf(x)
+    x <- x[x$lyr.1 == 1, ] # Keep only area == 1
+    # Next draw a convex hull around the cone AND the station coordinate.
+    # Some cones are so narrow the station gets dropped
+    x <- sf::st_geometry(x) |> 
+      sf::st_cast("MULTIPOINT") |>
+      sf::st_union(h[i,]) |>
+      sf::st_convex_hull() |>
+      sf::st_as_sf()
+    x$site <- h[i,][["site"]]
+    cones[[i]] <- x
+    rm(x)
+  }
+  
+  cones <- dplyr::bind_rows(cones)
+  
+  cones$cone_area_ha <- units::set_units(sf::st_area(cones), "ha")
+  
+  sf::st_geometry(cones) <- "geometry"
+  
+  return(cones)
+}

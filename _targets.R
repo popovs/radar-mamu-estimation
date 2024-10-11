@@ -319,5 +319,7 @@ list(
   tar_target(h_file, "data/headings.xlsx", format = "file"),
   tar_target(h_0, prepare_headings(h_file)),
   # Calculate polar mean flight headings
-  tar_target(h, calc_polar_mean(headings = h_0, n_reps = 1000, alpha = 0.05))
+  tar_target(h, calc_polar_mean(headings = h_0, n_reps = 1000, alpha = 0.05)),
+  # Calculate cones
+  tar_target(cones, generate_cones(h = h, stn = stn, radius = 30000, res = res))
 ) 
