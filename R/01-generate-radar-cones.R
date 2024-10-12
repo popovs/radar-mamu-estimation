@@ -40,6 +40,10 @@ prepare_stn <- function(s) {
 }
 
 
+
+# GENERATE CONES -----------------------------------------------------------
+
+
 prepare_headings <- function(path) {
   headings <- readxl::read_excel(path,
                                  na = c("", "NA", "#N/A", "N/A"),
@@ -64,7 +68,9 @@ prepare_headings <- function(path) {
   
   # Split out incoming and outgoing headings
   inc <- headings[grep("Incoming", headings$flightpath_type, ignore.case = T),c("name", "heading")]
+  inc$flightpath_type <- "Incoming"
   out <- headings[grep("Outgoing", headings$flightpath_type, ignore.case = T),c("name", "heading")]
+  out$flightpath_type <- "Outgoing"
   
   inc <- inc[complete.cases(inc),]
   out <- out[complete.cases(out),]
@@ -207,3 +213,170 @@ generate_cones <- function(h, stn, radius, res) {
   
   return(cones)
 }
+
+
+
+# PLOTTING FXNS -----------------------------------------------------------
+
+plot_headings <- function(site, headings, h) {
+  headings <- headings[headings$name == site, ]
+  h <- h[h$name == site, ]
+  # Incoming headings plot
+  p_inc <- ggplot2::ggplot(data = headings[headings$flightpath_type == "Incoming",]) + 
+    ggplot2::geom_histogram(ggplot2::aes(x = heading)) + 
+    ggplot2::geom_vline(xintercept = h[["mean"]],
+                        color = "red") +
+    ggplot2::geom_vline(xintercept = h[["lower"]],
+                        color = "grey",
+                        linetype = "dashed") +
+    ggplot2::geom_vline(xintercept = h[["upper"]],
+                        color = "grey",
+                        linetype = "dashed") +
+    ggplot2::xlim(0, 360) + 
+    ggplot2::ggtitle("Incoming") + 
+    ggplot2::theme(axis.title = ggplot2::element_blank()) +
+    ggplot2::theme_minimal()
+  # Outgoing headings plot
+  p_out <- ggplot2::ggplot(data = headings[headings$flightpath_type == "Outgoing",]) + 
+    ggplot2::geom_histogram(ggplot2::aes(x = heading)) + 
+    ggplot2::geom_vline(xintercept = h[["mean"]],
+                        color = "red") +
+    ggplot2::geom_vline(xintercept = h[["lower"]],
+                        color = "grey",
+                        linetype = "dashed") +
+    ggplot2::geom_vline(xintercept = h[["upper"]],
+                        color = "grey",
+                        linetype = "dashed") +
+    ggplot2::xlim(0, 360) + 
+    ggplot2::ggtitle("Outgoing") + 
+    ggplot2::theme(axis.title = ggplot2::element_blank()) +
+    ggplot2::theme_minimal()
+  
+  p <- ggpubr::ggarrange(p_inc, p_out, ncol = 1)
+  print(p)
+}
+
+
+plot_watersheds <- function(site, watersheds, cones, stn) {
+  watersheds <- watersheds[watersheds$site == site, ]
+  cones <- cones[cones$site == site, ]
+  stn <- stn[stn$site == site, ]
+  p <- ggplot2::ggplot() +
+    ggplot2::geom_sf(data = watersheds,
+                     ggplot2::aes(color = keep_yn),
+                     show.legend = FALSE) +
+    ggplot2::geom_sf(data = cones,
+                     fill = NA) +
+    ggplot2::geom_sf(data = stn) +
+    ggplot2::geom_text(data = watersheds,
+                       ggplot2::aes(label = round(prct_coverage, 2),
+                                    x = centroid_x,
+                                    y = centroid_y),
+                       size = 2) +
+    ggplot2::ggtitle(site) +
+    ggplot2::theme(axis.title = ggplot2::element_blank())
+  print(p)
+}
+
+
+
+
+# WATERSHEDS --------------------------------------------------------------
+
+
+select_watersheds <- function(watersheds, 
+                              cones, 
+                              min_cone_coverage = 0.02,
+                              output_plots = TRUE,
+                              output_dir,
+                              ...) {
+  # Get rid of tiny tiny watersheds + river deltas
+  # These mess up the pathfinding algorithm when assuming 
+  # MAMU can or cannot cross from one watershed to another
+  # EXCEPT for Haida Gwaii. Nest data shows they'll nest in 
+  # these tiny scraps of watersheds.
+  watersheds$AREA_SQM <- sf::st_area(watersheds)
+  watersheds <- watersheds[watersheds$AREA_SQM > units::as_units(150000, "m^2") | watersheds$region == "HG",]
+  #watersheds <- watersheds[!is.na(watersheds$WTRSHDCD_2),]
+  
+  # Get a matrix of which watersheds intersect with cones
+  # Each column is a cone, each row a watershed
+  wat_cat <- sf::st_intersects(watersheds, cones, sparse = FALSE)
+  
+  # Loop through each column to extract out the watersheds that 
+  # touch each cone
+  # Replace the watersheds df with the subsetted list
+  watersheds <- lapply(1:ncol(wat_cat), function(x){
+    watersheds[wat_cat[,x],]
+  })
+  names(watersheds) <- cones$site
+  
+  # Bind it all into one df; keep the names as the id column
+  watersheds <- dplyr::bind_rows(watersheds, .id = 'site')
+  
+  # Remove watersheds with <2% cone coverage -- EXCEPT
+  # for Haida Gwaii!! HG contains many, many small 
+  # cliffside catchments that empty directly into the
+  # sea -- and nesting data shows they will readily
+  # nest in these tiny catchments, unlike the mainland. 
+  # So with HG just choose everything.
+  
+  # I.e., remove any watershed slivers
+  intersect_area <- sf::st_intersection(cones, watersheds)
+  intersect_area$intersect_area <- units::set_units(sf::st_area(intersect_area), "ha")
+  intersect_area <- intersect_area |>
+    dplyr::filter(site == site.1) |> # we don't care about cone slivers intersecting with other site watersheds
+    dplyr::select(site, WSD_ID, intersect_area) |>
+    sf::st_drop_geometry() |>
+    dplyr::group_by(site, WSD_ID) |>
+    dplyr::summarize(intersect_area = sum(intersect_area), .groups = "keep") |>
+    dplyr::group_by(site) |>
+    dplyr::mutate(total_area = sum(intersect_area),
+                  prct_coverage = intersect_area / total_area * 100)
+  
+  #watersheds <- merge(watersheds, st_drop_geometry(cones), by = "site") # merge cone area in
+  watersheds <- merge(watersheds, intersect_area, by = c("site", "WSD_ID"))
+  
+  #watersheds$prct_cone_overlap <- (watersheds$intersect_area / watersheds$cone_area_ha) * 100
+  #watersheds$prct_cone_overlap <- units::drop_units(watersheds$prct_cone_overlap)
+  watersheds$prct_coverage <- units::drop_units(watersheds$prct_coverage)
+  
+  watersheds$centroid_x <- sf::st_coordinates(sf::st_centroid(watersheds))[,1]
+  watersheds$centroid_y <- sf::st_coordinates(sf::st_centroid(watersheds))[,2]
+  
+  watersheds$keep_yn <- (watersheds$prct_coverage > (100 * min_cone_coverage) | watersheds$region == "HG")
+  
+  # Save plots to inspect each one
+  if (output_plots == TRUE) {
+    # Unpack dots
+    plot_data <- list(...)
+    stn <- plot_data$stn
+    headings <- plot_data$headings
+    h <- plot_data$h
+    # Create plots
+    dir.create(output_dir, showWarnings = F)
+    sites <- unique(cones$site)
+    for (i in sites) {
+      out_path <- file.path(output_dir,
+                            fs::path_sanitize(paste0(i, ".png"), replacement = "-"))
+      message("Saving plot for ", i, " to '", out_path, "'")
+      p1 <- plot_watersheds(site = i, 
+                            watersheds = watersheds,
+                            cones = cones,
+                            stn = stn)
+      p2 <- plot_headings(site = i, headings = headings, h = h)
+      p_all <- ggpubr::ggarrange(p1, p2, nrow = 1)
+      ggplot2::ggsave(filename = out_path, plot = p_all)
+    }
+  }
+  
+  # Drop anything that failed keep_yn tests
+  watersheds <- watersheds[watersheds$keep_yn,]
+  watersheds <- dplyr::select(watersheds, -keep_yn)
+  
+  return(watersheds)
+  
+}
+
+
+

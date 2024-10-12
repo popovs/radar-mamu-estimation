@@ -321,5 +321,19 @@ list(
   # Calculate polar mean flight headings
   tar_target(h, calc_polar_mean(headings = h_0, n_reps = 1000, alpha = 0.05)),
   # Calculate cones
-  tar_target(cones, generate_cones(h = h, stn = stn, radius = 30000, res = res))
+  tar_target(cones, generate_cones(h = h, stn = stn, radius = 30000, res = res)),
+  #### SELECT TARGETED WATERSHED CATCHMENTS ####
+  # Now, based on the MAMU flight headings at each radar station,
+  # select the watershed catchments the birds are targeting (i.e.,
+  # the watersheds the radar cones overlap with).
+  tar_target(watersheds_file, "GIS/Watersheds/code_2_watersheds.gpkg", format = "file"),
+  tar_target(watersheds_raw, sf::st_read(watersheds_file)),
+  tar_target(watersheds, select_watersheds(watersheds = watersheds_raw, 
+                                           cones = cones, 
+                                           min_cone_coverage = 0.02,
+                                           output_plots = TRUE,
+                                           output_dir = "temp/cone_inspection",
+                                           stn = stn,
+                                           headings = h_0,
+                                           h = h))
 ) 
