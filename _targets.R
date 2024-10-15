@@ -151,9 +151,17 @@ list(
   tar_target(nest_cost, exactextractr::exact_extract(cost, nests, 'mean')),
   # Calculate and store regional cost cutoffs in a table
   tar_group_by(cost_cutoffs,
-               nest_quantiles(nests, 
-                              quant_data = nest_cost,
-                              prefix = "cost"),
+               # nest_quantiles(nests, 
+               #                quant_data = nest_cost,
+               #                prefix = "cost"),
+               # A few outliers really skew the quantiles. Instead,
+               # grab the simple min/max of each region once outliers
+               # are removed. Outliers are define w a simple boxplot
+               # whisker - if they are outside the 1.5*IQR range, it's 
+               # an outlier.
+               nest_minmax_sans_outliers(nests, 
+                                         quant_data = nest_cost, 
+                                         prefix = "cost"),
                region),
   #### ITERATE OVER REGIONAL CUTOFFS ####
   # For each region, iterate the following:
@@ -336,4 +344,6 @@ list(
                                            stn = stn,
                                            headings = h_0,
                                            h = h))
+  # Calculate how much it costs to fly within the selected watersheds
+  
 ) 
