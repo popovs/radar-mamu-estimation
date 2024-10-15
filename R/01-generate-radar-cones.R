@@ -26,11 +26,16 @@ prepare_surveys <- function(path) {
 # (impossible to set up the radar station in EXACTLY the
 # same spot each year), take the mean lat/lon by
 # site.
-prepare_stn <- function(s) {
+prepare_stn <- function(s, regions) {
+  # Grab region from the `regions` sf
+  # First drop existing regions col
+  s <- dplyr::select(s, -region)
+  s <- sf::st_transform(s, 3005)
+  s <- suppressWarnings(sf::st_intersection(s, regions))
   stn <- sf::st_drop_geometry(s) # trying to get mean sf coords by group is a pain. 
   stn <- stn |> 
-    dplyr::select(site, loc, lat, lon) |>
-    dplyr::group_by(site, loc) |>
+    dplyr::select(site, region, loc, lat, lon) |>
+    dplyr::group_by(site, region, loc) |>
     dplyr::summarise(lat = mean(lat),
                      lon = mean(lon)) |>
     sf::st_as_sf(crs = 4326, 
@@ -219,6 +224,7 @@ generate_cones <- function(h, stn, radius, res) {
 # PLOTTING FXNS -----------------------------------------------------------
 
 plot_headings <- function(site, headings, h) {
+  # Subset to needed data
   headings <- headings[headings$name == site, ]
   h <- h[h$name == site, ]
   # Incoming headings plot
@@ -258,9 +264,11 @@ plot_headings <- function(site, headings, h) {
 
 
 plot_watersheds <- function(site, watersheds, cones, stn) {
+  # Subset to needed data
   watersheds <- watersheds[watersheds$site == site, ]
   cones <- cones[cones$site == site, ]
   stn <- stn[stn$site == site, ]
+  # Plot
   p <- ggplot2::ggplot() +
     ggplot2::geom_sf(data = watersheds,
                      ggplot2::aes(color = keep_yn),
@@ -274,6 +282,38 @@ plot_watersheds <- function(site, watersheds, cones, stn) {
                                     y = centroid_y),
                        size = 2) +
     ggplot2::ggtitle(site) +
+    ggplot2::theme(axis.title = ggplot2::element_blank())
+  print(p)
+}
+
+
+plot_cost <- function(site, cost_catchment, watersheds, 
+                      cones, stn, nests, cost_cutoffs) {
+  # Subset to needed data
+  cost_catchment <- cost_catchment[[site]]
+  watersheds <- watersheds[watersheds$site == site, ]
+  cones <- cones[cones$site == site, ]
+  stn <- stn[stn$site == site, ]
+  nests <- suppressWarnings(sf::st_intersection(nests, watersheds))
+  # Merge watersheds, stn, and cost_cutoffs to get all
+  # attributes in one sf object
+  watersheds <- merge(watersheds, sf::st_drop_geometry(stn[,c("site", "region")]))
+  watersheds <- merge(watersheds, cost_cutoffs)
+  # Plot
+  p <- ggplot2::ggplot() + 
+    tidyterra::geom_spatraster_contour_filled(data = cost_catchment,
+                                              show.legend = FALSE) +
+    tidyterra::geom_spatraster_contour(data = cost_catchment,
+                                       breaks = c(#watersheds[["cost_min"]][watersheds$site == x],
+                                         watersheds[["cost_max"]])) +
+    tidyterra::scale_fill_whitebox_d() +
+    ggplot2::geom_sf(data = cones,
+                     fill = NA) +
+    ggplot2::geom_sf(data = stn) +
+    ggplot2::geom_sf(data = nests, 
+                     color = "red", 
+                     fill = "red") +
+    ggplot2::ggtitle(site, subtitle = paste(watersheds[["region"]], "max cost =", watersheds[["cost_max"]])) +
     ggplot2::theme(axis.title = ggplot2::element_blank())
   print(p)
 }
@@ -347,6 +387,10 @@ select_watersheds <- function(watersheds,
   watersheds$keep_yn <- (watersheds$prct_coverage > (100 * min_cone_coverage) | watersheds$region == "HG")
   
   # Save plots to inspect each one
+  # TODO: ideally split this out and make it its own 
+  # target that uses the selected watersheds output. It's time
+  # consuming to recreate all the selected watersheds just because
+  # of a plotting error.
   if (output_plots == TRUE) {
     # Unpack dots
     plot_data <- list(...)
@@ -379,4 +423,119 @@ select_watersheds <- function(watersheds,
 }
 
 
+
+# COST DISTANCE WITHIN CATCHMENTS -----------------------------------------
+
+watershed_cost <- function(watersheds, 
+                           dem, 
+                           cones, 
+                           stn, 
+                           cost_cutoffs,
+                           output_plots = TRUE,
+                           output_dir,
+                           ...) {
+  # Dissolve watersheds together by site
+  watersheds <- watersheds |>
+    dplyr::select(site) |>
+    dplyr::group_by(site) |>
+    dplyr::summarize()
+  
+  # Reproject stn
+  stn <- sf::st_transform(stn, 3005)
+  
+  sites <- unique(watersheds$site)
+  # Make 'cost catchments'
+  catchments <- lapply(sites, function(x) {
+    message("Creating catchment for ", x)
+    tmp <- watersheds[watersheds$site == x,]
+    tmp <- terra::crop(dem, tmp, mask = TRUE)
+    tmp2 <- terra::crop(dem, cones[cones$site == x, ], mask = TRUE) # also extract anything in the cone path - e.g. water - so birds can cross over water areas in the cone's path
+    tmp <- terra::merge(tmp, tmp2)
+    # Choose the point closest on the raster to the radar
+    # station as the origin point
+    # Extract origin coordinate
+    i <- stn[stn$site == x,]
+    j <- sf::st_union(sf::st_as_sf(terra::as.polygons(tmp)))
+    origin <- sf::st_nearest_points(i, j)
+    origin <- sf::st_coordinates(origin)
+    origin <- origin[,1:2] # drop 'L1' column
+    i <- sf::st_coordinates(i)
+    origin <- rbind(origin, i)
+    # drop the duplicated rows - that's our point `stn`, and we only
+    # care about origin point in/on the polygon
+    if (nrow(unique(origin)) == 1) { # vanilla `ifelse` doesn't play nicely with matrices
+      origin <- unique(origin)
+    } else if (nrow(unique(origin == 2))) {
+      origin <- origin[!(duplicated(origin) | duplicated(origin, fromLast = TRUE)), ]
+    } else {
+      message("Something weird going on with ", x)
+    }
+    origin <- matrix(origin, ncol = 2)
+    # Assign -1 to origin
+    if (is.na(terra::cellFromXY(tmp, origin))) message("Unable to find origin for ", x)
+    tmp[terra::cellFromXY(tmp, origin)] <- -1
+    tmp <- terra::costDist(tmp, -1, scale = 1000, maxiter = 100)
+    tmp <- terra::ifel(tmp > 0, tmp, NA)
+    tmp <- terra::crop(tmp, watersheds[watersheds$site == x,], mask = TRUE) # now crop to watersheds shape
+    return(tmp)
+  })
+  
+  names(catchments) <- sites
+  
+  # Save plots to inspect...
+  # TODO: ideally split this out and make it its own 
+  # target that uses the catchments output. It's time
+  # consuming to recreate all the catchments just because
+  # of a plotting error.
+  if (output_plots == TRUE) {
+    # Unpack dots
+    plot_data <- list(...)
+    headings <- plot_data$headings
+    h <- plot_data$h
+    nests <- plot_data$nests
+    # Create plots
+    dir.create(output_dir, showWarnings = F)
+    for (i in sites) {
+      out_path <- file.path(output_dir,
+                            fs::path_sanitize(paste0(i, ".png"), replacement = "-"))
+      message("Saving plot for ", i, " to '", out_path, "'")
+      p1 <- plot_cost(site = i, 
+                      cost_catchment = catchments,
+                      watersheds = watersheds,
+                      cones = cones,
+                      stn = stn, 
+                      nests = nests,
+                      cost_cutoffs = cost_cutoffs)
+      p2 <- plot_headings(site = i, headings = headings, h = h)
+      p_all <- ggpubr::ggarrange(p1, p2, nrow = 1)
+      ggplot2::ggsave(filename = out_path, plot = p_all)
+    }
+  }
+  
+  # Merge watersheds, stn, and cost_cutoffs to get all
+  # attributes in one sf object
+  watersheds <- merge(watersheds, sf::st_drop_geometry(stn[,c("site", "region")]))
+  watersheds <- merge(watersheds, cost_cutoffs)
+  # Apply the regional cost cutoff to each individual
+  # cost catchment (i.e., draw boundaries on each cost
+  # catchment)
+  catchments <- lapply(sites, function(x) {
+    message("Setting max boundaries of cost catchment for ", x)
+    # Extract catchment + apply cutoff
+    tmp <- catchments[[x]]
+    cutoff <- watersheds[["cost_max"]][watersheds$site == x]
+    tmp <- terra::ifel(tmp > cutoff, NA, 1)
+    # Vectorize
+    tmp <- terra::as.polygons(tmp, crs = "epsg:3005")
+    tmp <- sf::st_as_sf(tmp)
+  })
+  
+  # Clean up output
+  catchments <- dplyr::bind_rows(catchments)
+  catchments$site <- sites
+  catchments <- catchments[, "site"]
+  
+  return(catchments)
+  
+}
 
