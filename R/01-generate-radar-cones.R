@@ -319,6 +319,28 @@ plot_cost <- function(site, cost_catchment, watersheds,
 }
 
 
+plot_catchment <- function(site, catchments, watersheds, cones, stn) {
+  # Subset to needed data
+  catchments <- catchments[catchments$site == site, ]
+  watersheds <- watersheds[watersheds$site == site, ]
+  cones <- cones[cones$site == site, ]
+  stn <- stn[stn$site == site, ]
+  # Plot
+  p <- ggplot2::ggplot() +
+    ggplot2::geom_sf(data = watersheds,
+                     show.legend = FALSE) +
+    ggplot2::geom_sf(data = catchments,
+                     fill = "grey",
+                     color = NA,
+                     alpha = 0.7,
+                     show.legend = FALSE) +
+    ggplot2::geom_sf(data = cones,
+                     fill = NA) +
+    ggplot2::geom_sf(data = stn) +
+    ggplot2::ggtitle(site, subtitle = stn[["loc"]][stn$site == site])
+  print(p)
+}
+
 
 
 # WATERSHEDS --------------------------------------------------------------
@@ -536,6 +558,102 @@ watershed_cost <- function(watersheds,
   catchments <- catchments[, "site"]
   
   return(catchments)
+  
+}
+
+
+
+# DIRECTIONALITY CUTOFF ---------------------------------------------------
+
+# We've extracted the watershed regions that contain birds,
+# but a few of them could be whittled down further - e.g.
+# see Brittain or Kwinamass. Birds won't be flying *backwards*
+# into our catchment areas. 
+
+# Let's assume birds won't fly backwards. 
+# Cut away any catchment area directly behind 
+# the flight heading.
+
+directionality_crop <- function(cost_catchments,
+                                stn,
+                                h, 
+                                watersheds, 
+                                cones, 
+                                res) {
+  # Dissolve watersheds together by site
+  watersheds <- watersheds |>
+    dplyr::select(site) |>
+    dplyr::group_by(site) |>
+    dplyr::summarize()
+  
+  # Merge `h` and `stn`
+  stn <- merge(stn, h, by.x = "site", by.y = "name")
+  
+  sites <- unique(cost_catchments$site)
+  catchments2 <- lapply(sites, function(x) {
+    message("Removing areas behind cone for ", x)
+    # Create the cut line, perpendicular to h. The line
+    # should be long enough to be sure to cut any weird
+    # catchment danglies off. 10km each side should be
+    # long enough. 
+    stn <- stn[stn$site == x, ]
+    x0 <- sf::st_coordinates(stn)[1]
+    y0 <- sf::st_coordinates(stn)[2]
+    alpha <- (180 - stn$mean) * (pi / 180) # convert degrees to radians + rotate 90°
+    d <- 30000 # 30km
+    x1 <- x0 + (d * cos(alpha))
+    y1 <- y0 + (d * sin(alpha))
+    x2 <- x0 - (d * cos(alpha))
+    y2 <- y0 - (d * sin(alpha))
+    string <- data.frame(geom = NA)
+    string$geom <- sprintf("LINESTRING(%s %s, %s %s, %s %s)", x1, y1, x0, y0, x2, y2)
+    string <- sf::st_as_sf(string, wkt = "geom", crs = 3005)
+    string <- sf::st_as_sfc(string)
+    # Cut the catchment with the string
+    c <- cost_catchments[cost_catchments$site == x, ]
+    c <- lwgeom::st_split(c, string)
+    c <- sf::st_make_valid(c)
+    c <- sf::st_collection_extract(c, "POLYGON")
+    # Create a line directly under (one unit of resolution) the cut
+    beta <- (90 - stn$mean) * (pi / 180)
+    xx <- x0 - (res * cos(beta))
+    yy <- y0 - (res * sin(beta))
+    x1 <- xx + (5000 * cos(alpha)) # let's make this line much shorter, 10km total
+    y1 <- yy + (5000 * sin(alpha))
+    x2 <- xx - (5000 * cos(alpha))
+    y2 <- yy - (5000 * sin(alpha))
+    #xxyy <- st_point(c(xx, yy)) %>% st_sfc(crs = 3005)
+    string <- data.frame(geom = NA)
+    string$geom <- sprintf("LINESTRING(%s %s, %s %s, %s %s)", x1, y1, xx, yy, x2, y2)
+    string <- sf::st_as_sf(string, wkt = "geom", crs = 3005)
+    string <- sf::st_as_sfc(string)
+    # Delete the section directly under the the cut
+    #c <- c[!(st_contains(c, xxyy, sparse = FALSE)),]
+    c <- c[!(sf::st_intersects(c, string, sparse = F)),]
+    c <- c |> 
+      dplyr::group_by(site) |>
+      dplyr::summarise() # merge any pieces that may have been cut
+    # Clean up the edges a bit
+    c <- sf::st_buffer(c, res) |>
+      smoothr::smooth() |>
+      sf::st_intersection(watersheds[watersheds$site == x, ]) |>
+      dplyr::filter(site == site.1) |>
+      dplyr::select(-site.1)
+    # Multipart polygon to singlepart
+    c <- sf::st_cast(c, "POLYGON", warn = FALSE)
+    # Now select the piece closest to the station
+    #c <- c[st_nearest_feature(stn, c),]
+    c <- c[sf::st_intersects(c, cones[cones$site == x,], sparse = FALSE), ]
+  })
+  
+  catchments2 <- dplyr::bind_rows(catchments2)
+  
+  # Also, let's drop any catchments with tiny areas that might
+  # confuse the wat_maz selectio algorithm (e.g., see Port Chanal)
+  catchments2$area_m2 <- units::drop_units(sf::st_area(catchments2))
+  catchments2 <- catchments2[catchments2$area_m2 > 2000, ]
+  
+  return(catchments2)
   
 }
 
