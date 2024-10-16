@@ -1,4 +1,4 @@
-#' 01 GENERATE RADAR CONES
+#' 01 GENERATE RADAR CATCHMENTS
 
 #' This script contains functions that will extract
 #' radar station points, extract and calculate mean
@@ -220,7 +220,6 @@ generate_cones <- function(h, stn, radius, res) {
 }
 
 
-
 # PLOTTING FXNS -----------------------------------------------------------
 
 plot_headings <- function(site, headings, h) {
@@ -319,24 +318,35 @@ plot_cost <- function(site, cost_catchment, watersheds,
 }
 
 
-plot_catchment <- function(site, catchments, watersheds, cones, stn) {
+plot_catchment <- function(site, cost_catchment, accessible_catchment,
+                           watersheds, cones, stn, nests) {
   # Subset to needed data
-  catchments <- catchments[catchments$site == site, ]
+  cost_catchment <- cost_catchment[cost_catchment$site == site, ]
+  accessible_catchment <- accessible_catchment[accessible_catchment$site == site, ]
   watersheds <- watersheds[watersheds$site == site, ]
   cones <- cones[cones$site == site, ]
   stn <- stn[stn$site == site, ]
+  nests <- suppressWarnings(sf::st_intersection(nests, watersheds))
   # Plot
   p <- ggplot2::ggplot() +
     ggplot2::geom_sf(data = watersheds,
                      show.legend = FALSE) +
-    ggplot2::geom_sf(data = catchments,
+    ggplot2::geom_sf(data = cost_catchment,
                      fill = "grey",
                      color = NA,
                      alpha = 0.7,
                      show.legend = FALSE) +
+    ggplot2::geom_sf(data = accessible_catchment,
+                     color = NA, 
+                     fill = "#26D1EA",
+                     alpha = 0.3,
+                     show.legend = FALSE) +
     ggplot2::geom_sf(data = cones,
                      fill = NA) +
     ggplot2::geom_sf(data = stn) +
+    ggplot2::geom_sf(data = nests, 
+                     color = "red", 
+                     fill = "red") +
     ggplot2::ggtitle(site, subtitle = stn[["loc"]][stn$site == site])
   print(p)
 }
@@ -588,6 +598,7 @@ directionality_crop <- function(cost_catchments,
   
   # Merge `h` and `stn`
   stn <- merge(stn, h, by.x = "site", by.y = "name")
+  stn <- sf::st_transform(stn, 3005)
   
   sites <- unique(cost_catchments$site)
   catchments2 <- lapply(sites, function(x) {
@@ -657,3 +668,125 @@ directionality_crop <- function(cost_catchments,
   
 }
 
+
+# ACCESSIBLE AREAS --------------------------------------------------------
+
+
+
+# Intersect the cost catchments with the 'MAMU accessible zone'
+# area. If the area is inaccessible to MAMU, it should be cut out,
+# even if it's within the cost catchment!
+
+access_catchments <- function(cost_catchments, maz, stn, 
+                              raster_stats = TRUE, # extract summary statistics from forest and cost layers? T/F
+                              output_plots = TRUE,
+                              output_dir,
+                              ...) {
+  # Prep `maz`
+  # Load up as a `stars` object - faster to vectorize
+  maz <- stars::st_as_stars(maz)
+  # Polygonize
+  maz <- sf::st_as_sf(maz,
+                      as_points = FALSE,
+                      merge = TRUE,
+                      na.rm = TRUE)
+  maz <- sf::st_union(maz) # merge into one polygon
+  # Simplify this giant maz polygon
+  maz <- smoothr::smooth(maz, method = "chaikin")
+  
+  # Intersect with catchments
+  cc_maz <- sf::st_intersection(cost_catchments, maz)
+  
+  # Prep `stn`
+  stn <- sf::st_transform(stn, 3005)
+  
+  # Select pieces within a 10km radius of the origin
+  sites <- unique(cost_catchments$site)
+  cc_maz <- lapply(sites, function(x) {
+    message("Selecting pieces accessible from the origin for ", x)
+    origin <- stn[stn$site == x, ]
+    tmp <- cc_maz[cc_maz$site == x, ]
+    tmp <- sf::st_make_valid(tmp) |>
+      sf::st_collection_extract("POLYGON") |>
+      sf::st_cast("POLYGON", warn = FALSE)
+    if (origin$region == "HG") {
+      tmp <- tmp[sf::st_intersects(tmp, sf::st_buffer(origin, 10000), sparse = FALSE),]
+    } else {
+      tmp <- tmp[sf::st_nearest_feature(origin, tmp),]
+    }
+    return(tmp)
+  })
+  
+  cc_maz <- dplyr::bind_rows(cc_maz)
+  
+  # Drop empty geometries
+  # E.g., Upper Campbell catchment doesn't
+  # intersect with any `maz` area...
+  cc_maz <- cc_maz[!is.na(cc_maz$site),]
+  
+  # Final catchment cleanup
+  cc_maz <- cc_maz |>
+    dplyr::select(site) |>
+    dplyr::group_by(site) |>
+    dplyr::summarise()
+  
+  # Recalculate catchment area
+  cc_maz$area_m2 <- units::set_units(sf::st_area(cc_maz), "ha")
+  
+  # Optional: extract forestry and nest info?
+  if (raster_stats == TRUE) {
+    # Unpack dots
+    dots <- list(...)
+    forest <- dots$forest
+    cost <- dots$cost
+    # Extract raster values
+    cc_maz$mean_forest <- exactextractr::exact_extract(forest, cc_maz, "mean")
+    cc_maz$mean_cost <- exactextractr::exact_extract(cost, cc_maz, "mean")
+    rm(dots)
+  }
+  
+  # Save plots to inspect...
+  # TODO: ideally split this out and make it its own 
+  # target that uses the catchments output. It's time
+  # consuming to recreate all the catchments just because
+  # of a plotting error.
+  if (output_plots == TRUE) {
+    # Unpack dots
+    plot_data <- list(...)
+    headings <- plot_data$headings
+    h <- plot_data$h
+    watersheds <- plot_data$watersheds
+    cones <- plot_data$cones
+    nests <- plot_data$nests
+    # Create plots
+    dir.create(output_dir, showWarnings = F)
+    for (i in sites) {
+      out_path <- file.path(output_dir,
+                            fs::path_sanitize(paste0(i, ".png"), replacement = "-"))
+      message("Saving plot for ", i, " to '", out_path, "'")
+      p1 <- plot_catchment(site = i, 
+                           cost_catchment = cost_catchments,
+                           accessible_catchment = cc_maz,
+                           watersheds = watersheds,
+                           cones = cones,
+                           stn = stn, 
+                           nests = nests)
+      p2 <- plot_headings(site = i, headings = headings, h = h)
+      p_all <- ggpubr::ggarrange(p1, p2, nrow = 1)
+      ggplot2::ggsave(filename = out_path, plot = p_all)
+    }
+  }
+  
+  cc_maz <- sf::st_collection_extract(cc_maz, "POLYGON")
+  return(cc_maz)
+}
+
+
+# SAVE OUTPUTS ------------------------------------------------------------
+
+# ... and still have it be tracked by `targets`
+
+save_sf <- function(sf, output_path) {
+  sf::st_write(sf, output_path, append = FALSE)
+  return(output_path)
+}

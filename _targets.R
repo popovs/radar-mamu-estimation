@@ -24,11 +24,14 @@ library(geotargets) # Needed to save `terra` SpatRaster targets
 tar_option_set(
   packages = c("MAMU", # remotes::install_github("popovs/MAMU")
                "janitor",
+               "units",
                "sf",
                "terra",
+               "stars",
                "rnaturalearth",
                "dplyr",
-               "readxl"),
+               "readxl",
+               "smoothr"),
   format = tar_format( # Default qs is superceded by qs2. Install qs2 and specify read & write fxns
     read = function(path) { qs2::qs_read(path) }, 
     write = function(object, path) { qs2::qs_save(object = object, file = path) }
@@ -270,6 +273,7 @@ list(
                         return_filename = TRUE), # for format "file" targets, the output MUST be a filepath
              format = "file"),
   # Merge forest tiles and reproject to 3005 (~30 mins)
+  # TODO: something wrong with output.
   tar_target(forest_cover, 
              merge_dem(vrt_path = forest_VRT,
                        output_file = file.path(forest_dir, "forest_cover.tiff"),
@@ -330,6 +334,9 @@ list(
   tar_target(h, calc_polar_mean(headings = h_0, n_reps = 1000, alpha = 0.05)),
   # Calculate cones
   tar_target(cones, generate_cones(h = h, stn = stn, radius = 30000, res = res)),
+  tar_target(cones_gpkg, 
+             save_sf(sf = cones, output_path = "GIS/flight_headings.gpkg"), 
+             format = "file"),
   #### SELECT TARGETED WATERSHED CATCHMENTS ####
   # Now, based on the MAMU flight headings at each radar station,
   # select the watershed catchments the birds are targeting (i.e.,
@@ -357,9 +364,25 @@ list(
   # Cut out pieces behind heading 
   # Birds aren't flying backwards from radar station
   tar_target(cropped_cc, directionality_crop(cost_catchments = full_cc,
-                                   stn = stn, 
-                                   h = h,
-                                   watersheds = watersheds, 
-                                   cones = cones, 
-                                   res = res))
+                                             stn = stn, 
+                                             h = h,
+                                             watersheds = watersheds,
+                                             cones = cones, 
+                                             res = res)),
+  # Intersect with MAMU-accessible areas
+  tar_target(final_cc, access_catchments(cost_catchments = cropped_cc, 
+                                         maz = maz, 
+                                         stn = stn,
+                                         raster_stats = TRUE,
+                                         forest = forest,
+                                         cost = cost,
+                                         output_dir = "temp/final_catchment_inspection",
+                                         headings = h_0,
+                                         h = h,
+                                         watersheds = watersheds,
+                                         cones = cones,
+                                         nests = nests)),
+  tar_target(cc_gpkg, 
+             save_sf(sf = final_cc, output_path = "GIS/radar_derived_catchments.gpkg"), 
+             format = "file")
 ) 
