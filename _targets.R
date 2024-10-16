@@ -322,7 +322,7 @@ list(
   tar_target(s_file, "data/ECCC_FLNR_MAMU-RadarData-20240307.xlsx", format = "file"),
   tar_target(s, prepare_surveys(s_file)),
   # Extract individual station coords
-  tar_target(stn, prepare_stn(s)),
+  tar_target(stn, prepare_stn(s, regions)),
   # Read in flight headings data
   tar_target(h_file, "data/headings.xlsx", format = "file"),
   tar_target(h_0, prepare_headings(h_file)),
@@ -343,7 +343,15 @@ list(
                                            output_dir = "temp/cone_inspection",
                                            stn = stn,
                                            headings = h_0,
-                                           h = h))
+                                           h = h)),
   # Calculate how much it costs to fly within the selected watersheds
-  
+  tar_target(cost_catchments, watershed_cost(watersheds = watersheds,
+                                             dem = DEM,
+                                             cones = cones,
+                                             stn = stn, 
+                                             cost_cutoffs = cost_cutoffs,
+                                             output_dir = "temp/cost_inspection",
+                                             headings = h_0,
+                                             h = h,
+                                             nests = nests))
 ) 
