@@ -14,17 +14,30 @@
 # MAX MAMU SURVEY ---------------------------------------------------------
 
 # TO USE IN LIEU OF GLMM STANDARDIZED SURVEYS:
-max_mamu <- function(s) {
+max_mamu <- function(s, stn) {
   s <- s |> dplyr::group_by(site) |> dplyr::mutate(total_effort = dplyr::n())
   s <- aggregate(mamuinpd ~ site + year + total_effort, s, FUN = "max")
-  names(s)[4] <- "mamu_count"
-  # Filter out only those sites that have been visited at least 4 times
-  s <- s[s$total_effort >= 4, ]
+  names(s)[4] <- "max_mamu_count"
   # Select most recent max count of each
+  # s <- s |> 
+  #   dplyr::arrange(site, year) |> 
+  #   dplyr::group_by(site) |> 
+  #   dplyr::slice(dplyr::n()) |>
+  #   dplyr::select(site, region, loc, year, total_effort, mamu_count) # rearrange cols
+  # Take the mean of the maximum mamu count across all years
   s <- s |> 
-    dplyr::arrange(site, year) |> 
     dplyr::group_by(site) |> 
-    dplyr::slice(dplyr::n())
+    dplyr::summarise(year_min = min(year),
+                     year_max = max(year),
+                     n_surveys = max(total_effort),
+                     mean_max_mamu = mean(max_mamu_count))
+  # Merge in region info
+  stn <- sf::st_drop_geometry(stn)
+  stn <- stn[,c("site", "region", "loc")]
+  s <- merge(s, stn, by = "site")
+  # Rearrange cols
+  s <- s[,c("site", "region", "loc", "year_min", "year_max", "n_surveys", "mean_max_mamu")]
+  # Return
   return(s)
 }
 
@@ -67,16 +80,16 @@ habitat_in_catchments <- function(catchments, habitat) {
   return(c_hab)
 }
 
-catchment_density <- function(catchment_habitat, mamu_station_count) {
+catchment_density <- function(catchment_habitat, mamu_station_count, mamu_count_col) {
   summary <- catchment_habitat |> 
     sf::st_drop_geometry() |> 
     dplyr::group_by(site, region) |> 
     dplyr::summarize(sh_area_ha = sum(sh_area_ha),
                      cat_area_ha = sum(cat_area_ha)) |> 
     dplyr::mutate(catchment_habitat_density = sh_area_ha / cat_area_ha)
-  summary <- merge(summary, mamu_station_count, by = "site", all.x = TRUE) # some MAMU stations have radar counts, but no headings :(
-  summary$mamu_sh_density <- summary$mamu_count / summary$sh_area_ha
-  summary$mamu_cat_density <- summary$mamu_count / summary$cat_area_ha
+  summary <- merge(summary, mamu_station_count, by = c("site", "region"), all.x = TRUE) # some MAMU stations have radar counts, but no headings :(
+  summary$mamu_sh_density <- summary[[mamu_count_col]] / summary$sh_area_ha
+  summary$mamu_cat_density <- summary[[mamu_count_col]] / summary$cat_area_ha
   return(summary)
 }
 
@@ -84,6 +97,7 @@ extrapolate_density <- function(mamu_density, regional_sh_area) {
   reg_dens <- aggregate(mamu_sh_density ~ region, mamu_density, FUN = "mean")
   reg_dens <- merge(reg_dens, regional_sh_area, by = "region")
   reg_dens$mamu_count <- reg_dens$mamu_sh_density * reg_dens$sh_area_ha
+  reg_dens <- reg_dens[order(reg_dens$region),]
   return(reg_dens)
 }
   

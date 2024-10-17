@@ -397,7 +397,7 @@ list(
   #### STANDARDIZE MAMU COUNTS ####
   # Select maximum MAMU count per station per year
   # Skipping model approach for now
-  tar_target(mamu_station_count, max_mamu(s)),
+  tar_target(mamu_station_count, max_mamu(s, stn)),
   #### DENSITY CALCS ####
   # Total habitat (m2) across whole suitable habitat layer
   tar_target(total_suit_hab_area_ha, sum(suitable_habitat$sh_area_ha)),
@@ -407,7 +407,8 @@ list(
   tar_target(catchment_suit_hab_area_ha, aggregate(sh_area_ha ~ site, cc_habitat, FUN = "sum")),
   # Calculate the density of birds within each catchment
   tar_target(mamu_density, catchment_density(catchment_habitat = cc_habitat,
-                                             mamu_station_count)),
+                                             mamu_station_count,
+                                             mamu_count_col = "mean_max_mamu")),
   # Calculate mean desnity per region -> calculate MAMU count per region!
   tar_target(regional_population_est, extrapolate_density(mamu_density = mamu_density, 
                                                           regional_sh_area = regional_suit_hab_area_ha)),
