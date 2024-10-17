@@ -97,6 +97,7 @@ extrapolate_density <- function(mamu_density, regional_sh_area) {
   reg_dens <- aggregate(mamu_sh_density ~ region, mamu_density, FUN = "mean")
   reg_dens <- merge(reg_dens, regional_sh_area, by = "region")
   reg_dens$mamu_count <- reg_dens$mamu_sh_density * reg_dens$sh_area_ha
+  reg_dens$mamu_count <- round(reg_dens$mamu_count)
   reg_dens <- reg_dens[order(reg_dens$region),]
   return(reg_dens)
 }

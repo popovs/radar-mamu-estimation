@@ -29,6 +29,7 @@ tar_option_set(
                "terra",
                "stars",
                "rnaturalearth",
+               "isotree",
                "dplyr",
                "readxl",
                "smoothr"),
@@ -154,17 +155,28 @@ list(
   tar_target(nest_cost, exactextractr::exact_extract(cost, nests, 'mean')),
   # Calculate and store regional cost cutoffs in a table
   tar_group_by(cost_cutoffs,
+               # OPTION A: 95% QUANTILES
                # nest_quantiles(nests, 
                #                quant_data = nest_cost,
                #                prefix = "cost"),
+               # OPTION B: MAX VALUE AFTER GLOBAL OUTLIERS REMOVED
                # A few outliers really skew the quantiles. Instead,
                # grab the simple min/max of each region once outliers
                # are removed. Outliers are define w a simple boxplot
                # whisker - if they are outside the 1.5*IQR range, it's 
                # an outlier.
-               nest_minmax_sans_outliers(nests, 
-                                         quant_data = nest_cost, 
-                                         prefix = "cost"),
+               # nest_minmax_sans_outliers(nests, 
+               #                           quant_data = nest_cost, 
+               #                           prefix = "cost"),
+               # OPTION C: REGIONAL IQR AFTER GLOBAL OUTLIERS REMOVED
+               # nest_iqr_sans_outliers(nests = nests,
+               #                        quant_data = nest_cost,
+               #                        prefix = "cost",
+               #                        hg_exception = TRUE),
+               # OPTION D: ISOLATION TREE OUTLIER DETECTION
+               nest_isoforest(nests = nests, 
+                              quant_data = nest_cost, 
+                              prefix = "cost"),
                region),
   #### ITERATE OVER REGIONAL CUTOFFS ####
   # For each region, iterate the following:

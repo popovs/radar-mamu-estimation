@@ -141,6 +141,7 @@ nest_minmax_sans_outliers <- function(nests, quant_data, prefix) {
   
   # Remove overall nest quant outliers first
   upper_outliers <- upper_whisker(quant_data)
+  nests$quant_outlier_yn <- nests$quant_col >= upper_outliers
   # IQR method
   #upper_outliers <- boxplot.stats(nests$quant_col)$out[boxplot.stats(nests$quant_col)$out > median(nests$quant_col, na.rm = TRUE)]
   # Quantile method
@@ -150,10 +151,11 @@ nest_minmax_sans_outliers <- function(nests, quant_data, prefix) {
   # Pull minimum value by group after overall quant outliers are cut out
   quants <- aggregate(quant_col ~ region, nests, FUN = min, na.rm = TRUE)
   # Pull maximum value by group after overall quant outliers are cut out
-  quants$max <- aggregate(quant_col ~ region, nests[nests$quant_col <= upper_outliers,], FUN = max, na.rm = TRUE)[[2]]
-  # Now check if any individual regions have IQR outliers, after overall quant outliers are cut out
-  #quants$upr_whisker <- aggregate(quant_col ~ region, nests[nests$quant_outlier_yn == FALSE,], FUN = upper_whisker)[[2]]
-  
+  quants$max <- aggregate(quant_col ~ region, 
+                          nests[nests$quant_outlier_yn == FALSE,], 
+                          FUN = max, 
+                          na.rm = TRUE)[[2]]
+
   # Set up output names
   min_col <- paste0(prefix, "_min")
   max_col <- paste0(prefix, "_max")
@@ -176,6 +178,110 @@ nest_minmax_sans_outliers <- function(nests, quant_data, prefix) {
   
 }
 
+# Finally, this is what seems to be the best approach - the 8 outliers
+# across the entire dataset - nests with costs > 7k - are cut out; 
+# then rather than taking the maximum per region, the IQR is taken
+# per region (ie, cutting out regional outliers). This approach is 
+# defendable because our regional groupings are fairly arbitrary
+# and don't necessarily reflect actual regional behavioral patterns
+# in MAMU activity. So, there may be a few nests in one region (e.g.,
+# MWVI) that could reasonably just as easily fall within another region
+# (e.g., NVI). 
+nest_iqr_sans_outliers <- function(nests, quant_data, prefix, hg_exception) {
+  # TODO: if this overwrites the data, it might trigger an endless pipeline reassessment loop
+  # TODO: regions within nest data might not necessarily line up with regions_map in pipeline
+  nests$quant_col <- quant_data
+  
+  # Remove overall nest quant outliers first
+  upper_outliers <- upper_whisker(quant_data)
+  nests$quant_outlier_yn <- nests$quant_col >= upper_outliers
+  
+  # Pull minimum value by group after overall quant outliers are cut out
+  quants <- aggregate(quant_col ~ region, nests, FUN = min, na.rm = TRUE)
+  # Now check if any individual regions have IQR outliers, after overall quant outliers are cut out
+  quants$upr_whisker <- aggregate(quant_col ~ region, 
+                                  nests[nests$quant_outlier_yn == FALSE,], 
+                                  FUN = upper_whisker)[[2]]
+  
+  # Set up output names
+  min_col <- paste0(prefix, "_min")
+  max_col <- paste0(prefix, "_max")
+  names(quants) <- c("region", min_col, max_col)
+  
+  # Round to nearest 10
+  quants$cost_min <- floor(quants$cost_min / 10) * 10 # round DOWN to nearest 10
+  quants$cost_max <- ceiling(quants$cost_max / 10) * 10 # round UP to nearest 10
+  
+  # HG has so little data and birds tend to fly differently there,
+  # as there aren't distinctly well defined watersheds in the same way 
+  # as the mainland or VI, which have more rugose coastlines. 
+  # So, as an option, simply take the maximum value for HG rather than
+  # cutting out any outliers. 
+  if (hg_exception) {
+    hg_max <- max(nests[["quant_col"]][nests$quant_outlier_yn == FALSE & nests$region == "HG"])
+    hg_max <- ceiling(hg_max / 10) * 10
+    quants[["cost_max"]][quants$region == "HG"] <- hg_max
+  }
+  
+  # Fill in missing values, if they're missing
+  # If NVI is NULL, use mean of the other 3 regions of VI
+  # If AKB and NC are NULL, use CC cutoffs
+  if (!"NVI" %in% quants$region) quants <- rbind(quants, c("NVI", round(mean(quants[grep("VI", quants$region), min_col])), round(mean(quants[grep("VI", quants$region), max_col]))))
+  if (!"AKB" %in% quants$region) quants <- rbind(quants, c("AKB", quants[[min_col]][quants$region == "CC"], quants[[max_col]][quants$region == "CC"]))
+  if (!"NC" %in% quants$region)  quants <- rbind(quants, c("NC", quants[[min_col]][quants$region == "CC"], quants[[max_col]][quants$region == "CC"]))
+  
+  # rbind converts numerics to character... convert them back
+  quants[[min_col]] <- as.numeric(quants[[min_col]])
+  quants[[max_col]] <- as.numeric(quants[[max_col]])
+  
+  return(quants)
+}
+
+
+nest_isoforest <- function(nests, quant_data, prefix) {
+  nests$quant_col <- quant_data
+  # Create isolation forest model and calcuate outlier scores
+  data <- sf::st_drop_geometry(nests[,c("region", "quant_col")])
+  if_model <- isotree::isolation.forest(data, sample_size = 3, ndim=1, ntrees=10, nthreads=1)
+  scores <- isotree::predict.isolation_forest(if_model, data, type="avg_depth")
+  # Choose cutoff for what counts as an 'outlier score'. 
+  # Choose scores that 99% of the data fall into
+  outlier_threshold <- quantile(scores, 0.01)[[1]]
+  # Add that info back to `nests`
+  nests$scores <- scores
+  nests$outlier_yn <- nests$scores <= outlier_threshold # less than or = to threshold
+  # Choose max by group after cutting out regional outliers
+  nests <- nests[nests$outlier_yn == FALSE, ]
+  quants <- aggregate(quant_col ~ region, nests, FUN = "max")
+  # Set minimum to be zero with this method
+  quants$min <- 0
+  
+  # Reorder!
+  # NOTE this order is switched from other methods above!
+  quants <- quants[,c(1,3,2)]
+  
+  # Set up output names
+  min_col <- paste0(prefix, "_min")
+  max_col <- paste0(prefix, "_max")
+  names(quants) <- c("region", min_col, max_col) 
+  
+  # Round to nearest 10
+  quants$cost_min <- floor(quants$cost_min / 10) * 10 # round DOWN to nearest 10
+  quants$cost_max <- ceiling(quants$cost_max / 10) * 10 # round UP to nearest 10
+  
+  # Fill in missing values, if they're missing
+  # If NVI is NULL, use mean of the other 3 regions of VI
+  # If AKB and NC are NULL, use CC cutoffs
+  if (!"NVI" %in% quants$region) quants <- rbind(quants, c("NVI", round(mean(quants[grep("VI", quants$region), min_col])), round(mean(quants[grep("VI", quants$region), max_col]))))
+  if (!"AKB" %in% quants$region) quants <- rbind(quants, c("AKB", quants[[min_col]][quants$region == "CC"], quants[[max_col]][quants$region == "CC"]))
+  if (!"NC" %in% quants$region)  quants <- rbind(quants, c("NC", quants[[min_col]][quants$region == "CC"], quants[[max_col]][quants$region == "CC"]))
+  
+  # rbind converts numerics to character... convert them back
+  quants[[min_col]] <- as.numeric(quants[[min_col]])
+  quants[[max_col]] <- as.numeric(quants[[max_col]])
+  
+  return(quants)
+}
 
 reclass_raster <- function(dem, cutoffs, min_col, max_col, region, ...) { # ... param to ignore other cols in the dataframe when it gets passed in
   cutoffs <- cutoffs[cutoffs$region == region,]
