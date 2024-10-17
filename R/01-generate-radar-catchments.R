@@ -660,7 +660,7 @@ directionality_crop <- function(cost_catchments,
   catchments2 <- dplyr::bind_rows(catchments2)
   
   # Also, let's drop any catchments with tiny areas that might
-  # confuse the wat_maz selectio algorithm (e.g., see Port Chanal)
+  # confuse the wat_maz selection algorithm (e.g., see Port Chanal)
   catchments2$area_m2 <- units::drop_units(sf::st_area(catchments2))
   catchments2 <- catchments2[catchments2$area_m2 > 2000, ]
   
@@ -731,7 +731,10 @@ access_catchments <- function(cost_catchments, maz, stn,
     dplyr::summarise()
   
   # Recalculate catchment area
-  cc_maz$area_m2 <- units::set_units(sf::st_area(cc_maz), "ha")
+  cc_maz$area_ha <- units::set_units(sf::st_area(cc_maz), "ha")
+  
+  # Merge with `stn` to get region and loc
+  cc_maz <- merge(cc_maz, sf::st_drop_geometry(stn[,c("site", "region", "loc")]), by = "site")
   
   # Optional: extract forestry and nest info?
   if (raster_stats == TRUE) {

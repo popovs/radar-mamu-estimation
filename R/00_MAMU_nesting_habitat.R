@@ -273,8 +273,22 @@ block_land <- function(dem, canvas, land) {
   return(out)
 }
   
-coast_distance <- function(elev, sea, dist_km) {
+coast_distance <- function(elev, sea, dist_km, exclude_islands, ...) {
   if (terra::ext(elev) != terra::ext(sea)) elev <- terra::resample(elev, sea)
+  
+  # OPTIONAL: exclude HG and VI from coast distance calculation?
+  # We have evidence birds fly and nest within all regions of VI.
+  if (exclude_islands) {
+    # Unpack dots
+    dots <- list(...)
+    regions <- dots$region
+    # Prep `regions` to create two masking blocks for HG and VI
+    islands <- dplyr::summarise(regions[regions$region %in% c("HG", "NVI", "MWVI", "EVI", "SWVI", "WNVI"),]) |> nngeo::st_remove_holes()
+    # Mask and save islands as raster == 1
+    islands <- terra::crop(elev, islands, mask = TRUE)
+    islands <- terra::ifel(islands > 0, 1, NA)
+  } 
+  
   coast_distance <- terra::merge(elev, sea)
   coast_distance <- terra::ifel(coast_distance > 0 , 1, coast_distance) # we don't care about the elevation cutoff minimums here - so reclassify them to only keep the max cutoffs
   coast_distance <- terra::gridDist(coast_distance, target = 0) # calculate distance from the sea! (values of 0 on the raster == sea)
@@ -282,7 +296,12 @@ coast_distance <- function(elev, sea, dist_km) {
   # Cut down to only include 30km distance and clip to land areas
   dist_m <- dist_km * 1000
   c_dist <- coast_distance <= dist_m
-  c_dist <- terra::merge(sea, c_dist)
+  # Merge w sea and/or islands
+  if (exclude_islands) {
+    c_dist <- terra::merge(islands, c_dist)
+  } else {
+    c_dist <- terra::merge(sea, c_dist)
+  }
   c_dist <- terra::ifel(c_dist == 1, 1, NA) # set any non-valid nesting areas == NA
   
   return(c_dist)

@@ -248,7 +248,11 @@ list(
   # NOTE: IF WE INCLUDE ALASKA BORDER REGION LATER, we will need to 
   # include the Alaska DEM in this to correctly measure distance from
   # coast for the Alaska Border region. 
-  tar_terra_rast(coast_dist, coast_distance(elev = elev, sea = sea, dist_km = 30)),
+  tar_terra_rast(coast_dist, coast_distance(elev = elev, 
+                                            sea = sea, 
+                                            dist_km = 30,
+                                            exclude_islands = TRUE, # exclude HG and VI from coast distance calcs - we know birds that access inland regions on HG/VI
+                                            regions = regions)),
   #### FOREST COVER CUTOFF ####
   # MAMU are almost certainly not nesting in urban or other completely
   # treeless areas. Cut those out.
@@ -384,5 +388,28 @@ list(
                                          nests = nests)),
   tar_target(cc_gpkg, 
              save_sf(sf = final_cc, output_path = "GIS/radar_derived_catchments.gpkg"), 
-             format = "file")
+             format = "file"),
+  # Intersect with 2024 MAMU suitable habitat layer
+  tar_target(suitable_habitat, prepare_mamu_habitat(path = "GIS/2024_suitable_habitat/", 
+                                                    regions = regions)),
+  tar_target(cc_habitat, habitat_in_catchments(catchments = final_cc, 
+                                               habitat = suitable_habitat)),
+  #### STANDARDIZE MAMU COUNTS ####
+  # Select maximum MAMU count per station per year
+  # Skipping model approach for now
+  tar_target(mamu_station_count, max_mamu(s)),
+  #### DENSITY CALCS ####
+  # Total habitat (m2) across whole suitable habitat layer
+  tar_target(total_suit_hab_area_ha, sum(suitable_habitat$sh_area_ha)),
+  # Habitat (m2) summarized by region
+  tar_target(regional_suit_hab_area_ha, aggregate(sh_area_ha ~ region, suitable_habitat, FUN = "sum")),
+  # Habitat in each radar-derived catchment
+  tar_target(catchment_suit_hab_area_ha, aggregate(sh_area_ha ~ site, cc_habitat, FUN = "sum")),
+  # Calculate the density of birds within each catchment
+  tar_target(mamu_density, catchment_density(catchment_habitat = cc_habitat,
+                                             mamu_station_count)),
+  # Calculate mean desnity per region -> calculate MAMU count per region!
+  tar_target(regional_population_est, extrapolate_density(mamu_density = mamu_density, 
+                                                          regional_sh_area = regional_suit_hab_area_ha)),
+  tar_target(total_population, sum(regional_population_est$mamu_count))
 ) 
