@@ -14,7 +14,7 @@
 # MAX MAMU SURVEY ---------------------------------------------------------
 
 # TO USE IN LIEU OF GLMM STANDARDIZED SURVEYS:
-max_mamu <- function(s, stn) {
+max_mamu <- function(s, stn, CI_level = 95) {
   s <- s |> dplyr::group_by(site) |> dplyr::mutate(total_effort = dplyr::n())
   s <- aggregate(mamuinpd ~ site + year + total_effort, s, FUN = "max")
   names(s)[4] <- "max_mamu_count"
@@ -30,13 +30,20 @@ max_mamu <- function(s, stn) {
     dplyr::summarise(year_min = min(year),
                      year_max = max(year),
                      n_surveys = max(total_effort),
-                     mean_max_mamu = mean(max_mamu_count))
+                     mean_max_mamu = round(mean(max_mamu_count)),
+                     sd = round(sd(max_mamu_count))) # while the overall distribution is non-normal, the max count for each station follows a normal dist.
+  # Calculate 95% CI
+  if (CI_level > 1) CI_level <- CI_level / 100
+  z_score <- qnorm(1 - ((1 - CI_level) / 2)) # get the z-score for the CI
+  s$CI <- z_score * s$sd / sqrt(s$n_surveys)
   # Merge in region info
   stn <- sf::st_drop_geometry(stn)
   stn <- stn[,c("site", "region", "loc")]
   s <- merge(s, stn, by = "site")
   # Rearrange cols
-  s <- s[,c("site", "region", "loc", "year_min", "year_max", "n_surveys", "mean_max_mamu")]
+  s <- s[,c("site", "region", "loc", "year_min", "year_max", 
+            "n_surveys", "mean_max_mamu", "sd", "CI")]
+  s$CI_level <- CI_level
   # Return
   return(s)
 }
@@ -80,7 +87,8 @@ habitat_in_catchments <- function(catchments, habitat) {
   return(c_hab)
 }
 
-catchment_density <- function(catchment_habitat, mamu_station_count, mamu_count_col) {
+catchment_density <- function(catchment_habitat, mamu_station_count, 
+                              mamu_count_col, CI_col) {
   summary <- catchment_habitat |> 
     sf::st_drop_geometry() |> 
     dplyr::group_by(site, region) |> 
@@ -89,16 +97,37 @@ catchment_density <- function(catchment_habitat, mamu_station_count, mamu_count_
     dplyr::mutate(catchment_habitat_density = sh_area_ha / cat_area_ha)
   summary <- merge(summary, mamu_station_count, by = c("site", "region"), all.x = TRUE) # some MAMU stations have radar counts, but no headings :(
   summary$mamu_sh_density <- summary[[mamu_count_col]] / summary$sh_area_ha
-  summary$mamu_cat_density <- summary[[mamu_count_col]] / summary$cat_area_ha
+  summary$density_CI <- summary[[CI_col]] / summary$sh_area_ha
   return(summary)
 }
 
-extrapolate_density <- function(mamu_density, regional_sh_area) {
-  reg_dens <- aggregate(mamu_sh_density ~ region, mamu_density, FUN = "mean")
+extrapolate_density <- function(mamu_density, regional_sh_area, min_ss) {
+  #reg_dens <- aggregate(mamu_sh_density ~ region, mamu_density, FUN = "mean")
+  # Remove density estimates with fewer than minimum sample size total
+  mamu_density <- mamu_density[mamu_density$n_surveys >= min_ss,]
+  reg_dens <- mamu_density |> 
+    dplyr::mutate(density_min = mamu_sh_density - density_CI,
+                  density_max = mamu_sh_density + density_CI) |>
+    dplyr::summarise(.by = region,
+                     mamu_sh_density = mean(mamu_sh_density),
+                     density_min = mean(density_min), # ideally, cutting out minimum sample size will prevent NA's sneaking in here
+                     density_max = mean(density_max),
+                     n_catchments = dplyr::n(),
+                     CI_level = mean(CI_level))
   reg_dens <- merge(reg_dens, regional_sh_area, by = "region")
+  # Mean MAMU count
   reg_dens$mamu_count <- reg_dens$mamu_sh_density * reg_dens$sh_area_ha
   reg_dens$mamu_count <- round(reg_dens$mamu_count)
+  # Min MAMU count
+  reg_dens$min_count <- reg_dens$density_min * reg_dens$sh_area_ha
+  reg_dens$min_count <- round(reg_dens$min_count)
+  # Max MAMU count
+  reg_dens$max_count <- reg_dens$density_max * reg_dens$sh_area_ha
+  reg_dens$max_count <- round(reg_dens$max_count)
+  # Reorder
   reg_dens <- reg_dens[order(reg_dens$region),]
+  # Select cols
+  reg_dens <- reg_dens[,c("region", "n_catchments", "mamu_count", "min_count", "max_count", "mamu_sh_density", "sh_area_ha", "CI_level")]
   return(reg_dens)
 }
   
