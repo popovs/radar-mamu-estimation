@@ -266,8 +266,8 @@ nest_isoforest <- function(nests, quant_data, prefix) {
   names(quants) <- c("region", min_col, max_col) 
   
   # Round to nearest 10
-  quants$cost_min <- floor(quants$cost_min / 10) * 10 # round DOWN to nearest 10
-  quants$cost_max <- ceiling(quants$cost_max / 10) * 10 # round UP to nearest 10
+  quants[[min_col]] <- floor(quants[[min_col]] / 10) * 10 # round DOWN to nearest 10
+  quants[[max_col]] <- ceiling(quants[[max_col]] / 10) * 10 # round UP to nearest 10
   
   # Fill in missing values, if they're missing
   # If NVI is NULL, use mean of the other 3 regions of VI

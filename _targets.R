@@ -133,7 +133,12 @@ list(
   tar_target(nest_elev_m, exactextractr::exact_extract(DEM, nests, 'mean')),
   # Calculate and store regional elevation cutoffs in a table
   tar_group_by(elevation_cutoffs,
-               nest_quantiles(nests, 
+               # OPTION A: 95% QUANTILES
+               # nest_quantiles(nests, 
+               #                quant_data = nest_elev_m,
+               #                prefix = "elev_m"),
+               # OPTION B: ISOLATION TREE OUTLIER DETECTION
+               nest_isoforest(nests,
                               quant_data = nest_elev_m,
                               prefix = "elev_m"),
                region), # group by region col so targets later knows to run `reclass_elevation()` by row-level grouping
