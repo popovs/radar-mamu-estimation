@@ -462,6 +462,7 @@ watershed_cost <- function(watersheds,
                            dem, 
                            cones, 
                            stn, 
+                           cost,
                            cost_cutoffs,
                            output_plots = TRUE,
                            output_dir,
@@ -507,6 +508,15 @@ watershed_cost <- function(watersheds,
     if (is.na(terra::cellFromXY(tmp, origin))) message("Unable to find origin for ", x)
     tmp[terra::cellFromXY(tmp, origin)] <- -1
     tmp <- terra::costDist(tmp, -1, scale = 1000, maxiter = 100)
+    # IMPORTANT! Our cut distance cutoffs assume the origin is from
+    # a point at sea. For inland stations, we need to add the base
+    # cost of *how much it costs to fly further from that station.*
+    # Therefore, we need to load up the cost of the station and add 
+    # that value to the `tmp` cost raster.
+    # if (stn[stn$site == x,]$loc == "Inland") {
+    #   stn_cost <- terra::extract(cost, origin)[[1]]
+    #   tmp <- tmp + stn_cost
+    # }
     tmp <- terra::ifel(tmp > 0, tmp, NA)
     tmp <- terra::crop(tmp, watersheds[watersheds$site == x,], mask = TRUE) # now crop to watersheds shape
     return(tmp)
@@ -551,7 +561,7 @@ watershed_cost <- function(watersheds,
   # Apply the regional cost cutoff to each individual
   # cost catchment (i.e., draw boundaries on each cost
   # catchment)
-  catchments <- lapply(sites, function(x) {
+  catchments2 <- lapply(sites, function(x) {
     message("Setting max boundaries of cost catchment for ", x)
     # Extract catchment + apply cutoff
     tmp <- catchments[[x]]
@@ -560,14 +570,16 @@ watershed_cost <- function(watersheds,
     # Vectorize
     tmp <- terra::as.polygons(tmp, crs = "epsg:3005")
     tmp <- sf::st_as_sf(tmp)
+    if(nrow(tmp) > 0) tmp$site <- x # after applying inland cutoffs, some sites might have NULL catchments!
+    return(tmp)
   })
   
   # Clean up output
-  catchments <- dplyr::bind_rows(catchments)
-  catchments$site <- sites
-  catchments <- catchments[, "site"]
+  catchments2 <- dplyr::bind_rows(catchments2)
+  # catchments2$site <- sites
+  catchments2 <- catchments2[, "site"]
   
-  return(catchments)
+  return(catchments2)
   
 }
 

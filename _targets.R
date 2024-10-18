@@ -374,14 +374,15 @@ list(
                                            h = h)),
   # Calculate how much it costs to fly within the selected watersheds
   tar_target(full_cc, watershed_cost(watersheds = watersheds,
-                                             dem = DEM,
-                                             cones = cones,
-                                             stn = stn, 
-                                             cost_cutoffs = cost_cutoffs,
-                                             output_dir = "temp/cost_inspection",
-                                             headings = h_0,
-                                             h = h,
-                                             nests = nests)),
+                                     dem = DEM,
+                                     cones = cones,
+                                     stn = stn, 
+                                     cost = cost,
+                                     cost_cutoffs = cost_cutoffs,
+                                     output_dir = "temp/cost_inspection",
+                                     headings = h_0,
+                                     h = h,
+                                     nests = nests)),
   # Cut out pieces behind heading 
   # Birds aren't flying backwards from radar station
   tar_target(cropped_cc, directionality_crop(cost_catchments = full_cc,
