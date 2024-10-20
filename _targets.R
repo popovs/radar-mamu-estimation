@@ -374,7 +374,7 @@ list(
   tar_target(watersheds_raw, prepare_watersheds(watersheds_file, regions)),
   tar_target(watersheds, select_watersheds(watersheds = watersheds_raw, 
                                            cones = cones, 
-                                           min_cone_coverage = 0.02,
+                                           min_cone_coverage = 0.01,
                                            output_plots = TRUE,
                                            output_dir = "temp/cone_inspection",
                                            stn = stn,
