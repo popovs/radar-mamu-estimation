@@ -346,15 +346,21 @@ list(
   # Read in MAMU radar survey data
   tar_target(s_file, "data/ECCC_FLNR_MAMU-RadarData-20240307.xlsx", format = "file"),
   tar_target(s, prepare_surveys(s_file)),
-  # Extract individual station coords
-  tar_target(stn, prepare_stn(s, regions)),
   # Read in flight headings data
   tar_target(h_file, "data/headings.xlsx", format = "file"),
   tar_target(h_0, prepare_headings(h_file)),
+  # Extract individual station coords
+  tar_target(stn, prepare_stn(s, h_0, regions)),
+  tar_target(stn_gpkg, 
+             save_sf(sf = stn, output_path = "temp/stn.gpkg"), 
+             format = "file"),
   # Calculate polar mean flight headings
   tar_target(h, calc_polar_mean(headings = h_0, n_reps = 1000, alpha = 0.05)),
   # Calculate cones
-  tar_target(cones, generate_cones(h = h, stn = stn, radius = 30000, res = res)),
+  tar_target(cones, generate_cones(h = h, 
+                                   stn = stn, 
+                                   radius = 30000, # length cones to select appropriate watersheds
+                                   res = res)),
   tar_target(cones_gpkg, 
              save_sf(sf = cones, output_path = "GIS/flight_headings.gpkg"), 
              format = "file"),
@@ -362,8 +368,10 @@ list(
   # Now, based on the MAMU flight headings at each radar station,
   # select the watershed catchments the birds are targeting (i.e.,
   # the watersheds the radar cones overlap with).
-  tar_target(watersheds_file, "GIS/Watersheds/code_2_watersheds.gpkg", format = "file"),
-  tar_target(watersheds_raw, sf::st_read(watersheds_file)),
+  #tar_target(watersheds_file, "GIS/Watersheds/code_2_watersheds.gpkg", format = "file"),
+  #tar_target(watersheds_file, "GIS/Watersheds/WSA_WS_SVW_polygon.shp", format = "file"),
+  tar_target(watersheds_file, "GIS/Watersheds/code_2_HG_merge.gpkg", format = "file"),
+  tar_target(watersheds_raw, prepare_watersheds(watersheds_file, regions)),
   tar_target(watersheds, select_watersheds(watersheds = watersheds_raw, 
                                            cones = cones, 
                                            min_cone_coverage = 0.02,

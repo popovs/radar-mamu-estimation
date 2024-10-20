@@ -21,33 +21,6 @@ prepare_surveys <- function(path) {
   return(s)
 }
 
-# Extract individual stations from survey data
-# bc station lat/lon can change by a few meters each year
-# (impossible to set up the radar station in EXACTLY the
-# same spot each year), take the mean lat/lon by
-# site.
-prepare_stn <- function(s, regions) {
-  # Grab region from the `regions` sf
-  # First drop existing regions col
-  s <- dplyr::select(s, -region)
-  s <- sf::st_transform(s, 3005)
-  s <- suppressWarnings(sf::st_intersection(s, regions))
-  stn <- sf::st_drop_geometry(s) # trying to get mean sf coords by group is a pain. 
-  stn <- stn |> 
-    dplyr::select(site, region, loc, lat, lon) |>
-    dplyr::group_by(site, region, loc) |>
-    dplyr::summarise(lat = mean(lat),
-                     lon = mean(lon)) |>
-    sf::st_as_sf(crs = 4326, 
-                 coords = c("lon", "lat"), 
-                 remove = FALSE)
-  return(stn)
-}
-
-
-
-# GENERATE CONES -----------------------------------------------------------
-
 
 prepare_headings <- function(path) {
   headings <- readxl::read_excel(path,
@@ -69,16 +42,39 @@ prepare_headings <- function(path) {
   headings <- merge(headings, stn_lookup, by.x = "name", by.y = "original_name", all.x = TRUE)
   headings$name <- ifelse(is.na(headings$new_name), headings$name, headings$new_name)
   
+  # First clean up station lat/longs. While the radar 
+  # station is on land, the birds are flying in off
+  # to the side. So, for each observation at each station,
+  # take the mean "bird entry point" - that is, the mean
+  # location *relative to the radar unit* that the 
+  # birds are flying into. All the headings are then
+  # estimated from *that point* on the radar screen.
+  headings$initial_direction <- tolower(headings$initial_direction)
+  compass_directions <- data.frame(initial_direction = c("n", "nne", "ne", "ene",
+                                                         "e", "ese", "se", "sse",
+                                                         "s", "ssw", "sw", "wsw",
+                                                         "w", "wnw", "nw", "nnw"),
+                                   initial_degrees = seq(0, 360, 22.5)[1:16])
+  headings <- merge(headings, compass_directions, all.x = TRUE)
+  # Now, using the bearing from the station and the distance from the 
+  # station, find the true "mean bird entry point" on to the radar
+  # field, relative to the radar station.
+  relative_pts <- as.data.frame(geosphere::destPoint(p = headings[,c("lon", "lat")], b = headings$initial_degrees, d = headings$distance))
+  names(relative_pts) <- c("rel_lon", "rel_lat")
+  headings <- cbind(headings, relative_pts)
+  
   # TODO: Cut out stations with <5 headings?
   
   # Split out incoming and outgoing headings
-  inc <- headings[grep("Incoming", headings$flightpath_type, ignore.case = T),c("name", "heading")]
+  inc <- headings[grep("Incoming", headings$flightpath_type, ignore.case = T),
+                  c("name", "lat", "lon", "rel_lat", "rel_lon", "initial_direction", "initial_degrees", "distance", "heading")]
   inc$flightpath_type <- "Incoming"
-  out <- headings[grep("Outgoing", headings$flightpath_type, ignore.case = T),c("name", "heading")]
+  out <- headings[grep("Outgoing", headings$flightpath_type, ignore.case = T),
+                  c("name", "lat", "lon", "rel_lat", "rel_lon", "initial_direction", "initial_degrees", "distance", "heading")]
   out$flightpath_type <- "Outgoing"
   
-  inc <- inc[complete.cases(inc),]
-  out <- out[complete.cases(out),]
+  inc <- inc[!is.na(inc$heading),]
+  out <- out[!is.na(out$heading),]
   
   # Make `out` the opposite heading
   # That is, we assume that 180° (polar opposite) direction
@@ -89,9 +85,74 @@ prepare_headings <- function(path) {
   # Now merge in and out back together
   # `h` now functionally contains *'incoming' headings only*
   h <- rbind(inc, out)
+  h <- h[order(h$name),]
   
   return(h)
 }
+
+
+# Extract individual stations from survey data
+# bc station lat/lon can change by a few meters each year
+# (impossible to set up the radar station in EXACTLY the
+# same spot each year), take the mean lat/lon by
+# site. Additionally, for radar stations with headings,
+# use the *relative* latitude and longitude. Radar stations
+# are typically set up on land, while birds are flying
+# over water several hundred m away. So, extract the
+# mean lat/lon of where birds are actually flying over
+# when entering a watershed mouth to act as the 'true'
+# radar station coordinate.
+prepare_stn <- function(s, headings, regions) {
+  # Grab region from the `regions` sf
+  # First drop existing regions col and
+  # replace with region the point falls into in the
+  # project shapefile
+  s <- dplyr::select(s, -region)
+  s <- sf::st_transform(s, 3005)
+  s <- suppressWarnings(sf::st_intersection(s, regions))
+  
+  # Get the mean coordinate
+  stn <- sf::st_drop_geometry(s) # trying to get mean sf coords by group is a pain. 
+  stn <- stn |> 
+    dplyr::select(site, region, loc, lat, lon) |>
+    dplyr::group_by(site, region, loc) |>
+    dplyr::summarise(lat = mean(lat),
+                     lon = mean(lon))
+  
+  # Next do the same thing with radar stations
+  h_stn <- headings |>
+    dplyr::select(name, rel_lat, rel_lon) |>
+    dplyr::group_by(name) |>
+    dplyr::summarise(rel_lat = mean(rel_lat, na.rm = TRUE),
+                     rel_lon = mean(rel_lon, na.rm = TRUE))
+  
+  # Merge with stn, then grab the rel_lat/lon if it's available
+  stn <- merge(stn, h_stn, by.x = "site", by.y = "name", all.x = TRUE)
+  stn$lat <- ifelse(is.na(stn$rel_lat), stn$lat, stn$rel_lat)
+  stn$lon <- ifelse(is.na(stn$rel_lon), stn$lon, stn$rel_lon)
+  stn$rel_coord <- !is.na(stn$rel_lat) # keep track of which stations used relative coords
+  
+  # Drop the two `rel` cols and turn into a spatial object
+  stn <- stn |>
+    dplyr::select(-rel_lat, -rel_lon) |>
+    sf::st_as_sf(crs = 4326, 
+                 coords = c("lon", "lat"), 
+                 remove = FALSE)
+  
+  return(stn)
+}
+
+
+prepare_watersheds <- function(path, regions) {
+  ws <- sf::st_read(path)
+  ws <- sf::st_transform(ws, 3005)
+  ws <- sf::st_intersection(ws, regions)
+  return(ws)
+}
+
+
+# GENERATE CONES -----------------------------------------------------------
+
 
 # Define circular mean function
 # where x is your heading angle IN RADIANS
@@ -178,8 +239,8 @@ generate_cones <- function(h, stn, radius, res) {
     for (i in isNaN) {
       message("Error with ", h$site[[i]], ". Re-generating cone for ", h$site[[i]], "...")
       cones[[i]] <- radar_cone(pt = h[i,],
-                               radius = 30000,
-                               theta = 90,
+                               radius = radius,
+                               theta = h$theta[[i]],
                                heading = h$mean[[i]],
                                res = 25)
     }
@@ -253,7 +314,7 @@ plot_headings <- function(site, headings, h) {
                         color = "grey",
                         linetype = "dashed") +
     ggplot2::xlim(0, 360) + 
-    ggplot2::ggtitle("Outgoing") + 
+    ggplot2::ggtitle("180° - Outgoing") + 
     ggplot2::theme(axis.title = ggplot2::element_blank()) +
     ggplot2::theme_minimal()
   
@@ -406,17 +467,15 @@ select_watersheds <- function(watersheds,
     dplyr::mutate(total_area = sum(intersect_area),
                   prct_coverage = intersect_area / total_area * 100)
   
-  #watersheds <- merge(watersheds, st_drop_geometry(cones), by = "site") # merge cone area in
   watersheds <- merge(watersheds, intersect_area, by = c("site", "WSD_ID"))
   
-  #watersheds$prct_cone_overlap <- (watersheds$intersect_area / watersheds$cone_area_ha) * 100
-  #watersheds$prct_cone_overlap <- units::drop_units(watersheds$prct_cone_overlap)
   watersheds$prct_coverage <- units::drop_units(watersheds$prct_coverage)
   
   watersheds$centroid_x <- sf::st_coordinates(sf::st_centroid(watersheds))[,1]
   watersheds$centroid_y <- sf::st_coordinates(sf::st_centroid(watersheds))[,2]
   
-  watersheds$keep_yn <- (watersheds$prct_coverage > (100 * min_cone_coverage) | watersheds$region == "HG")
+  #watersheds$keep_yn <- (watersheds$prct_coverage > (100 * min_cone_coverage) | watersheds$region == "HG")
+  watersheds$keep_yn <- (watersheds$prct_coverage > (100 * min_cone_coverage))
   
   # Save plots to inspect each one
   # TODO: ideally split this out and make it its own 
