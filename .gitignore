@@ -61,4 +61,4 @@ temp*
 # Large GIS files, except regions
 GIS/*
 !GIS/cons_reg.*
-!GIS/radar_derived_catchments.gpkg
+!GIS/regions.gpkg

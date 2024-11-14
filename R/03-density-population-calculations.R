@@ -1,232 +1,135 @@
-# 3. CALCULATE MAMU DENSITY AND POPULATION
-
-# Following the creation of the catchments and standardization
-# of the radar survey data, we can now calculate the density
-# of birds within each catchment. From there, we will group 
-# each catchment by conservation region (based on the 
-# conservation region that the survey station was based in)
-# and calculate the mean density of birds per conservation
-# region. We will then multiply this mean density of birds
-# per region times the amount of available habitat area to 
-# come up with a population estimate across all of BC.
-
-# TODO: Clean up `cons_reg` stuff
-
-# 01 SETUP ----------------------------------------------------------------
-
-# This script assumes you have run scripts 00 though 02, and that
-# the predicted population + GIS files are either loaded into
-# the present R environment OR can be loaded in from the 'data' 
-# or 'GIS' directory.
-catchments <- sf::st_read("GIS/radar_derived_catchments.gpkg")
-catchments <- catchments[,names(catchments)[!grepl("region", names(catchments))]] # drop region to prevent "region.x" "region.y" after merge
-#cons_reg <- sf::st_read("GIS/cons_reg.shp")
-#names(cons_reg)[1] <- "region"
-regions <- st_read("GIS/regions.gpkg")
-
-# Read in MAMU nesting habitat raster
-mnh <- terra::rast("GIS/MAMU_nesting_habitat.tiff")
-
-# 01-1 Exact extract ----
-
-# TODO: just run exact extract here, instead of script 00
-# Check that cons_reg has the four `mnh` area columns in it
-# Otherwise, spit message that script 00 may need to be re-run
-#stopifnot("The conservation region shapefile does not contain `mnh` columns within it. You need to run section four of script `00-MAMU-nesting-habitat.R`." = sum(grepl("mnh", names(cons_reg))) == 4)
-stopifnot("The conservation region shapefile does not contain `mnh` columns within it. You need to run section four of script `00-MAMU-nesting-habitat.R`." = sum(grepl("mnh", names(regions))) == 4)
-
-catchments$mnh_count <- exactextractr::exact_extract(mnh, catchments, "count")
-catchments$mnh_m2 <- catchments$mnh_count * terra::res(mnh)^2 # each raster cell is res m x res m (e.g., 25m x 25m), aka res meters squared
-catchments$mnh_km <- catchments$mnh_m2 / 1000000 # go from m2 to km2
-catchments$mnh_ha <- catchments$mnh_km * 100 # multiply by 100 to go from km2 to hectares
-
-# 01-2 Merge prediction datasets with catchments ----
-
-# Merge in `p` objects with catchments
-p <- merge(p, catchments, by = "site", all.x = TRUE)
-p_allyears <- merge(p_allyears, catchments, by = "site", all.x = TRUE)
-p2022 <- merge(p2022, catchments, by = "site", all.x = TRUE)
-
-# Check out the habitat area-MAMU numbers relationship
-# Notably, increase in habitat area correlates to more
-# birds for all regions except Vancouver Island.
-library(units)
-p2022 %>%
-  filter(!is.na(mnh_ha) & mnh_ha > 0) %>%
-  ggplot(aes(x = mnh_ha, y = pred_fit, color = region)) +
-  geom_point() +
-  geom_smooth(method = "lm") +
-  #facet_wrap(~region) +
-  labs(x = "Area (ha)",
-       y = "2022 MAMU population estimate")
-
-# 01-3 Summary statistics ----
-
-ss <- unique(p[!is.na(p$mnh_ha),c("site", "region", "mnh_ha")])
-
-summary(ss$mnh_ha)
-psych::describeBy(ss$mnh_ha, ss$region, mat = TRUE, quant = c(0.25, 0.75)) %>% 
-  arrange(mean) #%>%
-  #select(-group1, -item) %>%
-  #colSums()
+#' 3. CALCULATE MAMU DENSITY AND POPULATION
+#' 
+#' Following the creation of the catchments and standardization
+#' of the radar survey data, we can now calculate the density
+#' of birds within each catchment. From there, we will group 
+#' each catchment by conservation region (based on the 
+#' conservation region that the survey station was based in)
+#' and calculate the mean density of birds per conservation
+#' region. We will then multiply this mean density of birds
+#' per region times the amount of available habitat area to 
+#' come up with a population estimate across all of BC.
 
 
-# 02 CALCULATE DENSITY ----------------------------------------------------
+# MAX MAMU SURVEY ---------------------------------------------------------
 
-# Calculate the average density of birds per catchment by region
-# I.e., mean number birds and mean area of catchments (in hectares)
-# for each region
-
-# First, calculate the density of birds in each catchment.
-p$density <- p$pred_fit / p$mnh_ha
-p$density_lwr <- p$ci_lwr / p$mnh_ha
-p$density_upr <- p$ci_upr / p$mnh_ha
-
-p_allyears$density <- p_allyears$pred_fit / p_allyears$mnh_ha
-p_allyears$density_lwr <- p_allyears$ci_lwr / p_allyears$mnh_ha
-p_allyears$density_upr <- p_allyears$ci_upr / p_allyears$mnh_ha
-
-p2022$density <- p2022$pred_fit / p2022$mnh_ha
-p2022$density_lwr <- p2022$ci_lwr / p2022$mnh_ha
-p2022$density_upr <- p2022$ci_upr / p2022$mnh_ha
-
-# Next, calculate the mean density per region (for datasets with 
-# multiple years, calculate mean density per region by year).
-library(dplyr)
-
-# TODO: deal with mnh_ha == 0 areas
-density <- p %>% 
-  filter(!is.na(mnh_ha) & mnh_ha != 0) %>%
-  group_by(year, region) %>%
-  summarize(density = mean(density),
-            density_lwr = mean(density_lwr),
-            density_upr = mean(density_upr))
-
-density_allyears <- p_allyears %>% 
-  filter(!is.na(mnh_ha) & mnh_ha != 0) %>%
-  group_by(year, region) %>%
-  summarize(density = mean(density),
-            density_lwr = mean(density_lwr),
-            density_upr = mean(density_upr))
-
-density2022 <- p2022 %>% 
-  filter(!is.na(mnh_ha) & mnh_ha != 0) %>%
-  group_by(region) %>% 
-  summarize(density = mean(density),
-            density_lwr = mean(density_lwr),
-            density_upr = mean(density_upr))
-
-# Merge conservation region with density
-density <- merge(density, regions, by = "region", all.x = TRUE)
-density_allyears <- merge(density_allyears, regions, by = "region", all.x = TRUE)
-density2022 <- merge(density2022, regions, by = "region", all.x = TRUE)
-
-# Finally, extrapolate the density by region to the total area
-density$mamu <- density$density * density$mnh_ha
-density$mamu_lwr <- density$density_lwr * density$mnh_ha
-density$mamu_upr <- density$density_upr * density$mnh_ha
-
-density_allyears$mamu <- density_allyears$density * density_allyears$mnh_ha
-density_allyears$mamu_lwr <- density_allyears$density_lwr * density_allyears$mnh_ha
-density_allyears$mamu_upr <- density_allyears$density_upr * density_allyears$mnh_ha
-
-density2022$mamu <- density2022$density * density2022$mnh_ha
-density2022$mamu_lwr <- density2022$density_lwr * density2022$mnh_ha
-density2022$mamu_upr <- density2022$density_upr * density2022$mnh_ha
-
-# Examine the data
-options(scipen = 999)
-head(density)
-density2022
-
-colSums(density[density$year == 1996, c("mamu", "mamu_lwr", "mamu_upr")])
-colSums(density[density$year == 2005, c("mamu", "mamu_lwr", "mamu_upr")])
-colSums(density[density$year == 2015, c("mamu", "mamu_lwr", "mamu_upr")])
-colSums(density[density$year == 2022, c("mamu", "mamu_lwr", "mamu_upr")])
-colSums(density2022[,c("mamu", "mamu_lwr", "mamu_upr")]) # these will slightly differ, as the prediction data between the two dataframes will be slightly different
-
-density %>%
-  filter(year == 2022) %>%
-  select(region, mamu, mamu_lwr, mamu_upr, mnh_ha, density) %>%
-  group_by(region) %>%
-  summarize(mamu = round(sum(mamu)),
-            mamu_lwr = round(sum(mamu_lwr)),
-            mamu_upr = round(sum(mamu_upr)),
-            area_ha = mean(mnh_ha) / 1000000,
-            density = mean(density) * 1000) %>%
-  arrange(desc(mamu))  #%>%
-  #select(-region) %>%
-  #colSums()
-
-density2022 %>%
-  select(region, mamu, mamu_lwr, mamu_upr, mnh_ha, density) %>%
-  mutate(mamu = round(mamu),
-         mamu_lwr = round(mamu_lwr),
-         mamu_upr = round(mamu_upr),
-         mnh_ha = mnh_ha / 1000000,
-         density = density * 1000) %>%
-  arrange(desc(mamu)) %>%
-  select(-region) %>%
-  colSums() # note ignore the density column here, you need to calc that by hand
+# TO USE IN LIEU OF GLMM STANDARDIZED SURVEYS:
+max_mamu <- function(s, stn, CI_level = 95) {
+  s <- s |> dplyr::group_by(site) |> dplyr::mutate(total_effort = dplyr::n())
+  s <- aggregate(mamuinpd ~ site + year + total_effort, s, FUN = "max")
+  names(s)[4] <- "max_mamu_count"
+  # Select most recent max count of each
+  # s <- s |> 
+  #   dplyr::arrange(site, year) |> 
+  #   dplyr::group_by(site) |> 
+  #   dplyr::slice(dplyr::n()) |>
+  #   dplyr::select(site, region, loc, year, total_effort, mamu_count) # rearrange cols
+  # Take the mean of the maximum mamu count across all years
+  s <- s |> 
+    dplyr::group_by(site) |> 
+    dplyr::summarise(year_min = min(year),
+                     year_max = max(year),
+                     n_surveys = max(total_effort),
+                     mean_max_mamu = round(mean(max_mamu_count)),
+                     sd = round(sd(max_mamu_count))) # while the overall distribution is non-normal, the max count for each station follows a normal dist.
+  # Calculate 95% CI
+  if (CI_level > 1) CI_level <- CI_level / 100
+  z_score <- qnorm(1 - ((1 - CI_level) / 2)) # get the z-score for the CI
+  s$CI <- z_score * s$sd / sqrt(s$n_surveys)
+  # Merge in region info
+  stn <- sf::st_drop_geometry(stn)
+  stn <- stn[,c("site", "region", "loc")]
+  s <- merge(s, stn, by = "site")
+  # Rearrange cols
+  s <- s[,c("site", "region", "loc", "year_min", "year_max", 
+            "n_surveys", "mean_max_mamu", "sd", "CI")]
+  s$CI_level <- CI_level
+  # Return
+  return(s)
+}
 
 
-# 03 PLOT IT --------------------------------------------------------------
+# PREPARE MAMU HABITAT ----------------------------------------------------
 
-# Midpoint MAMU population estimates from previous literature
-previous_estimates <- setNames(data.frame(c(2002, 2007, 2002, 2010, 2012),
-                                          c(66500, 73000, 23700, 16700, 99100),
-                                          c("Burger 2002", "Piatt 2007", "Miller 2012", "Miller 2012", "COSEWIC 2012")),
-                               c("year", "estimate", "source"))
 
-# Plot it
-density %>%
-  filter(region != "HG") %>% # HG is still not great, getting high density
-  select(year, mamu, mamu_lwr, mamu_upr) %>%
-  mutate(year_n = as.numeric(year) + 1995) %>%
-  dplyr::group_by(year_n) %>%
-  summarise(mamu = sum(mamu),
-            mamu_lwr = sum(mamu_lwr),
-            mamu_upr = sum(mamu_upr)) %>%
-  ggplot(aes(x = year_n, y = mamu)) +
-  geom_ribbon(aes(ymin = mamu_lwr,
-                  ymax = mamu_upr),
-              fill = "lightgrey",
-              alpha = 0.3) +
-  geom_point() +
-  geom_line() +
-  geom_point(data = previous_estimates,
-             aes(x = year,
-                 y = estimate),
-             color = "red") +
-  geom_text(data = previous_estimates,
-            aes(x = year,
-                y = estimate,
-                label = source),
-            color = "red",
-            hjust = 0, 
-            nudge_x = 0.75) +
-  xlab("Year") +
-  ylab("BC murrelet population") +
-  theme_minimal()
+prepare_mamu_habitat <- function(path, regions) {
+  # Read files
+  gpkgs <- list.files(path, full.names = TRUE)
+  gpkgs <- gpkgs[grep(".gpkg$", gpkgs)]
+  gpkgs <- lapply(gpkgs, sf::st_read)
+  sh <- dplyr::bind_rows(gpkgs)
+  sh <- janitor::clean_names(sh)
+  sh <- sh[,c("suit_hab_cl", "geom")]
+  # Calc area
+  sh$sh_area_ha <- units::set_units(sf::st_area(sh), "ha")
+  # Merge with regions
+  sh <- sf::st_intersection(sh, regions)
+  return(sh)
+}
 
-# By region
-density %>%
-  select(year, mamu, mamu_lwr, mamu_upr, region) %>%
-  mutate(year_n = as.numeric(year) + 1995) %>%
-  dplyr::group_by(year_n, region) %>%
-  summarise(mamu = sum(mamu),
-            mamu_lwr = sum(mamu_lwr),
-            mamu_upr = sum(mamu_upr)) %>%
-  ggplot(aes(x = year_n, y = mamu)) +
-  geom_ribbon(aes(ymin = mamu_lwr,
-                  ymax = mamu_upr,
-                  fill = region),
-              color = NA,
-              #fill = "lightgrey",
-              alpha = 0.3) +
-  geom_point(aes(color = region)) +
-  geom_line(aes(color = region)) +
-  xlab("Year") +
-  ylab("BC murrelet population") +
-  theme_minimal()
+habitat_in_catchments <- function(catchments, habitat) {
+  # Drop any attributes from `habitat`. Some catchments
+  # cross over regional boundaries, so it can cause issues
+  # with later aggregating density by region. So, instead,
+  # we will rely on the region col that is in `catchments`.
+  habitat <- dplyr::select(habitat, suit_hab_cl)
+  
+  # Intersect
+  c_hab <- sf::st_intersection(habitat, catchments)
+  
+  # Specify what the area col actually references
+  names(c_hab)[grep("^area_ha$", names(c_hab))] <- "cat_area_ha"
+  
+  # Re-calc hab area (some habitat polygons may have been clipped
+  # by the catchment)
+  c_hab$sh_area_ha <- units::set_units(sf::st_area(c_hab), "ha")
+  
+  return(c_hab)
+}
 
+catchment_density <- function(catchment_habitat, mamu_station_count, 
+                              mamu_count_col, CI_col) {
+  summary <- catchment_habitat |> 
+    sf::st_drop_geometry() |> 
+    dplyr::group_by(site, region) |> 
+    dplyr::summarize(sh_area_ha = sum(sh_area_ha),
+                     cat_area_ha = sum(cat_area_ha)) |> 
+    dplyr::mutate(catchment_habitat_density = sh_area_ha / cat_area_ha)
+  summary <- merge(summary, mamu_station_count, by = c("site", "region"), all.x = TRUE) # some MAMU stations have radar counts, but no headings :(
+  summary$mamu_sh_density <- summary[[mamu_count_col]] / summary$sh_area_ha
+  summary$density_CI <- summary[[CI_col]] / summary$sh_area_ha
+  return(summary)
+}
+
+extrapolate_density <- function(mamu_density, regional_sh_area, min_ss) {
+  #reg_dens <- aggregate(mamu_sh_density ~ region, mamu_density, FUN = "mean")
+  # Remove density estimates with fewer than minimum sample size total
+  mamu_density <- mamu_density[mamu_density$n_surveys >= min_ss,]
+  reg_dens <- mamu_density |> 
+    dplyr::mutate(density_min = mamu_sh_density - density_CI,
+                  density_max = mamu_sh_density + density_CI) |>
+    dplyr::summarise(.by = region,
+                     mamu_sh_density = mean(mamu_sh_density),
+                     density_min = mean(density_min), # ideally, cutting out minimum sample size will prevent NA's sneaking in here
+                     density_max = mean(density_max),
+                     n_catchments = dplyr::n(),
+                     CI_level = mean(CI_level))
+  reg_dens <- merge(reg_dens, regional_sh_area, by = "region")
+  # Mean MAMU count
+  reg_dens$mamu_count <- reg_dens$mamu_sh_density * reg_dens$sh_area_ha
+  reg_dens$mamu_count <- round(reg_dens$mamu_count)
+  # Min MAMU count
+  reg_dens$min_count <- reg_dens$density_min * reg_dens$sh_area_ha
+  reg_dens$min_count <- round(reg_dens$min_count)
+  # Max MAMU count
+  reg_dens$max_count <- reg_dens$density_max * reg_dens$sh_area_ha
+  reg_dens$max_count <- round(reg_dens$max_count)
+  # Reorder
+  reg_dens <- reg_dens[order(reg_dens$region),]
+  # Select cols
+  reg_dens <- reg_dens[,c("region", "n_catchments", "mamu_count", "min_count", "max_count", "mamu_sh_density", "sh_area_ha", "CI_level")]
+  return(reg_dens)
+}
+  
+  
+  
