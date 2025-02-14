@@ -52,14 +52,14 @@ max_mamu <- function(s, stn, CI_level = 95) {
 # PREPARE MAMU HABITAT ----------------------------------------------------
 
 
-prepare_mamu_habitat <- function(path, regions) {
+prepare_mamu_habitat_gpkg <- function(path, regions) {
   # Read files
   gpkgs <- list.files(path, full.names = TRUE)
   gpkgs <- gpkgs[grep(".gpkg$", gpkgs)]
   gpkgs <- lapply(gpkgs, sf::st_read)
   sh <- dplyr::bind_rows(gpkgs)
   sh <- janitor::clean_names(sh)
-  sh <- sh[,c("suit_hab_cl", "geom")]
+  #sh <- sh[,c("suit_hab_cl", "geom")]
   # Calc area
   sh$sh_area_ha <- units::set_units(sf::st_area(sh), "ha")
   # Merge with regions
@@ -67,25 +67,90 @@ prepare_mamu_habitat <- function(path, regions) {
   return(sh)
 }
 
+prepare_mamu_habitat_tiff <- function(path, regions) {
+  # Read files
+  tiff <- terra::rast(path)
+  return(tiff)
+}
+
 habitat_in_catchments <- function(catchments, habitat) {
-  # Drop any attributes from `habitat`. Some catchments
-  # cross over regional boundaries, so it can cause issues
-  # with later aggregating density by region. So, instead,
-  # we will rely on the region col that is in `catchments`.
-  habitat <- dplyr::select(habitat, suit_hab_cl)
-  
-  # Intersect
-  c_hab <- sf::st_intersection(habitat, catchments)
-  
-  # Specify what the area col actually references
-  names(c_hab)[grep("^area_ha$", names(c_hab))] <- "cat_area_ha"
-  
-  # Re-calc hab area (some habitat polygons may have been clipped
-  # by the catchment)
-  c_hab$sh_area_ha <- units::set_units(sf::st_area(c_hab), "ha")
+  # Run one set of functions if `habitat` is supplied
+  # as a `sf` vs raster.
+  if (inherits(habitat, "sf")) {
+    # Drop any attributes from `habitat`. Some catchments
+    # cross over regional boundaries, so it can cause issues
+    # with later aggregating density by region. So, instead,
+    # we will rely on the region col that is in `catchments`.
+    habitat <- dplyr::select(habitat, suit_hab_cl)
+    
+    # Intersect
+    c_hab <- sf::st_intersection(habitat, catchments)
+    
+    # Specify what the area col actually references
+    names(c_hab)[grep("^area_ha$", names(c_hab))] <- "cat_area_ha"
+    
+    # Re-calc hab area (some habitat polygons may have been clipped
+    # by the catchment)
+    c_hab$sh_area_ha <- units::set_units(sf::st_area(c_hab), "ha")
+    
+  } else if (inherits(habitat, "SpatRaster")) {
+    
+    # Specify what the area col actually references
+    names(catchments)[grep("^area_ha$", names(catchments))] <- "cat_area_ha"
+    
+    # Now extract the amount of habitat area within the catchments,
+    # using the exact extract method.
+    res <- unique(terra::res(habitat)) # assuming square cells here
+    
+    habitat_count <- exactextractr::exact_extract(habitat, catchments, "count")
+    habitat_m2 <- habitat_count * res^2 # each raster cell is res m x res m (e.g., 25m x 25m), aka res meters squared
+    habitat_m2 <- units::set_units(habitat_m2, "m2")
+    catchments$sh_area_ha <- units::set_units(habitat_m2, "ha") # set to hectares and add as a column to the data
+    
+    c_hab <- catchments
+  }
   
   return(c_hab)
 }
+
+
+total_habitat_area <- function(habitat) {
+  if (inherits(habitat, "sf")) {
+    out <- sum(suitable_habitat$sh_area_ha)
+    
+  } else if (inherits(habitat, "SpatRaster")) {
+    res <- unique(terra::res(habitat)) # assuming square cells here
+    habitat_count <- length(terra::cells(habitat))
+    habitat_m2 <- habitat_count * res^2 # each raster cell is res m x res m (e.g., 25m x 25m), aka res meters squared
+    habitat_m2 <- units::set_units(habitat_m2, "m2")
+    out <- units::set_units(habitat_m2, "ha") # set to hectares and add as a column to the data
+    
+  }
+  return(out)
+}
+
+
+regional_habitat_area <- function(habitat, regions = NA) {
+  if (inherits(habitat, "sf")) {
+    out <- aggregate(sh_area_ha ~ region, suitable_habitat, FUN = "sum")
+    
+  } else if (inherits(habitat, "SpatRaster")) {
+    # Now extract the amount of habitat area within the catchments,
+    # using the exact extract method.
+    res <- unique(terra::res(habitat)) # assuming square cells here
+    
+    habitat_count <- exactextractr::exact_extract(habitat, regions, "count")
+    habitat_m2 <- habitat_count * res^2 # each raster cell is res m x res m (e.g., 25m x 25m), aka res meters squared
+    habitat_m2 <- units::set_units(habitat_m2, "m2")
+    regions$sh_area_ha <- units::set_units(habitat_m2, "ha") # set to hectares and add as a column to the data
+    
+    out <- sf::st_drop_geometry(regions[,c("region", "sh_area_ha")])
+  }
+  
+  return(out)
+}
+
+
 
 catchment_density <- function(catchment_habitat, mamu_station_count, 
                               mamu_count_col, CI_col) {

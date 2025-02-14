@@ -79,6 +79,9 @@ forest_urls <- data.frame(names = c("60N_140W", "60N_130W", "50N_130W"),
 # File directory to store forest data
 forest_dir <- "GIS/Forest_cover"
 
+# API tokens
+source("temp/apikey.R")
+
 #### PIPELINE ####
 # Run tar_make() to execute the pipeline
 list(
@@ -416,19 +419,37 @@ list(
              save_sf(sf = final_cc, output_path = "GIS/radar_derived_catchments.gpkg"), 
              format = "file"),
   # Intersect with 2024 MAMU suitable habitat layer
-  tar_target(suitable_habitat, prepare_mamu_habitat(path = "GIS/2024_suitable_habitat/", 
-                                                    regions = regions)),
+  # tar_target(suitable_habitat, prepare_mamu_habitat_gpkg(path = "GIS/2024_suitable_habitat/", 
+  #                                                   regions = regions)),
+  # Intersect with 2025 MAMU suitable habitat layer
+  tar_terra_rast(suitable_habitat, prepare_mamu_habitat_tiff(path = "GIS/2025_suitable_habitat/2025_suitable_habitat.tif")),
   tar_target(cc_habitat, habitat_in_catchments(catchments = final_cc, 
                                                habitat = suitable_habitat)),
+  # Final visualization
+  tar_render(final_visualization,
+             path = "Rmd/catchments_visualization.Rmd",
+             output_file = "catchments_visualization.pdf",
+             #error = "null",
+             quiet = TRUE,
+             params = list(catchments = final_cc,
+                           watersheds = watersheds_raw,
+                           suitable_habitat = suitable_habitat,
+                           cones = cones,
+                           stn = stn,
+                           nests = nests,
+                           apikey = jawg_token,
+                           headings = h_0,
+                           h = h)
+             ),
   #### STANDARDIZE MAMU COUNTS ####
   # Select maximum MAMU count per station per year
   # Skipping model approach for now
   tar_target(mamu_station_count, max_mamu(s, stn, CI_level = 95)),
   #### DENSITY CALCS ####
   # Total habitat (m2) across whole suitable habitat layer
-  tar_target(total_suit_hab_area_ha, sum(suitable_habitat$sh_area_ha)),
+  tar_target(total_suit_hab_area_ha, total_habitat_area(suitable_habitat)),
   # Habitat (m2) summarized by region
-  tar_target(regional_suit_hab_area_ha, aggregate(sh_area_ha ~ region, suitable_habitat, FUN = "sum")),
+  tar_target(regional_suit_hab_area_ha, regional_habitat_area(suitable_habitat, regions)),
   # Habitat in each radar-derived catchment
   tar_target(catchment_suit_hab_area_ha, aggregate(sh_area_ha ~ site, cc_habitat, FUN = "sum")),
   # Calculate the density of birds within each catchment
@@ -436,7 +457,7 @@ list(
                                              mamu_station_count,
                                              mamu_count_col = "mean_max_mamu",
                                              CI_col = "CI")),
-  # Calculate mean desnity per region -> calculate MAMU count per region!
+  # Calculate mean density per region -> calculate MAMU count per region!
   tar_target(regional_population_est, extrapolate_density(mamu_density = mamu_density, 
                                                           regional_sh_area = regional_suit_hab_area_ha,
                                                           min_ss = 5)),
