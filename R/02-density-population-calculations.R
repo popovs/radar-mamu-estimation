@@ -1,4 +1,4 @@
-#' 3. CALCULATE MAMU DENSITY AND POPULATION
+#' 2. CALCULATE MAMU DENSITY AND POPULATION
 #' 
 #' Following the creation of the catchments and standardization
 #' of the radar survey data, we can now calculate the density
