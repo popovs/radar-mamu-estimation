@@ -19,9 +19,9 @@ max_mamu <- function(s, stn, CI_level = 95) {
   s <- aggregate(mamuinpd ~ site + year + total_effort, s, FUN = "max")
   names(s)[4] <- "max_mamu_count"
   # Select most recent max count of each
-  # s <- s |> 
-  #   dplyr::arrange(site, year) |> 
-  #   dplyr::group_by(site) |> 
+  # s <- s |>
+  #   dplyr::arrange(site, year) |>
+  #   dplyr::group_by(site) |>
   #   dplyr::slice(dplyr::n()) |>
   #   dplyr::select(site, region, loc, year, total_effort, mamu_count) # rearrange cols
   # Take the mean of the maximum mamu count across all years

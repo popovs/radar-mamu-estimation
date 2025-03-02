@@ -141,9 +141,17 @@ list(
                #                quant_data = nest_elev_m,
                #                prefix = "elev_m"),
                # OPTION B: ISOLATION TREE OUTLIER DETECTION
-               nest_isoforest(nests,
-                              quant_data = nest_elev_m,
-                              prefix = "elev_m"),
+               # nest_isoforest(nests,
+               #                quant_data = nest_elev_m,
+               #                prefix = "elev_m"),
+               # OPTION C: NO OUTLIERS REMOVED
+               aggregate(nest_elev_m ~ region, nests, FUN = "max") |> 
+                 dplyr::mutate(elev_m_max = ceiling((nest_elev_m) / 10) * 10) |>
+                 tibble::add_row(region = "AKB", elev_m_max = 730) |> # manually specify AKB (== CC)
+                 tibble::add_row(region = "NC", elev_m_max = 730) |> # manually specify NC (== CC)
+                 tibble::add_row(region = "NVI", elev_m_max = 1160) |> # manually specify NVI (mean of all other VI areas)
+                 dplyr::mutate(elev_m_min = 0) |>
+                 dplyr::select(region, elev_m_min, elev_m_max), 
                region), # group by region col so targets later knows to run `reclass_elevation()` by row-level grouping
   #### NEST COST DISTANCE ####
   # Next, we calculate the flight cost values of each nest. 
@@ -182,9 +190,17 @@ list(
                #                        prefix = "cost",
                #                        hg_exception = TRUE),
                # OPTION D: ISOLATION TREE OUTLIER DETECTION
-               nest_isoforest(nests = nests, 
-                              quant_data = nest_cost, 
-                              prefix = "cost"),
+               # nest_isoforest(nests = nests, 
+               #                quant_data = nest_cost, 
+               #                prefix = "cost"),
+               # OPTION X: NO OUTLIERS REMOVED
+               aggregate(nest_cost ~ region, nests, FUN = "max") |> 
+                 dplyr::mutate(cost_max = ceiling((nest_cost) / 10) * 10) |>
+                 tibble::add_row(region = "AKB", cost_max = 2880) |> # manually specify AKB (== CC)
+                 tibble::add_row(region = "NC", cost_max = 2880) |> # manually specify NC (== CC)
+                 tibble::add_row(region = "NVI", cost_max = 6820) |> # manually specify NVI (mean of all other VI areas)
+                 dplyr::mutate(cost_min = 0) |>
+                 dplyr::select(region, cost_min, cost_max),
                region),
   #### ITERATE OVER REGIONAL CUTOFFS ####
   # For each region, iterate the following:
@@ -260,7 +276,7 @@ list(
   # that the algorithm will have to travel around when 
   # calculating distance, while the `canvas` area will supply
   # land and sea data.
-  #   - Mountain barriers -> traveling around
+  #   - Mountain barriers -> NOT traveling around # 2025-03-01: to travel around mountains, use coast_distance_barriers fxn
   #   - Land areas -> traveling through
   #   - Sea areas -> traveling from
   # We will need to employ some if/else logic to correctly combine
@@ -268,7 +284,7 @@ list(
   # NOTE: IF WE INCLUDE ALASKA BORDER REGION LATER, we will need to 
   # include the Alaska DEM in this to correctly measure distance from
   # coast for the Alaska Border region. 
-  tar_terra_rast(coast_dist, coast_distance(elev = elev, 
+  tar_terra_rast(coast_dist, coast_distance(#elev = elev, 
                                             sea = sea, 
                                             dist_km = 30,
                                             exclude_islands = TRUE, # exclude HG and VI from coast distance calcs - we know birds that access inland regions on HG/VI
@@ -333,8 +349,10 @@ list(
   # within 30km of ocean, and within cost distance. Does not 
   # necessarily imply it's all suitable nesting habitat; rather, 
   # this area is assumed to encompass ~95% of all suitable
-  # nesting habitat within each region.
-  tar_terra_rast(maz, ((elev > 0 ) * (cc > 0) * (coast_dist > 0))), # Anything accessible was stored as either '1' or '2' in each raster layer.
+  # nesting habitat within each region. Then we assume that
+  # anything over/crossing the sea is accessible as well.
+  tar_terra_rast(maz, terra::cover(((elev > 0 ) * (cc > 0) * (coast_dist > 0)), # Anything accessible was stored as either '1' or '2' in each raster layer.
+                                   sea + 1)), # and then we add the sea (+1, because it's all stored as 0 or NA)
   #### GENERATE RADAR CONES ####
   # Here, radar survey 'catchments' containing marbled murrelet 
   # nesting habitat will be generated, using a few basic 
@@ -362,7 +380,7 @@ list(
   # Calculate cones
   tar_target(cones, generate_cones(h = h, 
                                    stn = stn, 
-                                   radius = 30000, # length cones to select appropriate watersheds
+                                   radius = 5000, # length cones to select appropriate watersheds (in meters)
                                    res = res)),
   tar_target(cones_gpkg, 
              save_sf(sf = cones, output_path = "GIS/flight_headings.gpkg"), 
@@ -426,21 +444,21 @@ list(
   tar_target(cc_habitat, habitat_in_catchments(catchments = final_cc, 
                                                habitat = suitable_habitat)),
   # Final visualization
-  tar_render(final_visualization,
-             path = "Rmd/catchments_visualization.Rmd",
-             output_file = "catchments_visualization.pdf",
-             #error = "null",
-             quiet = TRUE,
-             params = list(catchments = final_cc,
-                           watersheds = watersheds_raw,
-                           suitable_habitat = suitable_habitat,
-                           cones = cones,
-                           stn = stn,
-                           nests = nests,
-                           apikey = jawg_token,
-                           headings = h_0,
-                           h = h)
-             ),
+  # tar_render(final_visualization,
+  #            path = "Rmd/catchments_visualization.Rmd",
+  #            output_file = "catchments_visualization.pdf",
+  #            #error = "null",
+  #            quiet = TRUE,
+  #            params = list(catchments = final_cc,
+  #                          watersheds = watersheds_raw,
+  #                          suitable_habitat = suitable_habitat,
+  #                          cones = cones,
+  #                          stn = stn,
+  #                          nests = nests,
+  #                          apikey = jawg_token,
+  #                          headings = h_0,
+  #                          h = h)
+  #            ),
   #### STANDARDIZE MAMU COUNTS ####
   # Select maximum MAMU count per station per year
   # Skipping model approach for now

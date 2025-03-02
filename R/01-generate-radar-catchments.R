@@ -849,7 +849,7 @@ directionality_crop <- function(cost_catchments,
 # area. If the area is inaccessible to MAMU, it should be cut out,
 # even if it's within the cost catchment!
 
-access_catchments <- function(cost_catchments, maz, stn, 
+access_catchments <- function(cost_catchments, maz, stn, cones, 
                               raster_stats = TRUE, # extract summary statistics from forest and cost layers? T/F
                               output_plots = TRUE,
                               output_dir,
@@ -884,11 +884,14 @@ access_catchments <- function(cost_catchments, maz, stn,
     if (origin$region == "HG") {
       tmp <- tmp[sf::st_intersects(tmp, sf::st_buffer(origin, 10000), sparse = FALSE),]
     } else {
-      tmp <- tmp[sf::st_nearest_feature(origin, tmp),]
+      #tmp <- tmp[sf::st_nearest_feature(origin, tmp),]
+      x_cone <- cones[cones$site == x, ]
+      tmp <- tmp[sf::st_intersects(x_cone, tmp)[[1]], ]
     }
     return(tmp)
   })
   
+  #cc_maz <- sf::st_collection_extract(cc_maz, "POLYGON")
   cc_maz <- dplyr::bind_rows(cc_maz)
   
   # Drop empty geometries
