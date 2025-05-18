@@ -82,6 +82,9 @@ forest_dir <- "GIS/Forest_cover"
 # API tokens
 source("temp/apikey.R")
 
+# SAVE PLOTS? Yes or no
+save_plots <- FALSE
+
 #### PIPELINE ####
 # Run tar_make() to execute the pipeline
 list(
@@ -146,10 +149,10 @@ list(
                #                prefix = "elev_m"),
                # OPTION C: NO OUTLIERS REMOVED
                aggregate(nest_elev_m ~ region, nests, FUN = "max") |> 
-                 dplyr::mutate(elev_m_max = ceiling((nest_elev_m) / 10) * 10) |>
-                 tibble::add_row(region = "AKB", elev_m_max = 730) |> # manually specify AKB (== CC)
-                 tibble::add_row(region = "NC", elev_m_max = 730) |> # manually specify NC (== CC)
-                 tibble::add_row(region = "NVI", elev_m_max = 1160) |> # manually specify NVI (mean of all other VI areas)
+                 dplyr::mutate(elev_m_max = ceiling((nest_elev_m) / 100) * 100) |>
+                 tibble::add_row(region = "AKB", elev_m_max = 800) |> # manually specify AKB (== CC)
+                 tibble::add_row(region = "NC", elev_m_max = 800) |> # manually specify NC (== CC)
+                 tibble::add_row(region = "NVI", elev_m_max = 1200) |> # manually specify NVI (mean of all other VI areas)
                  dplyr::mutate(elev_m_min = 0) |>
                  dplyr::select(region, elev_m_min, elev_m_max), 
                region), # group by region col so targets later knows to run `reclass_elevation()` by row-level grouping
@@ -190,17 +193,17 @@ list(
                #                        prefix = "cost",
                #                        hg_exception = TRUE),
                # OPTION D: ISOLATION TREE OUTLIER DETECTION
-               # nest_isoforest(nests = nests, 
-               #                quant_data = nest_cost, 
-               #                prefix = "cost"),
+               nest_isoforest(nests = nests,
+                              quant_data = nest_cost,
+                              prefix = "cost"),
                # OPTION X: NO OUTLIERS REMOVED
-               aggregate(nest_cost ~ region, nests, FUN = "max") |> 
-                 dplyr::mutate(cost_max = ceiling((nest_cost) / 10) * 10) |>
-                 tibble::add_row(region = "AKB", cost_max = 2880) |> # manually specify AKB (== CC)
-                 tibble::add_row(region = "NC", cost_max = 2880) |> # manually specify NC (== CC)
-                 tibble::add_row(region = "NVI", cost_max = 6820) |> # manually specify NVI (mean of all other VI areas)
-                 dplyr::mutate(cost_min = 0) |>
-                 dplyr::select(region, cost_min, cost_max),
+               # aggregate(nest_cost ~ region, nests, FUN = "max") |> 
+               #   dplyr::mutate(cost_max = ceiling((nest_cost) / 100) * 100) |>
+               #   tibble::add_row(region = "AKB", cost_max = 2900) |> # manually specify AKB (== CC)
+               #   tibble::add_row(region = "NC", cost_max = 2900) |> # manually specify NC (== CC)
+               #   tibble::add_row(region = "NVI", cost_max = 6900) |> # manually specify NVI (mean of all other VI areas)
+               #   dplyr::mutate(cost_min = 0) |>
+               #   dplyr::select(region, cost_min, cost_max),
                region),
   #### ITERATE OVER REGIONAL CUTOFFS ####
   # For each region, iterate the following:
@@ -380,7 +383,7 @@ list(
   # Calculate cones
   tar_target(cones, generate_cones(h = h, 
                                    stn = stn, 
-                                   radius = 5000, # length cones to select appropriate watersheds (in meters)
+                                   radius = 30000, # length cones to select appropriate watersheds (in meters)
                                    res = res)),
   tar_target(cones_gpkg, 
              save_sf(sf = cones, output_path = "GIS/flight_headings.gpkg"), 
@@ -396,7 +399,7 @@ list(
   tar_target(watersheds, select_watersheds(watersheds = watersheds_raw, 
                                            cones = cones, 
                                            min_cone_coverage = 0.01,
-                                           output_plots = TRUE,
+                                           output_plots = save_plots, # defined at the top of script
                                            output_dir = "temp/cone_inspection",
                                            stn = stn,
                                            headings = h_0,
@@ -407,6 +410,7 @@ list(
                                      cones = cones,
                                      stn = stn, 
                                      cost = cost,
+                                     output_plots = save_plots, # defined at the top of script
                                      cost_cutoffs = cost_cutoffs,
                                      output_dir = "temp/cost_inspection",
                                      headings = h_0,
@@ -427,6 +431,7 @@ list(
                                          raster_stats = TRUE,
                                          forest = forest,
                                          cost = cost,
+                                         output_plots = save_plots, # defined at top of script
                                          output_dir = "temp/final_catchment_inspection",
                                          headings = h_0,
                                          h = h,
@@ -437,12 +442,17 @@ list(
              save_sf(sf = final_cc, output_path = "GIS/radar_derived_catchments.gpkg"), 
              format = "file"),
   # Intersect with 2024 MAMU suitable habitat layer
-  # tar_target(suitable_habitat, prepare_mamu_habitat_gpkg(path = "GIS/2024_suitable_habitat/", 
-  #                                                   regions = regions)),
+  tar_target(suitable_habitat, prepare_mamu_habitat_gpkg(path = "GIS/2024_suitable_habitat/",
+                                                    maz = maz,
+                                                    regions = regions)),
   # Intersect with 2025 MAMU suitable habitat layer
-  tar_terra_rast(suitable_habitat, prepare_mamu_habitat_tiff(path = "GIS/2025_suitable_habitat/2025_suitable_habitat.tif")),
+  # tar_terra_rast(suitable_habitat, prepare_mamu_habitat_tiff(path = "GIS/2025_suitable_habitat/mamu_predict_2025_feb_03.tif",
+  #                                                            maz = maz,
+  #                                                            band = "X1")),
+  # Calculate suitable habitat in catchments
   tar_target(cc_habitat, habitat_in_catchments(catchments = final_cc, 
-                                               habitat = suitable_habitat)),
+                                               habitat = suitable_habitat,
+                                               use_probability = TRUE)),
   # Final visualization
   # tar_render(final_visualization,
   #            path = "Rmd/catchments_visualization.Rmd",
@@ -465,9 +475,9 @@ list(
   tar_target(mamu_station_count, max_mamu(s, stn, CI_level = 95)),
   #### DENSITY CALCS ####
   # Total habitat (m2) across whole suitable habitat layer
-  tar_target(total_suit_hab_area_ha, total_habitat_area(suitable_habitat)),
+  tar_target(total_suit_hab_area_ha, total_habitat_area(suitable_habitat, use_probability = TRUE)),
   # Habitat (m2) summarized by region
-  tar_target(regional_suit_hab_area_ha, regional_habitat_area(suitable_habitat, regions)),
+  tar_target(regional_suit_hab_area_ha, regional_habitat_area(suitable_habitat, regions, use_probability = TRUE)),
   # Habitat in each radar-derived catchment
   tar_target(catchment_suit_hab_area_ha, aggregate(sh_area_ha ~ site, cc_habitat, FUN = "sum")),
   # Calculate the density of birds within each catchment

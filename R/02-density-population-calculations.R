@@ -52,7 +52,7 @@ max_mamu <- function(s, stn, CI_level = 95) {
 # PREPARE MAMU HABITAT ----------------------------------------------------
 
 
-prepare_mamu_habitat_gpkg <- function(path, regions) {
+prepare_mamu_habitat_gpkg <- function(path, maz, regions) {
   # Read files
   gpkgs <- list.files(path, full.names = TRUE)
   gpkgs <- gpkgs[grep(".gpkg$", gpkgs)]
@@ -60,6 +60,27 @@ prepare_mamu_habitat_gpkg <- function(path, regions) {
   sh <- dplyr::bind_rows(gpkgs)
   sh <- janitor::clean_names(sh)
   #sh <- sh[,c("suit_hab_cl", "geom")]
+  
+  # Mask the suitable habitat with the MAMU-accessible zone (`maz`)
+  # There's so much habitat deep in the interior that might technically be 
+  # appropriate trees for nesting, but are >100km from the coast.
+  # It's highly unlikely that birds are nesting there.
+  # The suitable habitat layer did not incorporate distance from
+  # the coast. 
+  # Prep `maz`
+  # Load up as a `stars` object - faster to vectorize
+  maz <- stars::st_as_stars(maz)
+  # Polygonize
+  maz <- sf::st_as_sf(maz,
+                      as_points = FALSE,
+                      merge = TRUE,
+                      na.rm = TRUE)
+  maz <- sf::st_union(maz) # merge into one polygon
+  # Simplify this giant maz polygon
+  maz <- smoothr::smooth(maz, method = "chaikin")
+  # Intersect suitable habitat with MAMU-accessible zone
+  sh <- sf::st_intersection(sh, maz)
+  
   # Calc area
   sh$sh_area_ha <- units::set_units(sf::st_area(sh), "ha")
   # Merge with regions
@@ -67,13 +88,34 @@ prepare_mamu_habitat_gpkg <- function(path, regions) {
   return(sh)
 }
 
-prepare_mamu_habitat_tiff <- function(path, regions) {
+prepare_mamu_habitat_tiff <- function(path, maz, band = NA) {
   # Read files
   tiff <- terra::rast(path)
+  # Extract the band of interest, if applicable
+  if (!is.na(band)) {
+    tiff <- tiff[band]
+  }
+  # Mask the suitable habitat with the MAMU-accessible zone (`maz`)
+  # There's so much habitat deep in the interior that might technically be 
+  # appropriate trees for nesting, but are >100km from the coast.
+  # It's highly unlikely that birds are nesting there.
+  # The suitable habitat layer did not incorporate distance from
+  # the coast. 
+  maz <- terra::resample(maz, tiff) # resample `maz` to be same extent as habitat
+  tiff <- (maz == 1) * tiff # only choose habitat areas where maz == TRUE
+  
   return(tiff)
 }
 
-habitat_in_catchments <- function(catchments, habitat) {
+# use_probability: if the raster is a layer of habitat probabilities,
+# should that be incorporated into the habitat estimation? TRUE or FALSE.
+# If TRUE, it multiplies the number of non-NA pixels * the resolution * 
+# the probability that that pixel is habitat to derive an estimate of habitat area.
+# If FALSE, it multiplies the number of non-NA pixels * the resolution
+# to derive an estimate of habitat area, under the assumption that any
+# non-NA pixel is habitat (i.e. a binary yes/no habitat raster)
+# NOTE habitat must be a singleband raster.
+habitat_in_catchments <- function(catchments, habitat, use_probability = FALSE) {
   # Run one set of functions if `habitat` is supplied
   # as a `sf` vs raster.
   if (inherits(habitat, "sf")) {
@@ -102,9 +144,15 @@ habitat_in_catchments <- function(catchments, habitat) {
     # using the exact extract method.
     res <- unique(terra::res(habitat)) # assuming square cells here
     
-    habitat_count <- exactextractr::exact_extract(habitat, catchments, "count")
-    habitat_m2 <- habitat_count * res^2 # each raster cell is res m x res m (e.g., 25m x 25m), aka res meters squared
-    habitat_m2 <- units::set_units(habitat_m2, "m2")
+    if (use_probability) {
+      habitat_probs <- exactextractr::exact_extract(habitat, catchments, "sum")
+      habitat_m2 <- habitat_probs * res^2 # each raster cell is res m x res m (e.g., 25m x 25m), aka res meters squared
+    } else {
+      habitat_count <- exactextractr::exact_extract(habitat, catchments, "count")
+      habitat_m2 <- habitat_count * res^2 # each raster cell is res m x res m (e.g., 25m x 25m), aka res meters squared
+    }
+    
+    habitat_m2 <- units::set_units(habitat_m2, "m2") # assuming resolution is in m2
     catchments$sh_area_ha <- units::set_units(habitat_m2, "ha") # set to hectares and add as a column to the data
     
     c_hab <- catchments
@@ -113,15 +161,29 @@ habitat_in_catchments <- function(catchments, habitat) {
   return(c_hab)
 }
 
-
-total_habitat_area <- function(habitat) {
+# use_probability: if the raster is a layer of habitat probabilities,
+# should that be incorporated into the habitat estimation? TRUE or FALSE.
+# If TRUE, it multiplies the number of non-NA pixels * the resolution * 
+# the probability that that pixel is habitat to derive an estimate of habitat area.
+# If FALSE, it multiplies the number of non-NA pixels * the resolution
+# to derive an estimate of habitat area, under the assumption that any
+# non-NA pixel is habitat (i.e. a binary yes/no habitat raster)
+# NOTE habitat must be a singleband raster.
+total_habitat_area <- function(habitat, use_probability = FALSE) {
   if (inherits(habitat, "sf")) {
-    out <- sum(suitable_habitat$sh_area_ha)
+    out <- sum(habitat$sh_area_ha)
     
   } else if (inherits(habitat, "SpatRaster")) {
     res <- unique(terra::res(habitat)) # assuming square cells here
-    habitat_count <- length(terra::cells(habitat))
-    habitat_m2 <- habitat_count * res^2 # each raster cell is res m x res m (e.g., 25m x 25m), aka res meters squared
+    
+    if (use_probability) {
+      habitat_probs <- sum(terra::values(habitat)[,1], na.rm = TRUE)
+      habitat_m2 <- habitat_probs * res^2 # each raster cell is res m x res m (e.g., 25m x 25m), aka res meters squared
+    } else {
+      habitat_count <- length(terra::cells(habitat))
+      habitat_m2 <- habitat_count * res^2 # each raster cell is res m x res m (e.g., 25m x 25m), aka res meters squared
+    }
+    
     habitat_m2 <- units::set_units(habitat_m2, "m2")
     out <- units::set_units(habitat_m2, "ha") # set to hectares and add as a column to the data
     
@@ -130,17 +192,23 @@ total_habitat_area <- function(habitat) {
 }
 
 
-regional_habitat_area <- function(habitat, regions = NA) {
+regional_habitat_area <- function(habitat, regions = NA, use_probability = TRUE) {
   if (inherits(habitat, "sf")) {
-    out <- aggregate(sh_area_ha ~ region, suitable_habitat, FUN = "sum")
+    out <- aggregate(sh_area_ha ~ region, habitat, FUN = "sum")
     
   } else if (inherits(habitat, "SpatRaster")) {
     # Now extract the amount of habitat area within the catchments,
     # using the exact extract method.
     res <- unique(terra::res(habitat)) # assuming square cells here
     
-    habitat_count <- exactextractr::exact_extract(habitat, regions, "count")
-    habitat_m2 <- habitat_count * res^2 # each raster cell is res m x res m (e.g., 25m x 25m), aka res meters squared
+    if (use_probability) {
+      habitat_probs <- exactextractr::exact_extract(habitat, regions, "sum")
+      habitat_m2 <- habitat_probs * res^2 # each raster cell is res m x res m (e.g., 25m x 25m), aka res meters squared
+    } else {
+      habitat_count <- exactextractr::exact_extract(habitat, regions, "count")
+      habitat_m2 <- habitat_count * res^2 # each raster cell is res m x res m (e.g., 25m x 25m), aka res meters squared
+    }
+    
     habitat_m2 <- units::set_units(habitat_m2, "m2")
     regions$sh_area_ha <- units::set_units(habitat_m2, "ha") # set to hectares and add as a column to the data
     
@@ -174,7 +242,7 @@ extrapolate_density <- function(mamu_density, regional_sh_area, min_ss) {
     dplyr::mutate(density_min = mamu_sh_density - density_CI,
                   density_max = mamu_sh_density + density_CI) |>
     dplyr::summarise(.by = region,
-                     mamu_sh_density = mean(mamu_sh_density),
+                     mamu_sh_density = round(mean(mamu_sh_density), 3),
                      density_min = mean(density_min), # ideally, cutting out minimum sample size will prevent NA's sneaking in here
                      density_max = mean(density_max),
                      n_catchments = dplyr::n(),
@@ -191,6 +259,8 @@ extrapolate_density <- function(mamu_density, regional_sh_area, min_ss) {
   reg_dens$max_count <- round(reg_dens$max_count)
   # Reorder
   reg_dens <- reg_dens[order(reg_dens$region),]
+  # Round other cols
+  reg_dens$sh_area_ha <- round(reg_dens$sh_area_ha, 0)
   # Select cols
   reg_dens <- reg_dens[,c("region", "n_catchments", "mamu_count", "min_count", "max_count", "mamu_sh_density", "sh_area_ha", "CI_level")]
   return(reg_dens)
