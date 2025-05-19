@@ -107,6 +107,77 @@ prepare_mamu_habitat_tiff <- function(path, maz, band = NA) {
   return(tiff)
 }
 
+
+# Nest probability decay function
+# Certain habitats may be more or less suitable for nesting.
+# However, while habitat may be suitable for MAMU nesting in terms
+# of tree species composition, the suitable habitat layers do not
+# explicitly take into account the fact that ~99% of nests occur
+# within 30km of the coastline, and, crucially, that the further
+# from the coast you are, the less likely the nests are likely to 
+# occur. The nest data follow a gamma distribution of likelihood
+# vs distance from shore. So, apply a gamma distribution decay
+# curve to the suitable habitat layer such that distances <30km
+# from shore are more likely, while distances >30km are less so.
+nest_gamma_decay <- function(nests, # `nests` target 
+                             coast, # `sea` target
+                             habitat # `suitable_habitat` target
+) {
+  # Max nest dist 
+  max_nest_dist <- ceiling(max(nests$dist_km, na.rm = TRUE))
+  # 1) fit gamma function to the nest data
+  # First fit the gamma distribution to the nest data
+  fit <- fitdistrplus::fitdist(nests[["dist_km"]], 
+                               distr = "gamma", 
+                               method = "mle")
+  
+  # 2) derive a raster of distance from coast
+  # Fill in the NA values of raster with `0`;
+  # Replace any areas already == 0 with `2`
+  # (i.e. all sea == 2, while all land == 0)
+  coast <- terra::ifel(is.na(coast), 0, 2)
+  coast_dist <- terra::gridDist(coast, target = 2) # generate raster with all distances from cells == 2
+  coast_dist <- terra::ifel(coast_dist == 0, NA, coast_dist) # turn any sea areas to NA
+  coast_dist <- coast_dist / 1000 # convert to m
+  
+  # 3) replace distance from coast with gamma probabilities
+  # Derive a table of every distance from 0-62 km with the 
+  # gamma density function value at each distance, at 10m intervals
+  distances <- terra::values(coast_dist)
+  # Predict values at each distance following the fit gamma distr 
+  g <- dgamma(distances, 
+              shape = fit$estimate[[1]], 
+              scale =  1 / fit$estimate[[2]])
+  # Normalize to 0-1
+  p <- g / max(g, na.rm = TRUE)
+  
+  # Now put the nest probability values into a raster
+  p <- terra::rast(vals = p, 
+                   crs = terra::crs(coast_dist), 
+                   terra::ext(coast_dist), 
+                   res = terra::res(coast_dist))
+  
+  # 4) rasterize the suitable habitat (if not a raster already)
+  if (!inherits(habitat, "SpatRaster")) {
+    temp <- terra::rast(terra::vect(sf::st_geometry(habitat)),
+                        res = terra::res(coast_dist))
+    habitat <- terra::rasterize(terra::vect(habitat), temp)
+  }
+  
+  habitat <- terra::resample(habitat, p) # resample `habitat` to be same extent as `p`
+  
+  # 5) ensure raster runs from 0-1, if not already
+  h_vals <- terra::minmax(habitat)
+  if (any(h_vals > 1)) {
+    habitat <- habitat / max(terra::values(habitat), na.rm = TRUE)
+  }
+  
+  # 6) multiply dist from coast nest probability raster * habitat raster
+  nest_prob <- habitat * p
+  
+  return(nest_prob)
+}
+
 # use_probability: if the raster is a layer of habitat probabilities,
 # should that be incorporated into the habitat estimation? TRUE or FALSE.
 # If TRUE, it multiplies the number of non-NA pixels * the resolution * 
@@ -160,6 +231,7 @@ habitat_in_catchments <- function(catchments, habitat, use_probability = FALSE) 
   
   return(c_hab)
 }
+
 
 # use_probability: if the raster is a layer of habitat probabilities,
 # should that be incorporated into the habitat estimation? TRUE or FALSE.

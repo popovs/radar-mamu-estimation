@@ -441,17 +441,33 @@ list(
   tar_target(cc_gpkg, 
              save_sf(sf = final_cc, output_path = "GIS/radar_derived_catchments.gpkg"), 
              format = "file"),
+  #### CATCHMENTS x HABITAT ####
   # Intersect with 2024 MAMU suitable habitat layer
-  tar_target(suitable_habitat, prepare_mamu_habitat_gpkg(path = "GIS/2024_suitable_habitat/",
-                                                    maz = maz,
-                                                    regions = regions)),
+  # tar_target(suitable_habitat, prepare_mamu_habitat_gpkg(path = "GIS/2024_suitable_habitat/",
+  #                                                   maz = maz,
+  #                                                   regions = regions)),
   # Intersect with 2025 MAMU suitable habitat layer
-  # tar_terra_rast(suitable_habitat, prepare_mamu_habitat_tiff(path = "GIS/2025_suitable_habitat/mamu_predict_2025_feb_03.tif",
-  #                                                            maz = maz,
-  #                                                            band = "X1")),
+  tar_terra_rast(suitable_habitat, prepare_mamu_habitat_tiff(path = "GIS/2025_suitable_habitat/mamu_predict_2025_feb_03.tif",
+                                                             maz = maz,
+                                                             band = "X1")),
+  # Apply a nest probability decay function
+  # Certain habitats may be more or less suitable for nesting.
+  # However, while habitat may be suitable for MAMU nesting in terms
+  # of tree species composition, the suitable habitat layers do not
+  # explicitly take into account the fact that ~99% of nests occur
+  # within 30km of the coastline, and, crucially, that the further
+  # from the coast you are, the less likely the nests are likely to 
+  # occur. The nest data follow a gamma distribution of likelihood
+  # vs distance from shore. So, apply a gamma distribution decay
+  # curve to the suitable habitat layer such that distances <30km
+  # from shore are more likely, while distances >30km are less so.
+  tar_terra_rast(nest_likelihood, nest_gamma_decay(nests = nests,
+                                                   coast = sea,
+                                                   habitat = suitable_habitat)),
   # Calculate suitable habitat in catchments
   tar_target(cc_habitat, habitat_in_catchments(catchments = final_cc, 
-                                               habitat = suitable_habitat,
+                                               habitat = nest_likelihood,
+                                               #habitat = suitable_habitat,
                                                use_probability = TRUE)),
   # Final visualization
   # tar_render(final_visualization,
@@ -475,9 +491,13 @@ list(
   tar_target(mamu_station_count, max_mamu(s, stn, CI_level = 95)),
   #### DENSITY CALCS ####
   # Total habitat (m2) across whole suitable habitat layer
-  tar_target(total_suit_hab_area_ha, total_habitat_area(suitable_habitat, use_probability = TRUE)),
+  tar_target(total_suit_hab_area_ha, total_habitat_area(#suitable_habitat, # previously first arg was `suitable_habitat`
+                                                        nest_likelihood,
+                                                        use_probability = TRUE)), 
   # Habitat (m2) summarized by region
-  tar_target(regional_suit_hab_area_ha, regional_habitat_area(suitable_habitat, regions, use_probability = TRUE)),
+  tar_target(regional_suit_hab_area_ha, regional_habitat_area(#suitable_habitat, # previously first arg was `suitable_habitat`
+                                                              nest_likelihood,
+                                                              regions, use_probability = TRUE)), 
   # Habitat in each radar-derived catchment
   tar_target(catchment_suit_hab_area_ha, aggregate(sh_area_ha ~ site, cc_habitat, FUN = "sum")),
   # Calculate the density of birds within each catchment
