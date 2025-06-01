@@ -10,20 +10,10 @@
 #' catchment delineation.
 
 
-# PREPARE SURVEY DATA -----------------------------------------------------
+# PREPARE HEADINGS DATA -----------------------------------------------------
 
-prepare_surveys <- function(path) {
-  s <- MAMU::process_radar_data(path)
-  s$site <- s$new_name # `process_radar_data()` stores cleaned up/consolidated site names in the `new_name` col
-  # Create spatial object
-  s <- s[!is.na(s$lon), ]
-  s <- sf::st_as_sf(s, coords = c("lon", "lat"), crs = 4326, remove = FALSE)
-  return(s)
-}
-
-
-prepare_headings <- function(path) {
-  headings <- readxl::read_excel(path,
+prepare_headings <- function(filepath) {
+  headings <- readxl::read_excel(filepath,
                                  na = c("", "NA", "#N/A", "N/A"),
                                  col_types = "text")
   headings <- janitor::clean_names(headings)
@@ -143,8 +133,8 @@ prepare_stn <- function(s, headings, regions) {
 }
 
 
-prepare_watersheds <- function(path, regions) {
-  ws <- sf::st_read(path)
+prepare_watersheds <- function(filepath, regions) {
+  ws <- sf::st_read(filepath)
   ws <- sf::st_transform(ws, 3005)
   ws <- sf::st_intersection(ws, regions)
   return(ws)

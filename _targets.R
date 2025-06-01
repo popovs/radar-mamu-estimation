@@ -46,12 +46,12 @@ tar_source()
 
 #### STATIC PIPELINE OBJECTS ####
 
-# Set resolution (in meterse) for all raster analysis
+# Set resolution (in meters) for all raster analysis
 # Per the BC DEM website, this raster product is at a 25m 
 # resolution, but gridded to a 0.75 arc-second scale. 
 # https://www2.gov.bc.ca/gov/content/data/geographic-data-services/topographic-data/elevation/digital-elevation-model
 # This means all our raster data is at a somewhat odd 
-# 17.37227 x 17.37227 resolution:
+# ~17.37227 x 17.37227 resolution (depending on latitude):
 #res(BC_DEM_3005)
 # As such, the highest resolution we can safely go for is 25m.
 # Note that a smaller number = MUCH SLOWER SCRIPT
@@ -88,9 +88,21 @@ save_plots <- FALSE
 #### PIPELINE ####
 # Run tar_make() to execute the pipeline
 list(
-  # TODO: track regions and nests files themselves to track changes & execute pipeline if necessary
-  tar_target(regions, prepare_regions()),
-  tar_target(nests, prepare_nests(regions = regions)),
+  # We track the files themselves to automatically re-prepare the
+  # `regions` and `nests` targets if changes in the file are detected.
+  tar_target(regions_file, "GIS/regions.gpkg", format = "file"),
+  tar_target(s_file, "data/ECCC_FLNR_MAMU-RadarData-20240307.xlsx", format = "file"),
+  tar_target(nests_file, "GIS/MAMU_nests.gpkg", format = "file"),
+  
+  # Read in MAMU radar survey data
+  tar_target(regions, prepare_regions(filepath = regions_file)),
+  tar_target(s, prepare_surveys(filepath = s_file,
+                                regions = regions)),
+  tar_target(nests, prepare_nests(filepath = nests_file,
+                                  regions = regions)),
+  
+  # tar_target(regions, prepare_regions()),
+  # tar_target(nests, prepare_nests(regions = regions)),
   #### PREPARE DEM ####
   # All the DEM data products will be saved as raster files on the
   # disk rather than simply as _targets objects, so that QGIS can
@@ -367,9 +379,6 @@ list(
   # not necessarily translate 1-to-1 to the real world flight
   # direction, the error in this will be captured by the cone
   # we generate around the mean heading.
-  # Read in MAMU radar survey data
-  tar_target(s_file, "data/ECCC_FLNR_MAMU-RadarData-20240307.xlsx", format = "file"),
-  tar_target(s, prepare_surveys(s_file)),
   # Read in flight headings data
   tar_target(h_file, "data/headings.xlsx", format = "file"),
   tar_target(h_0, prepare_headings(h_file)),
@@ -443,32 +452,22 @@ list(
              format = "file"),
   #### CATCHMENTS x HABITAT ####
   # Intersect with 2024 MAMU suitable habitat layer
-  # tar_target(suitable_habitat, prepare_mamu_habitat_gpkg(path = "GIS/2024_suitable_habitat/",
-  #                                                   maz = maz,
-  #                                                   regions = regions)),
+  tar_target(suitable_habitat, prepare_mamu_habitat_gpkg(path = "GIS/2024_suitable_habitat/",
+                                                    maz = maz,
+                                                    regions = regions)),
   # Intersect with 2025 MAMU suitable habitat layer
-  tar_terra_rast(suitable_habitat, prepare_mamu_habitat_tiff(path = "GIS/2025_suitable_habitat/mamu_predict_2025_feb_03.tif",
-                                                             maz = maz,
-                                                             band = "X1")),
-  # Apply a nest probability decay function
-  # Certain habitats may be more or less suitable for nesting.
-  # However, while habitat may be suitable for MAMU nesting in terms
-  # of tree species composition, the suitable habitat layers do not
-  # explicitly take into account the fact that ~99% of nests occur
-  # within 30km of the coastline, and, crucially, that the further
-  # from the coast you are, the less likely the nests are likely to 
-  # occur. The nest data follow a gamma distribution of likelihood
-  # vs distance from shore. So, apply a gamma distribution decay
-  # curve to the suitable habitat layer such that distances <30km
-  # from shore are more likely, while distances >30km are less so.
-  tar_terra_rast(nest_likelihood, nest_gamma_decay(nests = nests,
-                                                   coast = sea,
-                                                   habitat = suitable_habitat)),
-  # Calculate suitable habitat in catchments
-  tar_target(cc_habitat, habitat_in_catchments(catchments = final_cc, 
-                                               habitat = nest_likelihood,
-                                               #habitat = suitable_habitat,
-                                               use_probability = TRUE)),
+  # tar_terra_rast(suitable_habitat, prepare_mamu_habitat_tiff(path = "GIS/2025_suitable_habitat/mamu_predict_2025_feb_03.tif",
+  #                                                            maz = maz,
+  #                                                            band = "X1")),
+  # TODO: maintain levels of regions for final outputs
+  # Intersect suitable habitat in each catchment
+  tar_target(cc_habitat, st_habitat_in_sf(sf = final_cc,
+                                          habitat = suitable_habitat,
+                                          use_probability = TRUE)),
+  # Intersect suitable habitat in each region
+  tar_target(reg_habitat, st_habitat_in_sf(sf = regions,
+                                           habitat = suitable_habitat,
+                                           use_probability = TRUE)),
   # Final visualization
   # tar_render(final_visualization,
   #            path = "Rmd/catchments_visualization.Rmd",
@@ -485,29 +484,70 @@ list(
   #                          headings = h_0,
   #                          h = h)
   #            ),
-  #### STANDARDIZE MAMU COUNTS ####
+  #### ANNUAL MAX MAMU COUNTS ####
   # Select maximum MAMU count per station per year
-  # Skipping model approach for now
-  tar_target(mamu_station_count, max_mamu(s, stn, CI_level = 95)),
+  tar_target(annual_max_mamu, s |> 
+               sf::st_drop_geometry() |>
+               dplyr::group_by(site, region, year) |> 
+               dplyr::summarise(max_mamu = max(mamuinpd, na.rm = TRUE))),
+  # Calculate bootstrapped mean annual maximum per catchment
+  # (across all years)
+  tar_target(mean_max_mamu_cc, bootmean(annual_max_mamu, 
+                                        group_by = "site",
+                                        dat_col = "max_mamu", 
+                                        CI_level = 0.95) |>
+               dplyr::mutate(dplyr::across(c(bootmean, boot_min, boot_max), 
+                                           round))),
   #### DENSITY CALCS ####
-  # Total habitat (m2) across whole suitable habitat layer
-  tar_target(total_suit_hab_area_ha, total_habitat_area(#suitable_habitat, # previously first arg was `suitable_habitat`
-                                                        nest_likelihood,
-                                                        use_probability = TRUE)), 
-  # Habitat (m2) summarized by region
-  tar_target(regional_suit_hab_area_ha, regional_habitat_area(#suitable_habitat, # previously first arg was `suitable_habitat`
-                                                              nest_likelihood,
-                                                              regions, use_probability = TRUE)), 
-  # Habitat in each radar-derived catchment
-  tar_target(catchment_suit_hab_area_ha, aggregate(sh_area_ha ~ site, cc_habitat, FUN = "sum")),
-  # Calculate the density of birds within each catchment
-  tar_target(mamu_density, catchment_density(catchment_habitat = cc_habitat,
-                                             mamu_station_count,
-                                             mamu_count_col = "mean_max_mamu",
-                                             CI_col = "CI")),
+  # NOTE suitable habitat =/= even MAMU density across whole layer!
+  # While interior habitat might be equally 'suitable' to coastal habitat, the 
+  # habitat closer to sea will have more MAMU population than more interior sites.
+  # Total habitat (ha) across whole suitable habitat layer
+  tar_target(total_suit_hab_area_ha, sum(reg_habitat$sh_area_ha)), 
+  # Habitat (ha) summarized by region
+  tar_target(regional_suit_hab_area_ha, sf::st_drop_geometry(reg_habitat)), 
+  # Calculate the mean density of birds within each catchment
+  # Using the bootstrapped mean + upper + lower CIs
+  # TODO units disappeared?
+  tar_target(cc_density, catchment_density(mm = mean_max_mamu_cc, 
+                                           catchment_habitat = cc_habitat)),
+  # Calculate the bootstrapped mean density of birds within each region
+  tar_target(reg_density, regional_density(cc_density, 
+                                           group_by = "region", 
+                                           dat_col = "density", 
+                                           CI_level = 0.95,
+                                           add_AKB = TRUE)),
+  # Rasterize the regional mean density
+  tar_terra_rast(rdens, rasterize_density(density = reg_density, 
+                                          sf = reg_habitat, 
+                                          merge_by = "region",
+                                          res = res)),
+  # Fit a nest gamma decay function + rasterize it
+  # Certain habitats may meet the criteria for "suitable habitat".
+  # However, while habitat may be suitable for MAMU nesting in terms
+  # of tree species composition, the suitable habitat layers do not
+  # explicitly take into account the fact that ~99% of nests occur
+  # within 30km of the coastline, and, crucially, that the further
+  # from the coast you are, the less likely the nests are likely to
+  # occur. The nest data follow a gamma distribution of likelihood
+  # vs distance from shore. So, fit a gamma distribution to the nest
+  # data, and then map that gamma distribution decay curve to a 
+  # raster. Cells <30km from shore will have a higher probability,
+  # closer to 1, while distances >30km will decay down to 0 probability.
+  tar_terra_rast(nest_likelihood, nest_gamma_decay(nests = nests,
+                                                   coast = sea))
+  
+  # Apply the nest probability decay function to regional densities
+  # Now, apply that gamma decay function to the density layer such 
+  # that the mean density per region will remain the same as calculated
+  # in `reg_density`, but the *spatial pattern* of the density follows
+  # the nest gamma distribution.
+  
+  # Extrapolate regional MAMU density
+  
   # Calculate mean density per region -> calculate MAMU count per region!
-  tar_target(regional_population_est, extrapolate_density(mamu_density = mamu_density, 
-                                                          regional_sh_area = regional_suit_hab_area_ha,
-                                                          min_ss = 5)),
-  tar_target(total_population, sum(regional_population_est$mamu_count))
+  # tar_target(regional_population_est, extrapolate_density(cc_density = cc_density,
+  #                                                         regional_sh_area = regional_suit_hab_area_ha,
+  #                                                         min_ss = 5)),
+  # tar_target(total_population, sum(regional_population_est$mamu_count))
 ) 
