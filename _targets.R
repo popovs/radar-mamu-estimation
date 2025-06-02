@@ -459,7 +459,6 @@ list(
   # tar_terra_rast(suitable_habitat, prepare_mamu_habitat_tiff(path = "GIS/2025_suitable_habitat/mamu_predict_2025_feb_03.tif",
   #                                                            maz = maz,
   #                                                            band = "X1")),
-  # TODO: maintain levels of regions for final outputs
   # Intersect suitable habitat in each catchment
   tar_target(cc_habitat, st_habitat_in_sf(sf = final_cc,
                                           habitat = suitable_habitat,
@@ -508,7 +507,6 @@ list(
   tar_target(regional_suit_hab_area_ha, sf::st_drop_geometry(reg_habitat)), 
   # Calculate the mean density of birds within each catchment
   # Using the bootstrapped mean + upper + lower CIs
-  # TODO units disappeared?
   tar_target(cc_density, catchment_density(mm = mean_max_mamu_cc, 
                                            catchment_habitat = cc_habitat)),
   # Calculate the bootstrapped mean density of birds within each region
@@ -517,11 +515,6 @@ list(
                                            dat_col = "density", 
                                            CI_level = 0.95,
                                            add_AKB = TRUE)),
-  # Rasterize the regional mean density
-  tar_terra_rast(rdens, rasterize_density(density = reg_density, 
-                                          sf = reg_habitat, 
-                                          merge_by = "region",
-                                          res = res)),
   # Fit a nest gamma decay function + rasterize it
   # Certain habitats may meet the criteria for "suitable habitat".
   # However, while habitat may be suitable for MAMU nesting in terms
@@ -534,20 +527,26 @@ list(
   # data, and then map that gamma distribution decay curve to a 
   # raster. Cells <30km from shore will have a higher probability,
   # closer to 1, while distances >30km will decay down to 0 probability.
+  # `nest_likelihood` has cut out all non-habitat pieces
   tar_terra_rast(nest_likelihood, nest_gamma_decay(nests = nests,
-                                                   coast = sea))
-  
+                                                   coast = sea,
+                                                   habitat = suitable_habitat)),
+  # `nest_likelihood_full` is primarily for visualization purposes
+  tar_terra_rast(nest_likelihood_full, nest_gamma_decay(nests = nests,
+                                                        coast = sea)),
+  # Rasterize the regional mean density
   # Apply the nest probability decay function to regional densities
   # Now, apply that gamma decay function to the density layer such 
   # that the mean density per region will remain the same as calculated
   # in `reg_density`, but the *spatial pattern* of the density follows
   # the nest gamma distribution.
-  
-  # Extrapolate regional MAMU density
-  
-  # Calculate mean density per region -> calculate MAMU count per region!
-  # tar_target(regional_population_est, extrapolate_density(cc_density = cc_density,
-  #                                                         regional_sh_area = regional_suit_hab_area_ha,
-  #                                                         min_ss = 5)),
-  # tar_target(total_population, sum(regional_population_est$mamu_count))
+  tar_terra_rast(density_map, extrapolate_density(regions, 
+                                                  reg_density, 
+                                                  nest_likelihood)),
+  #### POPULATION CALCS ####
+  # Calculate MAMU population!
+  tar_target(regional_population_est, calculate_population(density_map, 
+                                                           sf = regions, 
+                                                           merge_df = reg_density)),
+  tar_target(total_population, calculate_population(density_map))
 ) 
