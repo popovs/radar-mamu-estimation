@@ -293,7 +293,7 @@ regional_density <- function(catchment_density,
   # that records listed from North to South
   if ("region" %in% names(out)) {
     out$region <- factor(out$region,
-                         levels = c("AKB", "HG", "NC", "CC", "SC", "NVI", "MWVI", "SWVI", "EVI"))
+                         levels = c("AKB", "HG", "NC", "CC", "SC", "WNVI", "NVI", "MWVI", "SWVI", "EVI"))
     out <- out[order(out$region), ]
   }
   
@@ -592,7 +592,7 @@ calculate_population <- function(density_map, sf = NULL, merge_df = NULL) {
   # that records listed from North to South
   if ("region" %in% names(out)) {
     out$region <- factor(out$region,
-                         levels = c("AKB", "HG", "NC", "CC", "SC", "NVI", "MWVI", "SWVI", "EVI"))
+                         levels = c("AKB", "HG", "NC", "CC", "SC", "WNVI", "NVI", "MWVI", "SWVI", "EVI"))
     out <- out[order(out$region), ]
   }
   

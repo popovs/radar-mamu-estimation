@@ -67,7 +67,9 @@ tiles_to_download <- data.frame(tiles = c("103k", "103j", "103f", "103g", "103c"
 DEM_dir <- "GIS/DEM"
 
 # Regions to iterate GIS operations over
-regions_map <- sf::st_drop_geometry(sf::st_read("GIS/regions.gpkg"))
+#regions_map <- sf::st_drop_geometry(sf::st_read("GIS/regions.gpkg"))
+regions_map <- sf::st_drop_geometry(sf::st_read("GIS/cons_reg.gpkg"))
+#regions_map <- data.frame(region = c("AKB", "HG", "NC", "CC", "SC", "WNVI", "NVI", "MWVI", "SWVI", "EVI"))
 
 # Download the University of Maryland global forest cover dataset
 # https://glad.earthengine.app/view/global-forest-change#bl=off;old=0;dl=off;lon=-486.9726343690056;lat=51.450799512228464;zoom=6;
@@ -90,7 +92,7 @@ save_plots <- FALSE
 list(
   # We track the files themselves to automatically re-prepare the
   # `regions` and `nests` targets if changes in the file are detected.
-  tar_target(regions_file, "GIS/regions.gpkg", format = "file"),
+  tar_target(regions_file, "GIS/cons_reg.gpkg", format = "file"),
   tar_target(s_file, "data/ECCC_FLNR_MAMU-RadarData-20240307.xlsx", format = "file"),
   tar_target(nests_file, "GIS/MAMU_nests.gpkg", format = "file"),
   
@@ -164,7 +166,7 @@ list(
                  dplyr::mutate(elev_m_max = ceiling((nest_elev_m) / 100) * 100) |>
                  tibble::add_row(region = "AKB", elev_m_max = 800) |> # manually specify AKB (== CC)
                  tibble::add_row(region = "NC", elev_m_max = 800) |> # manually specify NC (== CC)
-                 tibble::add_row(region = "NVI", elev_m_max = 1200) |> # manually specify NVI (mean of all other VI areas)
+                 #tibble::add_row(region = "NVI", elev_m_max = 1200) |> # manually specify NVI (mean of all other VI areas)
                  dplyr::mutate(elev_m_min = 0) |>
                  dplyr::select(region, elev_m_min, elev_m_max), 
                region), # group by region col so targets later knows to run `reclass_elevation()` by row-level grouping
@@ -205,17 +207,17 @@ list(
                #                        prefix = "cost",
                #                        hg_exception = TRUE),
                # OPTION D: ISOLATION TREE OUTLIER DETECTION
-               nest_isoforest(nests = nests,
-                              quant_data = nest_cost,
-                              prefix = "cost"),
+               # nest_isoforest(nests = nests,
+               #                quant_data = nest_cost,
+               #                prefix = "cost"),
                # OPTION X: NO OUTLIERS REMOVED
-               # aggregate(nest_cost ~ region, nests, FUN = "max") |> 
-               #   dplyr::mutate(cost_max = ceiling((nest_cost) / 100) * 100) |>
-               #   tibble::add_row(region = "AKB", cost_max = 2900) |> # manually specify AKB (== CC)
-               #   tibble::add_row(region = "NC", cost_max = 2900) |> # manually specify NC (== CC)
-               #   tibble::add_row(region = "NVI", cost_max = 6900) |> # manually specify NVI (mean of all other VI areas)
-               #   dplyr::mutate(cost_min = 0) |>
-               #   dplyr::select(region, cost_min, cost_max),
+               aggregate(nest_cost ~ region, nests, FUN = "max") |>
+                 dplyr::mutate(cost_max = ceiling((nest_cost) / 100) * 100) |>
+                 tibble::add_row(region = "AKB", cost_max = 2900) |> # manually specify AKB (== CC)
+                 tibble::add_row(region = "NC", cost_max = 2900) |> # manually specify NC (== CC)
+                 #tibble::add_row(region = "NVI", cost_max = 6900) |> # manually specify NVI (mean of all other VI areas)
+                 dplyr::mutate(cost_min = 0) |>
+                 dplyr::select(region, cost_min, cost_max),
                region),
   #### ITERATE OVER REGIONAL CUTOFFS ####
   # For each region, iterate the following:
@@ -366,7 +368,9 @@ list(
   # this area is assumed to encompass ~95% of all suitable
   # nesting habitat within each region. Then we assume that
   # anything over/crossing the sea is accessible as well.
-  tar_terra_rast(maz, terra::cover(((elev > 0 ) * (cc > 0) * (coast_dist > 0)), # Anything accessible was stored as either '1' or '2' in each raster layer.
+  # NOTE: cost cutoffs are so conservative they don't make any difference to MAZ
+  # i.e. [(elev > 0) * (cc > 0) * (coast_dist > 0)] == [(elev > 0) * (coast_dist > 0)]
+  tar_terra_rast(maz, terra::cover(((elev > 0 ) * (coast_dist > 0)), # Anything accessible was stored as either '1' or '2' in each raster layer.
                                    sea + 1)), # and then we add the sea (+1, because it's all stored as 0 or NA)
   #### GENERATE RADAR CONES ####
   # Here, radar survey 'catchments' containing marbled murrelet 
@@ -497,6 +501,14 @@ list(
                                         CI_level = 0.95) |>
                dplyr::mutate(dplyr::across(c(bootmean, boot_min, boot_max), 
                                            round))),
+  # Regional mean annual maximum per catchment
+  # (across all years) for paper table purposes
+  tar_target(mean_max_mamu_reg, bootmean(annual_max_mamu, 
+                                        group_by = "region",
+                                        dat_col = "max_mamu", 
+                                        CI_level = 0.95) |>
+               dplyr::mutate(dplyr::across(c(bootmean, boot_min, boot_max), 
+                                           round))),
   #### DENSITY CALCS ####
   # NOTE suitable habitat =/= even MAMU density across whole layer!
   # While interior habitat might be equally 'suitable' to coastal habitat, the 
@@ -545,8 +557,8 @@ list(
                                                   nest_likelihood)),
   #### POPULATION CALCS ####
   # Calculate MAMU population!
-  tar_target(regional_population_est, calculate_population(density_map, 
-                                                           sf = regions, 
-                                                           merge_df = reg_density)),
+  tar_target(regional_population, calculate_population(density_map, 
+                                                       sf = regions, 
+                                                       merge_df = reg_density)),
   tar_target(total_population, calculate_population(density_map))
 ) 

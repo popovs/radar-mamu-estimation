@@ -35,11 +35,11 @@ prepare_surveys <- function(filepath, regions = regions) {
 prepare_regions <- function(filepath) {
   regions <- sf::st_read(filepath)
   regions$region <- factor(regions$region, 
-                           levels = c("AKB", "HG", "NC", "CC", "SC", "NVI", "MWVI", "SWVI", "EVI"))
+                           levels = c("AKB", "HG", "NC", "CC", "SC", "WNVI", "NVI", "MWVI", "SWVI", "EVI"))
   return(regions)
 }
 
-prepare_nests <- function(filepath, 
+prepare_nests <- function(filepath,
                           uncertainty_col = "LOC_UNCE_1",
                           regions = regions) {
   nests <- sf::st_read(filepath)
