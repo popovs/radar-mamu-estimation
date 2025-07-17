@@ -58,11 +58,11 @@ tar_source()
 res <- 250 # res MUST be >25, as the DEM goes does to 25m accuracy.
 
 # BC DEM Ortho tiles
-tiles_to_download <- data.frame(tiles = c("103k", "103j", "103f", "103g", "103c", "103b", "102o", # haida gwaii
-                                          "103o", "103p", "103j", "103i", "103g", "103h", "103a", "93e", "93d", "93c", "93l", "93m", "102p", "92m", "92n", "104a", "104b", # north/central coast
-                                          "102i", "92l", "92k", "92e", "92f", "92c", "92b", # vancouver island
-                                          "92j", "92g", "92h" # lower mainland
-                                          ))
+# tiles_to_download <- data.frame(tiles = c("103k", "103j", "103f", "103g", "103c", "103b", "102o", # haida gwaii
+#                                           "103o", "103p", "103j", "103i", "103g", "103h", "103a", "93e", "93d", "93c", "93l", "93m", "102p", "92m", "92n", "104a", "104b", # north/central coast
+#                                           "102i", "92l", "92k", "92e", "92f", "92c", "92b", # vancouver island
+#                                           "92j", "92g", "92h" # lower mainland
+#                                           ))
 # File directory to store DEM data
 DEM_dir <- "GIS/DEM"
 
@@ -110,25 +110,10 @@ list(
   # disk rather than simply as _targets objects, so that QGIS can
   # access and plot them. The targets pipeline will track changes
   # to the files. 
-  # Download DEM tiles
-  tar_map(
-    values = tiles_to_download, # params need to be passed as a df/tibble, defined OUTSIDE the pipeline
-    # Download DEM tiles
-    tar_target(DEM_tiles,
-               download_dem_tile(tile = tiles, # `tiles` in this case refers to the `tiles` column in `tiles_to_download` df
-                                 save_output = TRUE,
-                                 overwrite = TRUE,
-                                 output_dir = DEM_dir),
-               format = "file")
-    ),
-  # Track files within the DEM_dir
-  tar_target(DEM_tile_files, list.files(file.path(DEM_dir, "DEM_tiles"), full.names = TRUE)),
-  # Make VRT
+  # Download DEM tiles that overlap `regions` & create VRT of them all
   tar_target(DEM_VRT, 
-             terra::vrt(x = DEM_tile_files,
-                        filename = file.path(DEM_dir, "BC_DEM_VRT.vrt"),
-                        overwrite = TRUE,
-                        return_filename = TRUE), # for format "file" targets, the output MUST be a filepath
+             download_dem_tiles(regions = regions,
+                                output_dir = file.path(DEM_dir, "BC_DEM_VRT.vrt")),
              format = "file"),
   # Merge DEM tiles and reproject to 3005 (~30 mins)
   tar_target(BC_DEM_3005, 

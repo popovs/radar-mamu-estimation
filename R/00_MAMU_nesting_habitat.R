@@ -56,23 +56,36 @@ prepare_nests <- function(filepath,
 
 # PREPARE DEM -------------------------------------------------------------
 
-
-download_dem_tile <- function(tile,
-                              output_dir,
-                              save_output = TRUE,
-                              overwrite = TRUE) {
-  # Create output dir
-  output_dir <- file.path(output_dir, "DEM_tiles")
+# Returns the file path of the VRT
+download_dem_tiles <- function(regions, output_dir) {
+  # Function health checks
+  stopifnot("`regions` must be an `sf` object with POLYGON geometry." = all(sf::st_is(regions, "POLYGON")))
+  # Create output directory
   dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
-  # Download the tile
-  MAMU::BC_DEM(letterblock = tile, 
-               save_output = save_output,
-               overwrite = overwrite,
-               output_dir = output_dir)
-  out <- list.files(output_dir, full.names = TRUE)
-  out <- out[grep(paste0(tile, ".dem$"), out)]
+  # Download it
+  out <- bcmaps::cded(aoi = regions,
+                      dest_vrt = output_dir)
   return(out)
-}
+  }
+
+# PREVIOUS DEM DOWNLOAD FXN IS OUTDATED
+# Use the {bcmaps} package now
+# download_dem_tile <- function(tile,
+#                               output_dir,
+#                               save_output = TRUE,
+#                               overwrite = TRUE) {
+#   # Create output dir
+#   output_dir <- file.path(output_dir, "DEM_tiles")
+#   dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+#   # Download the tile
+#   MAMU::BC_DEM(letterblock = tile, 
+#                save_output = save_output,
+#                overwrite = overwrite,
+#                output_dir = output_dir)
+#   out <- list.files(output_dir, full.names = TRUE)
+#   out <- out[grep(paste0(tile, ".dem$"), out)]
+#   return(out)
+# }
 
 merge_dem <- function(vrt_path,
                       output_file,
