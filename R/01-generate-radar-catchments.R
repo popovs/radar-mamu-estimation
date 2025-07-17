@@ -840,7 +840,7 @@ directionality_crop <- function(cost_catchments,
 # even if it's within the cost catchment!
 
 access_catchments <- function(cost_catchments, maz, stn, cones, 
-                              raster_stats = TRUE, # extract summary statistics from forest and cost layers? T/F
+                              raster_stats = TRUE, # extract summary statistics from other eg cost layers? T/F
                               output_plots = TRUE,
                               output_dir,
                               ...) {
@@ -901,15 +901,13 @@ access_catchments <- function(cost_catchments, maz, stn, cones,
   # Merge with `stn` to get region and loc
   cc_maz <- merge(cc_maz, sf::st_drop_geometry(stn[,c("site", "region", "loc")]), by = "site")
   
-  # Optional: extract forestry and nest info?
+  # Optional: extract cost info?
   if (raster_stats == TRUE) {
     # TODO: this fails if one of the dots args is not supplied.
     # Unpack dots
     dots <- list(...)
-    #forest <- dots$forest
     cost <- dots$cost
     # Extract raster values
-    #cc_maz$mean_forest <- exactextractr::exact_extract(forest, cc_maz, "mean")
     cc_maz$mean_cost <- exactextractr::exact_extract(cost, cc_maz, "mean")
     rm(dots)
   }
