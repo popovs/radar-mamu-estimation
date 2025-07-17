@@ -903,12 +903,13 @@ access_catchments <- function(cost_catchments, maz, stn, cones,
   
   # Optional: extract forestry and nest info?
   if (raster_stats == TRUE) {
+    # TODO: this fails if one of the dots args is not supplied.
     # Unpack dots
     dots <- list(...)
-    forest <- dots$forest
+    #forest <- dots$forest
     cost <- dots$cost
     # Extract raster values
-    cc_maz$mean_forest <- exactextractr::exact_extract(forest, cc_maz, "mean")
+    #cc_maz$mean_forest <- exactextractr::exact_extract(forest, cc_maz, "mean")
     cc_maz$mean_cost <- exactextractr::exact_extract(cost, cc_maz, "mean")
     rm(dots)
   }

@@ -57,29 +57,22 @@ tar_source()
 # Note that a smaller number = MUCH SLOWER SCRIPT
 res <- 250 # res MUST be >25, as the DEM goes does to 25m accuracy.
 
-# BC DEM Ortho tiles
-# tiles_to_download <- data.frame(tiles = c("103k", "103j", "103f", "103g", "103c", "103b", "102o", # haida gwaii
-#                                           "103o", "103p", "103j", "103i", "103g", "103h", "103a", "93e", "93d", "93c", "93l", "93m", "102p", "92m", "92n", "104a", "104b", # north/central coast
-#                                           "102i", "92l", "92k", "92e", "92f", "92c", "92b", # vancouver island
-#                                           "92j", "92g", "92h" # lower mainland
-#                                           ))
 # File directory to store DEM data
 DEM_dir <- "GIS/DEM"
 
 # Regions to iterate GIS operations over
-#regions_map <- sf::st_drop_geometry(sf::st_read("GIS/regions.gpkg"))
+#regions_map <- sf::st_drop_geometry(sf::st_read("GIS/regions.gpkg")) # if using the other region demarcations
 regions_map <- sf::st_drop_geometry(sf::st_read("GIS/cons_reg.gpkg"))
-#regions_map <- data.frame(region = c("AKB", "HG", "NC", "CC", "SC", "WNVI", "NVI", "MWVI", "SWVI", "EVI"))
 
-# Download the University of Maryland global forest cover dataset
-# https://glad.earthengine.app/view/global-forest-change#bl=off;old=0;dl=off;lon=-486.9726343690056;lat=51.450799512228464;zoom=6;
-# Forest cover tiles
-forest_urls <- data.frame(names = c("60N_140W", "60N_130W", "50N_130W"),
-                          url = c("https://storage.googleapis.com/earthenginepartners-hansen/GFC-2023-v1.11/Hansen_GFC-2023-v1.11_treecover2000_60N_140W.tif",
-                                  "https://storage.googleapis.com/earthenginepartners-hansen/GFC-2023-v1.11/Hansen_GFC-2023-v1.11_treecover2000_60N_130W.tif",
-                                  "https://storage.googleapis.com/earthenginepartners-hansen/GFC-2023-v1.11/Hansen_GFC-2023-v1.11_treecover2000_50N_130W.tif"))
-# File directory to store forest data
-forest_dir <- "GIS/Forest_cover"
+# # Download the University of Maryland global forest cover dataset
+# # https://glad.earthengine.app/view/global-forest-change#bl=off;old=0;dl=off;lon=-486.9726343690056;lat=51.450799512228464;zoom=6;
+# # Forest cover tiles
+# forest_urls <- data.frame(names = c("60N_140W", "60N_130W", "50N_130W"),
+#                           url = c("https://storage.googleapis.com/earthenginepartners-hansen/GFC-2023-v1.11/Hansen_GFC-2023-v1.11_treecover2000_60N_140W.tif",
+#                                   "https://storage.googleapis.com/earthenginepartners-hansen/GFC-2023-v1.11/Hansen_GFC-2023-v1.11_treecover2000_60N_130W.tif",
+#                                   "https://storage.googleapis.com/earthenginepartners-hansen/GFC-2023-v1.11/Hansen_GFC-2023-v1.11_treecover2000_50N_130W.tif"))
+# # File directory to store forest data
+# forest_dir <- "GIS/Forest_cover"
 
 # API tokens
 source("temp/apikey.R")
@@ -117,12 +110,17 @@ list(
              format = "file"),
   # Merge DEM tiles and reproject to 3005 (~30 mins)
   tar_target(BC_DEM_3005, 
-             merge_dem(vrt_path = DEM_VRT,
+             merge_vrt(vrt_path = DEM_VRT,
                        output_file = file.path(DEM_dir, "BC_DEM_EPSG3005.tiff"),
                        overwrite = TRUE),
              format = "file"),
+  # Prepare Alaska coast DEM
+  tar_terra_rast(AK_DEM, resample_dem(dem_path = "GIS/DEM/Alaska_coast_DEM.tif",
+                                  res = res)),
   # Resample to pipeline resolution (but no need to save it as its own tiff file)
-  tar_terra_rast(DEM, resample_dem(dem_path = BC_DEM_3005, res = res)),
+  tar_terra_rast(DEM_target_res, resample_dem(dem_path = BC_DEM_3005, res = res)),
+  # Merge BC DEM and AK DEM
+  tar_terra_rast(DEM, merge_dem(DEM_target_res, AK_DEM)),
   #### REGIONAL ELEVATION CUTOFFS ####
   # Extract nest elevations
   # The exact elevational cutoffs vary by region and are primarily
@@ -149,7 +147,6 @@ list(
                # OPTION C: NO OUTLIERS REMOVED
                aggregate(nest_elev_m ~ region, nests, FUN = "max") |> 
                  dplyr::mutate(elev_m_max = ceiling((nest_elev_m) / 100) * 100) |>
-                 tibble::add_row(region = "AKB", elev_m_max = 800) |> # manually specify AKB (== CC)
                  tibble::add_row(region = "NC", elev_m_max = 800) |> # manually specify NC (== CC)
                  #tibble::add_row(region = "NVI", elev_m_max = 1200) |> # manually specify NVI (mean of all other VI areas)
                  dplyr::mutate(elev_m_min = 0) |>
@@ -291,52 +288,52 @@ list(
                                             dist_km = 30,
                                             exclude_islands = TRUE, # exclude HG and VI from coast distance calcs - we know birds that access inland regions on HG/VI
                                             regions = regions)),
-  #### FOREST COVER CUTOFF ####
-  # MAMU are almost certainly not nesting in urban or other completely
-  # treeless areas. Cut those out.
-  # Download the University of Maryland global forest cover dataset
-  # https://glad.earthengine.app/view/global-forest-change#bl=off;old=0;dl=off;lon=-486.9726343690056;lat=51.450799512228464;zoom=6;
-  tar_map(
-    values = forest_urls, # params need to be passed as a df/tibble, defined OUTSIDE the pipeline
-    names = names,
-    # Download DEM tiles
-    tar_target(forest_tiles,
-               download_forest_tiles(url = url,
-                                     output_dir = forest_dir),
-               format = "file")
-  ),
-  # Track files within the forest_dir
-  tar_target(forest_tile_files, list.files(file.path(forest_dir), full.names = TRUE)),
-  # Make VRT
-  tar_target(forest_VRT, 
-             terra::vrt(x = forest_tile_files,
-                        filename = file.path(forest_dir, "forest.vrt"),
-                        overwrite = TRUE,
-                        return_filename = TRUE), # for format "file" targets, the output MUST be a filepath
-             format = "file"),
-  # Merge forest tiles and reproject to 3005 (~30 mins)
-  # TODO: something wrong with output.
-  tar_target(forest_cover, 
-             merge_dem(vrt_path = forest_VRT,
-                       output_file = file.path(forest_dir, "forest_cover.tiff"),
-                       overwrite = TRUE),
-             format = "file"),
-  # Resample to pipeline resolution (but no need to save it as its own tiff file)
-  tar_terra_rast(forest, resample_dem(dem_path = forest_cover, res = res)),
-  # Extract nest forest cover
-  tar_target(nest_forest, exactextractr::exact_extract(forest, nests, 'mean')),
-  # Apply forest cutoff
-  # In the case of forests, we know with 100% confidence that
-  # MAMU will nest in areas with 100% tree cover. As such, we
-  # don't need to define a 'maximum tree cover' cutoff for 
-  # the forested areas layer. Instead, we need to choose a 
-  # minimum cutoff. In the same vein, setting a variable minimum
-  # forest cover cutoff by region might be cutting out too much
-  # habitat area. 
-  # Instead, we'll just cut out the bottom 2.5% tree cover (6
-  # nests out of 242 in the dataset).
-  # `fc` for forest cutoff
-  tar_terra_rast(fc, terra::ifel(forest < quantile(nest_forest, 0.025, na.rm = TRUE), NA, 1)),
+  # #### FOREST COVER CUTOFF ####
+  # # MAMU are almost certainly not nesting in urban or other completely
+  # # treeless areas. Cut those out.
+  # # Download the University of Maryland global forest cover dataset
+  # # https://glad.earthengine.app/view/global-forest-change#bl=off;old=0;dl=off;lon=-486.9726343690056;lat=51.450799512228464;zoom=6;
+  # tar_map(
+  #   values = forest_urls, # params need to be passed as a df/tibble, defined OUTSIDE the pipeline
+  #   names = names,
+  #   # Download DEM tiles
+  #   tar_target(forest_tiles,
+  #              download_forest_tiles(url = url,
+  #                                    output_dir = forest_dir),
+  #              format = "file")
+  # ),
+  # # Track files within the forest_dir
+  # tar_target(forest_tile_files, list.files(file.path(forest_dir), full.names = TRUE)),
+  # # Make VRT
+  # tar_target(forest_VRT, 
+  #            terra::vrt(x = forest_tile_files,
+  #                       filename = file.path(forest_dir, "forest.vrt"),
+  #                       overwrite = TRUE,
+  #                       return_filename = TRUE), # for format "file" targets, the output MUST be a filepath
+  #            format = "file"),
+  # # Merge forest tiles and reproject to 3005 (~30 mins)
+  # # TODO: something wrong with output.
+  # tar_target(forest_cover, 
+  #            merge_vrt(vrt_path = forest_VRT,
+  #                      output_file = file.path(forest_dir, "forest_cover.tiff"),
+  #                      overwrite = TRUE),
+  #            format = "file"),
+  # # Resample to pipeline resolution (but no need to save it as its own tiff file)
+  # tar_terra_rast(forest, resample_dem(dem_path = forest_cover, res = res)),
+  # # Extract nest forest cover
+  # tar_target(nest_forest, exactextractr::exact_extract(forest, nests, 'mean')),
+  # # Apply forest cutoff
+  # # In the case of forests, we know with 100% confidence that
+  # # MAMU will nest in areas with 100% tree cover. As such, we
+  # # don't need to define a 'maximum tree cover' cutoff for 
+  # # the forested areas layer. Instead, we need to choose a 
+  # # minimum cutoff. In the same vein, setting a variable minimum
+  # # forest cover cutoff by region might be cutting out too much
+  # # habitat area. 
+  # # Instead, we'll just cut out the bottom 2.5% tree cover (6
+  # # nests out of 242 in the dataset).
+  # # `fc` for forest cutoff
+  # tar_terra_rast(fc, terra::ifel(forest < quantile(nest_forest, 0.025, na.rm = TRUE), NA, 1)),
   #### MERGE CUTOFFS ####
   # Finally, merge the cutoff rasters together to create a 
   # "MAMU containment zone" area that has a high probability of
@@ -427,7 +424,7 @@ list(
                                          maz = maz, 
                                          stn = stn,
                                          raster_stats = TRUE,
-                                         forest = forest,
+                                         #forest = forest,
                                          cost = cost,
                                          output_plots = save_plots, # defined at top of script
                                          output_dir = "temp/final_catchment_inspection",

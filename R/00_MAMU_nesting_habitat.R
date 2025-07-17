@@ -87,7 +87,7 @@ download_dem_tiles <- function(regions, output_dir) {
 #   return(out)
 # }
 
-merge_dem <- function(vrt_path,
+merge_vrt <- function(vrt_path,
                       output_file,
                       overwrite = FALSE) {
   # Re-project VRT
@@ -110,6 +110,12 @@ resample_dem <- function(dem_path, res) {
     dem <- terra::resample(dem, r)
   }
   return(dem)
+}
+
+# Just a wrapper for terra::merge - plain old terra::merge bugs in pipeline?
+merge_dem <- function(x, y) {
+  out <- merge(x, y)
+  return(out)
 }
 
 
