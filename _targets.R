@@ -105,7 +105,8 @@ list(
                        overwrite = TRUE),
              format = "file"),
   # Prepare Alaska coast DEM
-  tar_terra_rast(AK_DEM, resample_dem(dem_path = "GIS/DEM/Alaska_coast_DEM.tif",
+  tar_target(AK_DEM_path, "GIS/DEM/Alaska_coast_DEM.tif", format = "file"),
+  tar_terra_rast(AK_DEM, resample_dem(dem_path = AK_DEM_path,
                                   res = res)),
   # Resample to pipeline resolution (but no need to save it as its own tiff file)
   tar_terra_rast(DEM_target_res, resample_dem(dem_path = BC_DEM_3005, res = res)),
@@ -185,7 +186,6 @@ list(
                # OPTION X: NO OUTLIERS REMOVED
                aggregate(nest_cost ~ region, nests, FUN = "max") |>
                  dplyr::mutate(cost_max = ceiling((nest_cost) / 100) * 100) |>
-                 tibble::add_row(region = "AKB", cost_max = 2900) |> # manually specify AKB (== CC)
                  tibble::add_row(region = "NC", cost_max = 2900) |> # manually specify NC (== CC)
                  #tibble::add_row(region = "NVI", cost_max = 6900) |> # manually specify NVI (mean of all other VI areas)
                  dplyr::mutate(cost_min = 0) |>
@@ -239,10 +239,9 @@ list(
   # Next we will create a separate raster of all points with
   # 30 km distance from the coast, as BC nest survey data
   # indicates that 99% of MAMU nests are within 30 km of the
-  # coastline. We are going to assume a 30 km distance from 
-  # shore flying around mountain barriers  but allowing for 
-  # flight over water.
-  # The DEM data doesn't include the USA or inland BC.
+  # coastline. We are going to assume a straight-line 30 km 
+  # distance from the shore, ignoring any barriers.
+  # The DEM data doesn't include inland BC.
   # These land areas need to be blocked off so the distance
   # algorithm can differentiate between land areas and
   # water areas.
