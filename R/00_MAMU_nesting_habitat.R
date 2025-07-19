@@ -486,7 +486,7 @@ coast_distance_barriers <- function(elev, sea, dist_km, exclude_islands, ...) {
 
 # NEST COST DISTANCE ------------------------------------------------------
 
-cost_distance <- function(dem) {
+cost_distance <- function(dem, sea) {
   ## Prepare cost layer ##
   
   # Extract res of target
@@ -494,7 +494,7 @@ cost_distance <- function(dem) {
   # so just take the first number and assume it's equal to the second
   res <- terra::res(dem)[1]
   
-  # First, similar to above, lower the resolution of high res
+  # First, similar to elsewhere, lower the resolution of high res
   # DEM by a factor of 10, or else the calculations will fail.
   if (res < 100) {
     c <- dem
@@ -508,12 +508,26 @@ cost_distance <- function(dem) {
   # function will fail.
   c <- terra::ifel(c < 0, 0, c)
   
+  # Merge in the `sea` areas. We're going to assume zero
+  # cost to fly over the sea - we're interested in cost flying
+  # from sea inland, rather than sea to other sea pixels.
+  # Resample to match `dem`
+  sea <- terra::resample(sea, dem)
+  # Merge together
+  # Its not perfect since there's some pixels dropped around 
+  # the AK coastline due to the low res of the AK DEM data,
+  # but it'll be negligible for our results - we're not
+  # looking at AK coastal data in our study, after all.
+  c <- terra::merge(c, sea) # heh
+  
   ## Calculate cost ##
   # The cost distance function calculates distance from shore (i.e.,
   # the `gridDist` function we just used above) and multiplies it
   # by the 'cost' layer (elevation). Higher elevations are more
   # costly to fly over. 
   cost <- terra::costDist(c, target = 0, scale = 1000) # divide values by 1000 so output numbers are smaller
+  # Chop out cost == 0
+  cost <- terra::ifel(cost > 0, cost, NA)
   return(cost)
 }
 
