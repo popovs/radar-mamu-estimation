@@ -68,7 +68,7 @@ regions_map <- sf::st_drop_geometry(sf::st_read("GIS/cons_reg.gpkg"))
 source("temp/apikey.R")
 
 # SAVE PLOTS? Yes or no
-save_plots <- FALSE
+save_plots <- TRUE
 
 #### PIPELINE ####
 # Run tar_make() to execute the pipeline
@@ -155,7 +155,7 @@ list(
   # boundaries later and 2) eliminate "high cost" nesting areas 
   # that may still be included within the elevation cutoff and 
   # coast distance rasters.
-  tar_terra_rast(cost, cost_distance(DEM)),
+  tar_terra_rast(cost, cost_distance(DEM, sea)),
   # Extract nest cost
   # Same process as extracting elevation values + applying cutoffs
   tar_target(nest_cost, exactextractr::exact_extract(cost, nests, 'mean')),
@@ -483,6 +483,7 @@ list(
   # Calculate MAMU population!
   tar_target(regional_population, calculate_population(density_map, 
                                                        sf = regions, 
-                                                       merge_df = reg_density)),
+                                                       merge_df = reg_density) |>
+               dplyr::arrange(region)),
   tar_target(total_population, calculate_population(density_map))
 ) 

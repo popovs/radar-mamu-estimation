@@ -767,13 +767,15 @@ directionality_crop <- function(cost_catchments,
     message("Removing areas behind cone for ", x)
     # Create the cut line, perpendicular to h. The line
     # should be long enough to be sure to cut any weird
-    # catchment danglies off. 10km each side should be
+    # catchment danglies off. 50km each side should be
     # long enough. 
+    # NOTE!! This will cause a BUG if the string isn't
+    # wide enough to chop full_cc polygon in half!!
     stn <- stn[stn$site == x, ]
     x0 <- sf::st_coordinates(stn)[1]
     y0 <- sf::st_coordinates(stn)[2]
     alpha <- (180 - stn$mean) * (pi / 180) # convert degrees to radians + rotate 90°
-    d <- 30000 # 30km
+    d <- 50000 # 30km
     x1 <- x0 + (d * cos(alpha))
     y1 <- y0 + (d * sin(alpha))
     x2 <- x0 - (d * cos(alpha))
