@@ -416,7 +416,8 @@ list(
   tar_target(annual_max_mamu, s |> 
                sf::st_drop_geometry() |>
                dplyr::group_by(site, region, year) |> 
-               dplyr::summarise(max_mamu = max(mamuinpd, na.rm = TRUE))),
+               dplyr::summarise(max_mamu = max(mamuinpd, na.rm = TRUE),
+                                N = dplyr::n())),
   # Calculate bootstrapped mean annual maximum per catchment
   # (across all years)
   tar_target(mean_max_mamu_cc, bootmean(annual_max_mamu, 
