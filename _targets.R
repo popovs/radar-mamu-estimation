@@ -292,52 +292,52 @@ list(
                                             dist_km = 30,
                                             exclude_islands = TRUE, # exclude HG and VI from coast distance calcs - we know birds that access inland regions on HG/VI
                                             regions = regions)),
-  #### FOREST COVER CUTOFF ####
-  # MAMU are almost certainly not nesting in urban or other completely
-  # treeless areas. Cut those out.
-  # Download the University of Maryland global forest cover dataset
-  # https://glad.earthengine.app/view/global-forest-change#bl=off;old=0;dl=off;lon=-486.9726343690056;lat=51.450799512228464;zoom=6;
-  tar_map(
-    values = forest_urls, # params need to be passed as a df/tibble, defined OUTSIDE the pipeline
-    names = names,
-    # Download DEM tiles
-    tar_target(forest_tiles,
-               download_forest_tiles(url = url,
-                                     output_dir = forest_dir),
-               format = "file")
-  ),
-  # Track files within the forest_dir
-  tar_target(forest_tile_files, list.files(file.path(forest_dir), full.names = TRUE)),
-  # Make VRT
-  tar_target(forest_VRT, 
-             terra::vrt(x = forest_tile_files,
-                        filename = file.path(forest_dir, "forest.vrt"),
-                        overwrite = TRUE,
-                        return_filename = TRUE), # for format "file" targets, the output MUST be a filepath
-             format = "file"),
-  # Merge forest tiles and reproject to 3005 (~30 mins)
-  # TODO: something wrong with output.
-  tar_target(forest_cover, 
-             merge_dem(vrt_path = forest_VRT,
-                       output_file = file.path(forest_dir, "forest_cover.tiff"),
-                       overwrite = TRUE),
-             format = "file"),
-  # Resample to pipeline resolution (but no need to save it as its own tiff file)
-  tar_terra_rast(forest, resample_dem(dem_path = forest_cover, res = res)),
-  # Extract nest forest cover
-  tar_target(nest_forest, exactextractr::exact_extract(forest, nests, 'mean')),
-  # Apply forest cutoff
-  # In the case of forests, we know with 100% confidence that
-  # MAMU will nest in areas with 100% tree cover. As such, we
-  # don't need to define a 'maximum tree cover' cutoff for 
-  # the forested areas layer. Instead, we need to choose a 
-  # minimum cutoff. In the same vein, setting a variable minimum
-  # forest cover cutoff by region might be cutting out too much
-  # habitat area. 
-  # Instead, we'll just cut out the bottom 2.5% tree cover (6
-  # nests out of 242 in the dataset).
-  # `fc` for forest cutoff
-  tar_terra_rast(fc, terra::ifel(forest < quantile(nest_forest, 0.025, na.rm = TRUE), NA, 1)),
+  # #### FOREST COVER CUTOFF ####
+  # # MAMU are almost certainly not nesting in urban or other completely
+  # # treeless areas. Cut those out.
+  # # Download the University of Maryland global forest cover dataset
+  # # https://glad.earthengine.app/view/global-forest-change#bl=off;old=0;dl=off;lon=-486.9726343690056;lat=51.450799512228464;zoom=6;
+  # tar_map(
+  #   values = forest_urls, # params need to be passed as a df/tibble, defined OUTSIDE the pipeline
+  #   names = names,
+  #   # Download DEM tiles
+  #   tar_target(forest_tiles,
+  #              download_forest_tiles(url = url,
+  #                                    output_dir = forest_dir),
+  #              format = "file")
+  # ),
+  # # Track files within the forest_dir
+  # tar_target(forest_tile_files, list.files(file.path(forest_dir), full.names = TRUE)),
+  # # Make VRT
+  # tar_target(forest_VRT, 
+  #            terra::vrt(x = forest_tile_files,
+  #                       filename = file.path(forest_dir, "forest.vrt"),
+  #                       overwrite = TRUE,
+  #                       return_filename = TRUE), # for format "file" targets, the output MUST be a filepath
+  #            format = "file"),
+  # # Merge forest tiles and reproject to 3005 (~30 mins)
+  # # TODO: something wrong with output.
+  # tar_target(forest_cover, 
+  #            merge_dem(vrt_path = forest_VRT,
+  #                      output_file = file.path(forest_dir, "forest_cover.tiff"),
+  #                      overwrite = TRUE),
+  #            format = "file"),
+  # # Resample to pipeline resolution (but no need to save it as its own tiff file)
+  # tar_terra_rast(forest, resample_dem(dem_path = forest_cover, res = res)),
+  # # Extract nest forest cover
+  # tar_target(nest_forest, exactextractr::exact_extract(forest, nests, 'mean')),
+  # # Apply forest cutoff
+  # # In the case of forests, we know with 100% confidence that
+  # # MAMU will nest in areas with 100% tree cover. As such, we
+  # # don't need to define a 'maximum tree cover' cutoff for 
+  # # the forested areas layer. Instead, we need to choose a 
+  # # minimum cutoff. In the same vein, setting a variable minimum
+  # # forest cover cutoff by region might be cutting out too much
+  # # habitat area. 
+  # # Instead, we'll just cut out the bottom 2.5% tree cover (6
+  # # nests out of 242 in the dataset).
+  # # `fc` for forest cutoff
+  # tar_terra_rast(fc, terra::ifel(forest < quantile(nest_forest, 0.025, na.rm = TRUE), NA, 1)),
   #### MERGE CUTOFFS ####
   # Finally, merge the cutoff rasters together to create a 
   # "MAMU containment zone" area that has a high probability of
@@ -428,8 +428,8 @@ list(
   tar_target(final_cc, access_catchments(cost_catchments = cropped_cc, 
                                          maz = maz, 
                                          stn = stn,
-                                         raster_stats = TRUE,
-                                         forest = forest,
+                                         raster_stats = FALSE,
+                                         #forest = forest,
                                          cost = cost,
                                          output_plots = save_plots, # defined at top of script
                                          output_dir = "temp/final_catchment_inspection",
