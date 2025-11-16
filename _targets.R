@@ -453,7 +453,8 @@ list(
                dplyr::mutate(region = "AKB") |> # Add in dummy rows for AKB, using NC density
                dplyr::bind_rows(cc_density) |>
                dplyr::group_by(region) |> 
-               dplyr::summarise(bootmean = sum(bootmean), 
+               dplyr::summarise(N = dplyr::n(),
+                                bootmean = sum(bootmean), 
                                 boot_min = sum(boot_min, na.rm = TRUE), 
                                 boot_max = sum(boot_max, na.rm = TRUE), 
                                 area_ha = sum(area_ha), 
