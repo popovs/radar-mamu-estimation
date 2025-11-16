@@ -261,44 +261,49 @@ catchment_density <- function(mm = mean_max_mamu_cc, # mean_max_mamu_cc is the d
 
 # From individual catchment densities, calculate a regional estimate
 # with 95% bootstrapped CIs.
-regional_density <- function(catchment_density, 
-                           group_by = "region", 
-                           dat_col = "density", 
-                           CI_level = 0.95,
-                           add_AKB = TRUE) {
-  
-  out <- bootmean(dat = catchment_density, 
-           group_by = group_by,
-           dat_col = dat_col,
-           CI_level = CI_level) |>
-    dplyr::rename(density = bootmean,
-                  density_lwr = boot_min,
-                  density_upr = boot_max) |>
-    # Units are sometimes annoying, but set them here
-    # to maintain consistency btwn `cc_density` & `reg_density`
-    dplyr::mutate(dplyr::across(c(density, density_lwr, density_upr),
-                                ~units::set_units(., "1/ha")))
-  
-  # Add in Alaska Border Region?
-  if (add_AKB) {
-    out <- rbind(out, 
-                 data.frame(region = "AKB",
-                            N = 0, 
-                            density = out[["density"]][out$region == "NC"],
-                            density_lwr = out[["density_lwr"]][out$region == "NC"],
-                            density_upr = out[["density_upr"]][out$region == "NC"]))
-  }
-  
-  # For convenience... rearrange table such
-  # that records listed from North to South
-  if ("region" %in% names(out)) {
-    out$region <- factor(out$region,
-                         levels = c("AKB", "HG", "NC", "CC", "SC", "WNVI", "NVI", "MWVI", "SWVI", "EVI"))
-    out <- out[order(out$region), ]
-  }
-  
-  return(out)
-}
+# NOTE 2025-11 This is an UNWEIGHTED MEAN. The density from a catchment 
+# 1 ha in size is weighted the same as one from a 50 ha catchment.
+# It is the equivalent error to taking the mean of several means.
+# For this reason we've switched to weighted mean density for the regional
+# density estimates. This is now obsolete.
+# regional_density <- function(catchment_density, 
+#                            group_by = "region", 
+#                            dat_col = "density", 
+#                            CI_level = 0.95,
+#                            add_AKB = TRUE) {
+#   
+#   out <- bootmean(dat = catchment_density, 
+#            group_by = group_by,
+#            dat_col = dat_col,
+#            CI_level = CI_level) |>
+#     dplyr::rename(density = bootmean,
+#                   density_lwr = boot_min,
+#                   density_upr = boot_max) |>
+#     # Units are sometimes annoying, but set them here
+#     # to maintain consistency btwn `cc_density` & `reg_density`
+#     dplyr::mutate(dplyr::across(c(density, density_lwr, density_upr),
+#                                 ~units::set_units(., "1/ha")))
+#   
+#   # Add in Alaska Border Region?
+#   if (add_AKB) {
+#     out <- rbind(out, 
+#                  data.frame(region = "AKB",
+#                             N = 0, 
+#                             density = out[["density"]][out$region == "NC"],
+#                             density_lwr = out[["density_lwr"]][out$region == "NC"],
+#                             density_upr = out[["density_upr"]][out$region == "NC"]))
+#   }
+#   
+#   # For convenience... rearrange table such
+#   # that records listed from North to South
+#   if ("region" %in% names(out)) {
+#     out$region <- factor(out$region,
+#                          levels = c("AKB", "HG", "NC", "CC", "SC", "WNVI", "NVI", "MWVI", "SWVI", "EVI"))
+#     out <- out[order(out$region), ]
+#   }
+#   
+#   return(out)
+# }
 
 
 
@@ -445,6 +450,9 @@ adj_gamma_mean <- function(nest_likelihood,
   nls <- nls[!is.na(nls)]
   # Calculate the adjustment value
   adj <- ((target_density * length(nls)) / sum(nls)) - target_density
+  # Also equivalent to:
+  # adj <- ((target_density) * exactextractr::ext_extract(nls_raster, region, "mean")) - target_density
+  # But it's inconvenient to require a `regions` input as well for this fxn.
   return(adj)
 }
 

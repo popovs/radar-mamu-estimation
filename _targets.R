@@ -186,7 +186,7 @@ list(
                # OPTION X: NO OUTLIERS REMOVED
                aggregate(nest_cost ~ region, nests, FUN = "max") |>
                  dplyr::mutate(cost_max = ceiling((nest_cost) / 100) * 100) |>
-                 tibble::add_row(region = "NC", cost_max = 2900) |> # manually specify NC (== CC)
+                 tibble::add_row(region = "NC", cost_max = 3100) |> # manually specify NC (== CC)
                  #tibble::add_row(region = "NVI", cost_max = 6900) |> # manually specify NVI (mean of all other VI areas)
                  dplyr::mutate(cost_min = 0) |>
                  dplyr::select(region, cost_min, cost_max),
@@ -446,12 +446,21 @@ list(
   # Using the bootstrapped mean + upper + lower CIs
   tar_target(cc_density, catchment_density(mm = mean_max_mamu_cc, 
                                            catchment_habitat = cc_habitat)),
-  # Calculate the bootstrapped mean density of birds within each region
-  tar_target(reg_density, regional_density(cc_density, 
-                                           group_by = "region", 
-                                           dat_col = "density", 
-                                           CI_level = 0.95,
-                                           add_AKB = TRUE)),
+  # Calculate the weighted mean density of birds within each region
+  # Catchments that take up more area of the region have higher weight
+  tar_target(reg_density, cc_density |> 
+               dplyr::filter(region == "NC") |>
+               dplyr::mutate(region = "AKB") |> # Add in dummy rows for AKB, using NC density
+               dplyr::bind_rows(cc_density) |>
+               dplyr::group_by(region) |> 
+               dplyr::summarise(bootmean = sum(bootmean), 
+                                boot_min = sum(boot_min, na.rm = TRUE), 
+                                boot_max = sum(boot_max, na.rm = TRUE), 
+                                area_ha = sum(area_ha), 
+                                sh_area_ha = sum(sh_area_ha)) |>
+               dplyr::mutate(density = bootmean / sh_area_ha, 
+                             density_lwr = boot_min / sh_area_ha, 
+                             density_upr = boot_max / sh_area_ha)),
   # Fit a nest gamma decay function + rasterize it
   # Certain habitats may meet the criteria for "suitable habitat".
   # However, while habitat may be suitable for MAMU nesting in terms
