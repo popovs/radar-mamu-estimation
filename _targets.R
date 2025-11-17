@@ -496,5 +496,7 @@ list(
                                                        sf = regions, 
                                                        merge_df = reg_density) |>
                dplyr::arrange(region)),
-  tar_target(total_population, calculate_population(density_map))
+  tar_target(total_population, calculate_population(density_map)),
+  tar_target(total_density, colSums(cc_density[,c("bootmean", "boot_min", "boot_max")], na.rm = TRUE) / sum(cc_density$sh_area_ha)),
+  tar_target(bc_density, total_population / total_suit_hab_area_ha)
 ) 

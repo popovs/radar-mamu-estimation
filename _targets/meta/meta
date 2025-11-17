@@ -1,7 +1,5 @@
 name|type|data|command|depend|seed|path|time|size|bytes|format|repository|iteration|parent|children|seconds|warnings|error
 mapped|object|93c3253bef12fafc|||||||||||||||
-forest_dir|object|a1091ae7ff1811da
-forest_urls|object|0cd2b76dceace634
 reg_habitat|stem|351380e584183d36|149d43fab0fb1037|aef23e61e37c1c01|-646763704||t20286.7587688525s|s87326312b|87326312|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||98.177|attribute variables are assumed to be spatially constant throughout all geometries|
 AK_DEM_path|stem|2747b21473b68d1b|dc91526f35c3c0a4|2c530c1562a7fbd1|-1598360254|GIS/DEM/Alaska_coast_DEM.tif|t20286.8281785039s|s1105654b|1105654|file|local|vector|||0.152||
 AK_DEM|stem|eff32e8fcad049e3|b7fd3f9975e8c9c2|ecab8088208c70e6|1937716189||t20286.8295110892s|s10862674b|10862674|format_custom&read=dGVycmE6OnJhc3QocGF0aCk&write=ewogICAgZG8uY2FsbCh0ZXJyYTo6d3JpdGVSYXN0ZXIsIGMobGlzdChvYmplY3QsIGZpbGVuYW1lID0gcGF0aCwgCiAgICAgICAgZmlsZXR5cGUgPSAiR1RpZmYiLCBvdmVyd3JpdGUgPSBUUlVFLCBnZGFsID0gTlVMTCksIGxpc3QoKSkpCn0&marshal=dGVycmE6OndyYXAob2JqZWN0KQ&unmarshal=dGVycmE6OnVud3JhcChvYmplY3Qp&convert=&copy=&repository=|local|list|||0.242||
@@ -77,8 +75,10 @@ watersheds_raw|stem|e93c9d5d479ae888|694f276ae5de2f39|fbc872da8d78be10|-16591792
 stn_gpkg|stem|cee9d02fae397fc5|38e448e59976a0d6|8557c027d7407368|-204749463|temp/stn.gpkg|t20389.8224408465s|s131072b|131072|file|local|vector|||0.011||
 cones_gpkg|stem|24ce230cd9feacf8|b20cc9f3be4ea63e|21bcb2d30df0dea2|895392031|GIS/flight_headings.gpkg|t20389.8224402438s|s626688b|626688|file|local|vector|||0.008||
 cc_gpkg|stem|b902cccdc6df47dc|837a5edec48defb8|4abad93d60c99cdb|-1719884871|GIS/radar_derived_catchments.gpkg|t20408.2309780239s|s23216128b|23216128|file|local|vector|||0.165||
-regional_density|function|706dff3a6f39e12b
 total_population|stem|208ca15eae3c7aff|b8ef4ac0b24f7943|49753dc6a9718351|1690109568||t20408.2373200748s|s139b|139|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||3.42||
+reg_density|stem|301841a953919701|ca6fa038e73488e2|09d2725888d46e99|-343691882||t20408.9824145946s|s781b|781|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0.022||
+density_map|stem|c93b2800e25b8d67|f00bcc67ef59de11|b055bd81516ac9ea|115979272||t20408.9825695973s|s9746110b|9746110|format_custom&read=dGVycmE6OnJhc3QocGF0aCk&write=ewogICAgZG8uY2FsbCh0ZXJyYTo6d3JpdGVSYXN0ZXIsIGMobGlzdChvYmplY3QsIGZpbGVuYW1lID0gcGF0aCwgCiAgICAgICAgZmlsZXR5cGUgPSAiR1RpZmYiLCBvdmVyd3JpdGUgPSBUUlVFLCBnZGFsID0gTlVMTCksIGxpc3QoKSkpCn0&marshal=dGVycmE6OndyYXAob2JqZWN0KQ&unmarshal=dGVycmE6OnVud3JhcChvYmplY3Qp&convert=&copy=&repository=|local|list|||11.005||
+regional_population|stem|8772a951e9197b2c|3b67ab5814b50f2e|cf4852097c417c17|1975736088||t20408.9826209762s|s883b|883|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||4.234||
 rasterize_density|function|e34dbbfad12a5274
 circmean|function|7e16d5c55463d304
 lower_whisker|function|1e7a5ba70256e744
@@ -88,7 +88,7 @@ directionality_crop|function|605e5daf3bdb5808
 download_dem_tiles|function|0810fcfb073a2bb3
 get_usa_land|function|219103f4d243e5f1
 nest_isoforest|function|cace87dc5e5748f5
-.Random.seed|object|040627f781db5b97
+.Random.seed|object|581df096ff0be7c5
 block_land|function|b5d6f25a7c5cccdd
 plot_headings|function|95b37f4712bc2dc6
 plot_final_map|function|69aac62cce2c74fd
@@ -137,6 +137,5 @@ access_catchments|function|f1911f21b7f0f1af
 select_watersheds|function|c52ce9349bf93fe8
 watershed_cost|function|58114bcf20c4bc5c
 calc_polar_mean|function|c2eaaf4d4761e4bf
-reg_density|stem|301841a953919701|ca6fa038e73488e2|09d2725888d46e99|-343691882||t20408.9824145946s|s781b|781|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0.022||
-density_map|stem|c93b2800e25b8d67|f00bcc67ef59de11|b055bd81516ac9ea|115979272||t20408.9825695973s|s9746110b|9746110|format_custom&read=dGVycmE6OnJhc3QocGF0aCk&write=ewogICAgZG8uY2FsbCh0ZXJyYTo6d3JpdGVSYXN0ZXIsIGMobGlzdChvYmplY3QsIGZpbGVuYW1lID0gcGF0aCwgCiAgICAgICAgZmlsZXR5cGUgPSAiR1RpZmYiLCBvdmVyd3JpdGUgPSBUUlVFLCBnZGFsID0gTlVMTCksIGxpc3QoKSkpCn0&marshal=dGVycmE6OndyYXAob2JqZWN0KQ&unmarshal=dGVycmE6OnVud3JhcChvYmplY3Qp&convert=&copy=&repository=|local|list|||11.005||
-regional_population|stem|8772a951e9197b2c|3b67ab5814b50f2e|cf4852097c417c17|1975736088||t20408.9826209762s|s883b|883|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||4.234||
+total_density|stem|82738df1225c98c5|756fc59df005c3e8|387d911c8885f4c7|1553158417||t20409.0791507836s|s240b|240|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0.001||
+bc_density|stem|6429d29a0a5ec3ba|8de4e254587950cb|2628d84e887ce297|-297569176||t20409.0791519125s|s240b|240|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0.001||
