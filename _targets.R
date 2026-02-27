@@ -47,7 +47,7 @@ library(geotargets) # Needed to save `terra` SpatRaster targets
 
 # Set target options:
 tar_option_set(
-  packages = c("sf"), # packages needed for static pipeline obj
+  packages = c("sf", "terra"), # packages needed for static pipeline obj
   format = tar_format( # Default qs is superceded by qs2. Install qs2 and specify read & write fxns
     read = function(path) { qs2::qs_read(path) }, 
     write = function(object, path) { qs2::qs_save(object = object, file = path) }
@@ -91,15 +91,11 @@ list(
   #### PREPARE DATA FILES ####
   ##### Regions #####
   tar_target(regions_path, "GIS/cons_reg.gpkg", format = "file"), # Track regions gpkg file
-  tar_target(regions, sf::st_read(regions_path) |>
-               dplyr::mutate(region = factor(region, levels = forcats::fct_inorder(region))) # The gpkg polygons are already in correct order. Assign factor levels to the existing row order
-             ),
+  tar_target(regions, prepare_regions(filepath = regions_path)),
   ##### Nests #####
   tar_target(nests_path, "GIS/MAMU_Nests_BC_CDC.gpkg", format = "file"), # Track nests gpkg file
-  tar_target(nests_full, sf::st_read(nests_path)), # Full nests sf, including all associated metadata
-  tar_target(nests, sf::st_intersection(nests_full, regions) |>
-               dplyr::select(MMCR_NAME, region) |>
-               unique()), # Repeat visits to a nest are condensed to one geometry record
+  tar_target(nests, prepare_nests(filepath = nests_path,
+                                  regions = regions)),
 
   ##### Radar surveys #####
   tar_target(s_path, "data/ECCC_FLNR_MAMU-RadarData-20240307.xlsx", format = "file"),
@@ -113,14 +109,14 @@ list(
   
 
   #### PREPARE DEM ####
-  ##### Query CDED tiles #####
+  ##### Query BC CDED tiles #####
   # Note this target simply points to the DEM VRT filepath - it is not 
   # a raster in and of itself.
   tar_target(cded, 
              query_cded(regions = regions,
                         output_dir = "GIS/DEM"),
              format = "file")
-  
+  ##### Prepare Alaska coast DEM #####
   # # Merge DEM tiles and reproject to 3005 (~30 mins)
   # tar_target(BC_DEM_3005,
   #            merge_vrt(vrt_path = DEM_VRT,
