@@ -102,7 +102,7 @@ list(
                unique()), # Repeat visits to a nest are condensed to one geometry record
 
   ##### Radar surveys #####
-  tar_target(s_path, "data/ECCC_FLNR_MAMU-RadarData-20240307.xlsx", format = "file")
+  tar_target(s_path, "data/ECCC_FLNR_MAMU-RadarData-20240307.xlsx", format = "file"),
   
   
   # tar_target(regions, prepare_regions(filepath = regions_path)),
@@ -112,23 +112,17 @@ list(
   #                                 regions = regions)),
   
 
+  #### PREPARE DEM ####
+  ##### Query CDED tiles #####
+  # Note this target simply points to the DEM VRT filepath - it is not 
+  # a raster in and of itself.
+  tar_target(cded, 
+             query_cded(regions = regions,
+                        output_dir = "GIS/DEM"),
+             format = "file")
   
-
-# QUARANTINE --------------------------------------------------------------
-
-  
-  # #### PREPARE DEM ####
-  # # All the DEM data products will be saved as raster files on the
-  # # disk rather than simply as _targets objects, so that QGIS can
-  # # access and plot them. The targets pipeline will track changes
-  # # to the files. 
-  # # Download DEM tiles that overlap `regions` & create VRT of them all
-  # tar_target(DEM_VRT, 
-  #            download_dem_tiles(regions = regions,
-  #                               output_dir = file.path(DEM_dir, "BC_DEM_VRT.vrt")),
-  #            format = "file"),
   # # Merge DEM tiles and reproject to 3005 (~30 mins)
-  # tar_target(BC_DEM_3005, 
+  # tar_target(BC_DEM_3005,
   #            merge_vrt(vrt_path = DEM_VRT,
   #                      output_file = file.path(DEM_dir, "BC_DEM_EPSG3005.tiff"),
   #                      overwrite = TRUE),
@@ -141,6 +135,11 @@ list(
   # tar_terra_rast(DEM_target_res, resample_dem(dem_path = BC_DEM_3005, res = res)),
   # # Merge BC DEM and AK DEM
   # tar_terra_rast(DEM, merge_dem(DEM_target_res, AK_DEM)),
+  
+
+# QUARANTINE --------------------------------------------------------------
+
+  
   # #### REGIONAL ELEVATION CUTOFFS ####
   # # Extract nest elevations
   # # The exact elevational cutoffs vary by region and are primarily
