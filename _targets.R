@@ -102,7 +102,7 @@ list(
                unique()), # Repeat visits to a nest are condensed to one geometry record
 
   ##### Radar surveys #####
-  tar_target(s_path, "data/ECCC_FLNR_MAMU-RadarData-20240307.xlsx", format = "file"),
+  tar_target(s_path, "data/ECCC_FLNR_MAMU-RadarData-20240307.xlsx", format = "file")
   
   
   # tar_target(regions, prepare_regions(filepath = regions_path)),
