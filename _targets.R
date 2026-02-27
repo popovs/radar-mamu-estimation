@@ -1,12 +1,31 @@
-# Created by use_targets().
-# Follow the comments below to fill in this target script.
-# Then follow the manual to check and run the pipeline:
-#   https://books.ropensci.org/targets/walkthrough.html#inspect-the-pipeline
+# HEAD --------------------------------------------------------------------
 
-# Load packages required to define the pipeline:
-library(targets)
-library(tarchetypes) # Needed for `tar_map()`
-library(geotargets) # Needed to save `terra` SpatRaster targets
+# This is the 'mothership' script of this R repository. From here, you
+# track all your data inputs, manage the data workflow (the 'pipeline'),
+# and create all your outputs. This pipeline is built using the {targets}
+# package: https://books.ropensci.org/targets/
+
+# Note this repository DOES NOT contain all the raw data files
+# needed to successfully reproduce the data pipeline on another machine.
+# You will need to contact Sarah Popov (sarah.popov@gov.bc.ca) to receive
+# all the raw data (large GIS files, nest locations, etc.) to run this
+# successfully on your machine.
+
+# BASIC USAGE
+# Assuming you have set up all the raw data files and directories, ...
+# 1) Run `renv::restore()` to install all necessary R packages the pipeline
+#     depends on.
+# 2) Load the {targets} library. Run `tar_make()` to run the pipeline.
+#     NOTE the full pipeline takes 5-6 hours to run if running from scratch.
+#     You can comment out sections of the pipeline that you are not
+#     interested in recreating if you wish to skip the creation of them,
+#     assuming nothing downstream of the pipeline depends upon it.
+#     TIP: you can run `tar_visnetwork()` to see how various targets depend
+#     upon each other.
+# 3) Once you have created all your targets, you are ready to play with
+#     the data outputs. In a separate R script, you can run 
+#     `tar_load(<target name>)` to quickly load up the target in your R
+#     session and manipulate it from there.
 
 # DISCLAIMER 1: THIS WHOLE SCRIPT WILL TAKE SEVERAL HOURS TO RUN.
 # There are likely faster or more efficient ways of doing this,
@@ -20,29 +39,27 @@ library(geotargets) # Needed to save `terra` SpatRaster targets
 # easily replicated in QGIS to the same effect. The benefit of
 # this code is the exact reproducibility.
 
+# SETUP -------------------------------------------------------------------
+
+library(targets)
+library(tarchetypes) # Needed for `tar_map()`
+library(geotargets) # Needed to save `terra` SpatRaster targets
+
 # Set target options:
 tar_option_set(
-  packages = c("MAMU", # remotes::install_github("popovs/MAMU")
-               "janitor",
-               "units",
-               "sf",
-               "terra",
-               "stars",
-               "rnaturalearth",
-               "isotree",
-               "dplyr",
-               "readxl",
-               "smoothr"),
+  packages = c("sf"), # packages needed for static pipeline obj
   format = tar_format( # Default qs is superceded by qs2. Install qs2 and specify read & write fxns
     read = function(path) { qs2::qs_read(path) }, 
     write = function(object, path) { qs2::qs_save(object = object, file = path) }
-    ), 
+  ), 
   memory = "transient", # unload memory for each target line after it's completed
   garbage_collection = TRUE, # run gc() prior to each target
 )
 
-# Run the R scripts in the R/ folder with your custom functions:
+# Let {targets} find custom fxns located within the 'R' folder
+# when running `tar_make()`:
 tar_source()
+
 
 #### STATIC PIPELINE OBJECTS ####
 
@@ -51,27 +68,25 @@ tar_source()
 # resolution, but gridded to a 0.75 arc-second scale. 
 # https://www2.gov.bc.ca/gov/content/data/geographic-data-services/topographic-data/elevation/digital-elevation-model
 # This means all our raster data is at a somewhat odd 
-# ~17.37227 x 17.37227 resolution (depending on latitude):
+# 17.37227 x 17.37227 resolution:
 #res(BC_DEM_3005)
 # As such, the highest resolution we can safely go for is 25m.
 # Note that a smaller number = MUCH SLOWER SCRIPT
 res <- 250 # res MUST be >25, as the DEM goes does to 25m accuracy.
 
-# File directory to store DEM data
-DEM_dir <- "GIS/DEM"
-
 # Regions to iterate GIS operations over
-#regions_map <- sf::st_drop_geometry(sf::st_read("GIS/regions.gpkg")) # if using the other region demarcations
-regions_map <- sf::st_drop_geometry(sf::st_read("GIS/cons_reg.gpkg"))
+#regions_map <- sf::st_drop_geometry(sf::st_read("GIS/regions.gpkg"))
 
 # API tokens
-source("temp/apikey.R")
+# Necessary for plotting fxns
+#source("temp/apikey.R")
 
 # SAVE PLOTS? Yes or no
-save_plots <- TRUE
+save_plots <- FALSE
 
-#### PIPELINE ####
-# Run tar_make() to execute the pipeline
+
+# PIPELINE ----------------------------------------------------------------
+
 list(
   # We track the files themselves to automatically re-prepare the
   # `regions` and `nests` targets if changes in the file are detected.
