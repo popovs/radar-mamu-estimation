@@ -14,3 +14,15 @@ query_cded <- function(regions, output_dir) {
                       dest_vrt = file.path(output_dir, "CDED_VRT.vrt"))
   return(out)
 }
+
+# Resample a DEM to a given target resolution
+resample_rast <- function(rast, res) {
+  # CHECK resolution of dem - only 'resample' if it doesn't match
+  if (!all(res == terra::res(rast))) {
+    message("Resampling DEM to target resolution of ", res, " m...")
+    r <- rast
+    terra::res(r) <- res
+    rast <- terra::resample(rast, r)
+  }
+  return(rast)
+}

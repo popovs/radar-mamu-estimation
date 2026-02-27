@@ -72,7 +72,7 @@ tar_source()
 #res(BC_DEM_3005)
 # As such, the highest resolution we can safely go for is 25m.
 # Note that a smaller number = MUCH SLOWER SCRIPT
-res <- 250 # res MUST be >25, as the DEM goes does to 25m accuracy.
+res <- 250 # Set res to ~250 to run things much faster
 
 # Regions to iterate GIS operations over
 #regions_map <- sf::st_drop_geometry(sf::st_read("GIS/regions.gpkg"))
@@ -117,18 +117,33 @@ list(
   tar_target(CDED_VRT_path, 
              query_cded(regions = regions,
                         output_dir = "GIS/DEM"),
-             format = "file")
+             format = "file"),
+  ##### Prepare BC coast DEM #####
+  # Resample to target resolution and project to EPSG 3005
+  # This takes about ~30 mins at 250m resolution
+  tar_terra_rast(BC_DEM, terra::rast(CDED_VRT_path) |> # read raster
+                   terra::project("epsg:3005") |> # reproject to m-based projection
+                   resample_rast(res = res)), # resample to target resolution
   ##### Prepare Alaska coast DEM #####
+  # Resample to target resolution and project to EPSG 3005
+  tar_target(AK_DEM_path, "GIS/DEM/Alaska_DEM.tiff", format = "file"),
+  tar_terra_rast(AK_DEM, terra::rast(AK_DEM_path) |> # read raster
+                   terra::project("epsg:3005") |> # reproject to m-based projection
+                   resample_rast(res = res)) # resample to target resolution
+  
+  # TODO: maybe move ocean prep section here?
+  
+  ##### Merge BC and AK DEM #####
+  
+  
   # # Merge DEM tiles and reproject to 3005 (~30 mins)
   # tar_target(BC_DEM_3005,
   #            merge_vrt(vrt_path = DEM_VRT,
   #                      output_file = file.path(DEM_dir, "BC_DEM_EPSG3005.tiff"),
   #                      overwrite = TRUE),
   #            format = "file"),
-  # # Prepare Alaska coast DEM
-  # tar_target(AK_DEM_path, "GIS/DEM/Alaska_coast_DEM.tif", format = "file"),
-  # tar_terra_rast(AK_DEM, resample_dem(dem_path = AK_DEM_path,
-  #                                 res = res)),
+
+  
   # # Resample to pipeline resolution (but no need to save it as its own tiff file)
   # tar_terra_rast(DEM_target_res, resample_dem(dem_path = BC_DEM_3005, res = res)),
   # # Merge BC DEM and AK DEM

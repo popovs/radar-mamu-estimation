@@ -120,17 +120,7 @@ merge_vrt <- function(vrt_path,
   return(output_file)
 }
 
-resample_dem <- function(dem_path, res) {
-  dem <- terra::rast(dem_path)
-  # CHECK resolution of dem - only 'resample' if it doesn't match
-  if (!all(res == terra::res(dem))) {
-    message("Resampling DEM to target resolution of ", res, " m...")
-    r <- dem
-    terra::res(r) <- res
-    dem <- terra::resample(dem, r)
-  }
-  return(dem)
-}
+
 
 # Just a wrapper for terra::merge - plain old terra::merge bugs in pipeline?
 merge_dem <- function(x, y) {
