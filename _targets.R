@@ -98,9 +98,11 @@ list(
                                   regions = regions)),
 
   ##### Radar surveys #####
-  tar_target(s_path, "data/ECCC_FLNR_MAMU-RadarData-20240307.xlsx", format = "file"),
+  # TODO: maybe convert this to csv?
+  tar_target(s_path, "data/ECCC_FLNR_MAMU-RadarData-20240307.xlsx", format = "file"), # Track surveys excel file
   
-  
+  # Alt arrangement: track all paths first in one section, 
+  # Then prep all inputs in another section
   # tar_target(regions, prepare_regions(filepath = regions_path)),
   # tar_target(s, prepare_surveys(filepath = s_path,
   #                               regions = regions)),
