@@ -112,7 +112,7 @@ list(
   ##### Query BC CDED tiles #####
   # Note this target simply points to the DEM VRT filepath - it is not 
   # a raster in and of itself.
-  tar_target(cded, 
+  tar_target(CDED_VRT_path, 
              query_cded(regions = regions,
                         output_dir = "GIS/DEM"),
              format = "file")

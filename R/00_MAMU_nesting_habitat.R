@@ -76,17 +76,17 @@ prepare_nests <- function(filepath, regions = regions) {
 
 # PREPARE DEM -------------------------------------------------------------
 
-# Returns the file path of the VRT
-download_dem_tiles <- function(regions, output_dir) {
-  # Function health checks
-  stopifnot("`regions` must be an `sf` object with POLYGON geometry." = all(sf::st_is(regions, "POLYGON")))
-  # Create output directory
-  dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
-  # Download it
-  out <- bcmaps::cded(aoi = regions,
-                      dest_vrt = output_dir)
-  return(out)
-  }
+# # Returns the file path of the VRT
+# download_dem_tiles <- function(regions, output_dir) {
+#   # Function health checks
+#   stopifnot("`regions` must be an `sf` object with POLYGON geometry." = all(sf::st_is(regions, "POLYGON")))
+#   # Create output directory
+#   dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+#   # Download it
+#   out <- bcmaps::cded(aoi = regions,
+#                       dest_vrt = output_dir)
+#   return(out)
+#   }
 
 # PREVIOUS DEM DOWNLOAD FXN IS OUTDATED
 # Use the {bcmaps} package now
