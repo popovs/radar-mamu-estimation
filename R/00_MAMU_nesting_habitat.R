@@ -32,25 +32,25 @@ prepare_surveys <- function(filepath, regions = regions) {
 
 # PREPARE GIS FILES -------------------------------------------------------
 
-prepare_regions <- function(filepath) {
-  regions <- sf::st_read(filepath)
-  regions$region <- factor(regions$region, 
-                           levels = c("AKB", "HG", "NC", "CC", "SC", "WNVI", "NVI", "MWVI", "SWVI", "EVI"))
-  return(regions)
-}
+# prepare_regions <- function(filepath) {
+#   regions <- sf::st_read(filepath)
+#   regions$region <- factor(regions$region, 
+#                            levels = c("AKB", "HG", "NC", "CC", "SC", "WNVI", "NVI", "MWVI", "SWVI", "EVI"))
+#   return(regions)
+# }
 
-prepare_nests <- function(filepath,
-                          uncertainty_col = "LOC_UNCE_1",
-                          regions = regions) {
-  nests <- sf::st_read(filepath)
-  nests <- sf::st_intersection(nests, regions)
-  # Add buffers of uncertainty around the nests
-  if (any(is.na(nests[[uncertainty_col]]))) stop("Nest locations must have an uncertainty associated with them (", uncertainty_col, ").")
-  message("Assuming nest uncertainty is in meters.")
-  #stopifnot("Nest location uncertainly calculations currently only support uncertainty expressed in meters (LOC_UNCE_2 column)." = all(tolower(unique(nests$LOC_UNCE_2)) %in% c("m", "meters", "meter")))
-  nests <- st_buffer(nests, dist = nests[[uncertainty_col]])
-  return(nests)
-}
+# prepare_nests <- function(filepath,
+#                           uncertainty_col = "LOC_UNCE_1",
+#                           regions = regions) {
+#   nests <- sf::st_read(filepath)
+#   nests <- sf::st_intersection(nests, regions)
+#   # Add buffers of uncertainty around the nests
+#   if (any(is.na(nests[[uncertainty_col]]))) stop("Nest locations must have an uncertainty associated with them (", uncertainty_col, ").")
+#   message("Assuming nest uncertainty is in meters.")
+#   #stopifnot("Nest location uncertainly calculations currently only support uncertainty expressed in meters (LOC_UNCE_2 column)." = all(tolower(unique(nests$LOC_UNCE_2)) %in% c("m", "meters", "meter")))
+#   nests <- st_buffer(nests, dist = nests[[uncertainty_col]])
+#   return(nests)
+# }
 
 
 

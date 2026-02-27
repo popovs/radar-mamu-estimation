@@ -88,21 +88,30 @@ save_plots <- FALSE
 # PIPELINE ----------------------------------------------------------------
 
 list(
-  # We track the files themselves to automatically re-prepare the
-  # `regions` and `nests` targets if changes in the file are detected.
-  tar_target(regions_file, "GIS/cons_reg.gpkg", format = "file"),
-  tar_target(s_file, "data/ECCC_FLNR_MAMU-RadarData-20240307.xlsx", format = "file"),
-  tar_target(nests_file, "GIS/MAMU_nests.gpkg", format = "file"),
+  #### PREPARE DATA FILES ####
+  ##### Regions #####
+  tar_target(regions_path, "GIS/cons_reg.gpkg", format = "file"), # Track regions gpkg file
+  tar_target(regions, sf::st_read(regions_path) |>
+               dplyr::mutate(region = factor(region, levels = forcats::fct_inorder(region))) # The gpkg polygons are already in correct order. Assign factor levels to the existing row order
+             ),
+  ##### Nests #####
+  tar_target(nests_path, "GIS/MAMU_Nests_BC_CDC.gpkg", format = "file"), # Track nests gpkg file
+  tar_target(nests_full, sf::st_read(nests_path)), # Full nests sf, including all associated metadata
+  tar_target(nests, sf::st_intersection(nests_full, regions) |>
+               dplyr::select(MMCR_NAME, region) |>
+               unique()), # Repeat visits to a nest are condensed to one geometry record
+
+  ##### Radar surveys #####
+  tar_target(s_path, "data/ECCC_FLNR_MAMU-RadarData-20240307.xlsx", format = "file"),
   
-  # Read in MAMU radar survey data
-  tar_target(regions, prepare_regions(filepath = regions_file)),
-  tar_target(s, prepare_surveys(filepath = s_file,
-                                regions = regions)),
-  tar_target(nests, prepare_nests(filepath = nests_file,
-                                  regions = regions)),
   
-  # tar_target(regions, prepare_regions()),
-  # tar_target(nests, prepare_nests(regions = regions)),
+  # tar_target(regions, prepare_regions(filepath = regions_path)),
+  # tar_target(s, prepare_surveys(filepath = s_path,
+  #                               regions = regions)),
+  # tar_target(nests, prepare_nests(filepath = nests_path,
+  #                                 regions = regions)),
+  
+
   
 
 # QUARANTINE --------------------------------------------------------------
