@@ -136,18 +136,7 @@ list(
   ##### Merge BC and AK DEM #####
   
   
-  # # Merge DEM tiles and reproject to 3005 (~30 mins)
-  # tar_target(BC_DEM_3005,
-  #            merge_vrt(vrt_path = DEM_VRT,
-  #                      output_file = file.path(DEM_dir, "BC_DEM_EPSG3005.tiff"),
-  #                      overwrite = TRUE),
-  #            format = "file"),
 
-  
-  # # Resample to pipeline resolution (but no need to save it as its own tiff file)
-  # tar_terra_rast(DEM_target_res, resample_dem(dem_path = BC_DEM_3005, res = res)),
-  # # Merge BC DEM and AK DEM
-  # tar_terra_rast(DEM, merge_dem(DEM_target_res, AK_DEM)),
   
 
 # QUARANTINE --------------------------------------------------------------
