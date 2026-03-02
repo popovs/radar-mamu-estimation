@@ -203,12 +203,29 @@ list(
   #### DISTANCE TO SEA ####
   # Distance from sea, in km
   tar_terra_rast(sea_dist, distance(sea) / 1000),
+  # Cost distance
+  # Evidence shows that MAMU make the least-cost flight path to
+  # their nests; that is, they tend to fly along valley contours
+  # rather than straight across ridges (even if the ridges are
+  # below their nest cutoff elevations). Here we will calculate a
+  # raster of the flight cost (elevation * distance from coast)
+  # to generate a landscape where birds are more or less likely to
+  # nest. This will be used to: 1) delineate the nesting catchment
+  # boundaries later and 2) eliminate "high cost" nesting areas
+  # that may still be included within the elevation cutoff and
+  # coast distance rasters.
+  tar_terra_rast(cost, terra::costDist(terra::merge(DEM, sea), 
+                                       target = 0, 
+                                       scale = 1000000) |> # rescale from m^2 to km^2
+                   {\(.) terra::ifel(. > 0, ., NA)}()),
   
   #### EXTRACT NEST DATA ####
   # Elevation
   tar_target(nest_elev_m, terra::extract(DEM, nests, ID = FALSE)[[1]]),
-  # Coast distance
-  tar_target(nest_dist_km, terra::extract(sea_dist, nests, ID = FALSE)[[1]])
+  # Distance from sea
+  tar_target(nest_dist_km, terra::extract(sea_dist, nests, ID = FALSE)[[1]]),
+  # Cost
+  tar_target(nest_cost, terra::extract(cost, nests, ID = FALSE)[[1]])
 
 
 # QUARANTINE --------------------------------------------------------------
