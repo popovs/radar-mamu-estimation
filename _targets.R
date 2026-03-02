@@ -202,10 +202,13 @@ list(
   
   #### DISTANCE TO SEA ####
   # Distance from sea, in km
-  tar_terra_rast(sea_dist, distance(sea) / 1000)
+  tar_terra_rast(sea_dist, distance(sea) / 1000),
   
   #### EXTRACT NEST DATA ####
-  # Extract elevation and cost data at nest locations
+  # Elevation
+  tar_target(nest_elev_m, terra::extract(DEM, nests, ID = FALSE)[[1]]),
+  # Coast distance
+  tar_target(nest_dist_km, terra::extract(sea_dist, nests, ID = FALSE)[[1]])
 
 
 # QUARANTINE --------------------------------------------------------------
