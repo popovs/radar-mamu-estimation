@@ -198,7 +198,14 @@ list(
                                   canvas = canvas,
                                   land = land_mask)),
   ##### Sea #####
-  tar_terra_rast(sea, terra::ifel(land == 0, 0, NA))
+  tar_terra_rast(sea, terra::ifel(land == 0, 0, NA)),
+  
+  #### DISTANCE TO SEA ####
+  # Distance from sea, in km
+  tar_terra_rast(sea_dist, distance(sea) / 1000)
+  
+  #### EXTRACT NEST DATA ####
+  # Extract elevation and cost data at nest locations
 
 
 # QUARANTINE --------------------------------------------------------------
