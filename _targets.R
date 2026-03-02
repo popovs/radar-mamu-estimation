@@ -127,10 +127,11 @@ list(
   ##### Land area masks #####
   # This study assumes MAMU can access land from any sea area on 
   # the map. Therefore, need to effectively split land from sea.
-  # Create vector masks to effectively mask land vs sea areas of the DEM.
+  # Create vector masks to accurately mask land vs sea areas of the DEM.
   # While the BC DEM is quite accurate, the AK DEM in particular has some
   # anomalously high sea areas (e.g., >50 m "above sea level" for some
   # ocean patches). These need to be masked manually.
+  ###### AK mask #####
   # First let's query USA areas.
   tar_terra_vect(usa_vect, get_usa_land(extent = study_bounds)), # `study_bounds` is defined in the static pipeline objects
   # Buffer the `regions` polygon by 10km, so there are no gaps when
@@ -144,11 +145,20 @@ list(
   # The reason we don't bother doing this for the BC DEM is because
   # it is quite accurate for sea vs land elevation.
   tar_terra_vect(ak_mask, terra::union(usa_vect, reg_vect)),
-  # tar_target(bc_interior_vect_path, "GIS/DEM/land_mask.gpkg", format = "file"),
-  # tar_terra_vect(bc_interior_vect, sf::st_read(bc_interior_vect_path) |>
-  #                  sf::st_crop(study_bounds) |>
-  #                  terra::vect()),
-  # tar_terra_vect(land_vect, terra::union(usa_vect, bc_interior_vect)),
+  ###### BC interior mask ######
+  # Next create polygon to mask interior BC land areas
+  tar_target(bc_interior_vect_path, "GIS/DEM/land_mask.gpkg", format = "file"),
+  tar_terra_vect(bc_interior_vect, sf::st_read(bc_interior_vect_path) |>
+                   sf::st_crop(study_bounds) |>
+                   terra::vect()),
+  tar_terra_vect(land_vect, terra::union(usa_vect, bc_interior_vect)),
+  ###### Study region mask ######
+  # Finally, create a mask for the entire study region - this is
+  # to crop the DEM to our `regions` polygon + AK coast and is 
+  # purely for aesthetic purposes, to trim off the jagged DEM 
+  # edges. 
+  tar_terra_vect(study_region_mask, terra::union(terra::buffer(usa_vect, 10000),
+                                                 terra::vect(regions))),
   
   #### PREPARE DEM ####
   ##### Query BC CDED tiles #####
@@ -171,11 +181,16 @@ list(
                    terra::project("epsg:3005") |> # reproject to m-based projection
                    resample_rast(res = res) |> # resample to target resolution
                    terra::mask(ak_mask) |> # mask to land areas only
-                   {\(.) terra::ifel(. > 0, ., NA)}()) # select pixels whose elevation > 0 only. See here for `\(.)` notation syntax: https://stackoverflow.com/a/76422551/1454785
+                   {\(.) terra::ifel(. > 0, ., NA)}()), # select only pixels whose elevation > 0. See here for `\(.)` notation syntax: https://stackoverflow.com/a/76422551/1454785
   
-  ##### Prepare land areas #####
+  ##### Full DEM #####
+  tar_terra_rast(DEM, terra::merge(BC_DEM, AK_DEM, first = TRUE) |> # merge BC and AK DEMs. In cases where they overlap, take the BC_DEM value.
+                   terra::mask(study_region_mask) |> # mask to `regions` polygon + AK coast. Purely for aesthetic purposes, to cut off jagged DEM edges.
+                   {\(.) terra::ifel(. > 0, ., NA)}()) # select only pixels whose elevation > 0. See here for `\(.)` notation syntax: https://stackoverflow.com/a/76422551/1454785
   
-  #tar_terra_vect(usa_land, get_usa_land(extent = terra::ext(terra_merge(BC_DEM, AK_DEM)))),
+  #### LAND + SEA AREAS ####
+  # Using a combination of the land area masks and DEMs, create
+  # rasters of land area and sea area.
   
   
   # TODO: maybe move ocean prep section here?
