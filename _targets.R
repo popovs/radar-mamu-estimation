@@ -77,6 +77,21 @@ res <- 250 # Set res to ~250 to run things much faster
 # Regions to iterate GIS operations over
 #regions_map <- sf::st_drop_geometry(sf::st_read("GIS/regions.gpkg"))
 
+# Bounding box of our entire study area
+study_bounds <- sf::st_bbox(c(xmin = 164728, ymin = 333912, xmax = 1387220, ymax = 1778675),
+                            crs = 3005)
+
+# Get land area for AK and WA
+# This will be used to clean up raster boundaries of the AK raster +
+# block off land areas of WA
+# usa_land <- rnaturalearth::ne_states("united states of america") |>
+#   dplyr::filter(name %in% c("Alaska", "Washington")) |>
+#   sf::st_as_sf() |>
+#   sf::st_transform(3005) |>
+#   sf::st_crop(study_bounds) |>
+#   terra::vect() # transform to terra SpatVect obj to play better w later terra raster objects
+
+
 # API tokens
 # Necessary for plotting fxns
 #source("temp/apikey.R")
@@ -109,7 +124,32 @@ list(
   # tar_target(nests, prepare_nests(filepath = nests_path,
   #                                 regions = regions)),
   
-
+  ##### Land area masks #####
+  # This study assumes MAMU can access land from any sea area on 
+  # the map. Therefore, need to effectively split land from sea.
+  # Create vector masks to effectively mask land vs sea areas of the DEM.
+  # While the BC DEM is quite accurate, the AK DEM in particular has some
+  # anomalously high sea areas (e.g., >50 m "above sea level" for some
+  # ocean patches). These need to be masked manually.
+  # First let's query USA areas.
+  tar_terra_vect(usa_vect, get_usa_land(extent = study_bounds)), # `study_bounds` is defined in the static pipeline objects
+  # Buffer the `regions` polygon by 10km, so there are no gaps when
+  # it is merged with the `usa_vect` polygon
+  tar_terra_vect(reg_vect, regions |>
+                   dplyr::filter(region != "HG") |>
+                   sf::st_buffer(10000) |>
+                   terra::vect()),
+  # Create a polygon to mask the AK DEM to land areas only, and crop
+  # out ocean areas.
+  # The reason we don't bother doing this for the BC DEM is because
+  # it is quite accurate for sea vs land elevation.
+  tar_terra_vect(ak_mask, terra::union(usa_vect, reg_vect)),
+  # tar_target(bc_interior_vect_path, "GIS/DEM/land_mask.gpkg", format = "file"),
+  # tar_terra_vect(bc_interior_vect, sf::st_read(bc_interior_vect_path) |>
+  #                  sf::st_crop(study_bounds) |>
+  #                  terra::vect()),
+  # tar_terra_vect(land_vect, terra::union(usa_vect, bc_interior_vect)),
+  
   #### PREPARE DEM ####
   ##### Query BC CDED tiles #####
   # Note this target simply points to the DEM VRT filepath - it is not 
@@ -129,9 +169,32 @@ list(
   tar_target(AK_DEM_path, "GIS/DEM/Alaska_DEM.tiff", format = "file"),
   tar_terra_rast(AK_DEM, terra::rast(AK_DEM_path) |> # read raster
                    terra::project("epsg:3005") |> # reproject to m-based projection
-                   resample_rast(res = res)) # resample to target resolution
+                   resample_rast(res = res) |> # resample to target resolution
+                   terra::mask(ak_mask) |> # mask to land areas only
+                   {\(.) terra::ifel(. > 0, ., NA)}()) # select pixels whose elevation > 0 only. See here for `\(.)` notation syntax: https://stackoverflow.com/a/76422551/1454785
+  
+  ##### Prepare land areas #####
+  
+  #tar_terra_vect(usa_land, get_usa_land(extent = terra::ext(terra_merge(BC_DEM, AK_DEM)))),
+  
   
   # TODO: maybe move ocean prep section here?
+  
+  ##### Sea areas #####
+  
+  # # Get USA land areas
+  # tar_terra_vect(usa_land, get_usa_land(extent = terra::ext(terra::merge(BC_DEM, AK_DEM)))),
+  # # Block off inland BC areas
+  # tar_target(bc_land_path, "GIS/DEM/land_mask.gpkg", format = "file"),
+  # tar_terra_vect(bc_land, terra::vect(bc_land_path)),
+  # tar_terra_vect(land_mask, merge_land(usa_land, bc_land)),
+  # # Create canvas of target area
+  # tar_terra_rast(canvas, create_canvas(target_rast = terra::merge(BC_DEM, AK_DEM))),
+  # # Block off land and extract `land` and `sea` areas
+  # tar_terra_rast(land, block_land(dem = terra::merge(BC_DEM, AK_DEM),
+  #                                 canvas = canvas,
+  #                                 land = land_mask)),
+  # tar_terra_rast(sea, terra::ifel(land == 0, 0, NA))
   
   ##### Merge BC and AK DEM #####
   
@@ -275,18 +338,7 @@ list(
   # # These land areas need to be blocked off so the distance
   # # algorithm can differentiate between land areas and
   # # water areas.
-  # # Get USA land areas
-  # tar_terra_vect(usa_land, get_usa_land(extent = terra::ext(elev))),
-  # # Block off inland BC areas
-  # tar_terra_vect(bc_land, get_bc_land(extent = terra::ext(elev))),
-  # tar_terra_vect(land_mask, merge_land(usa_land, bc_land)),
-  # # Create canvas of target area
-  # tar_terra_rast(canvas, create_canvas(target_rast = elev)),
-  # # Block off land and extract `land` and `sea` areas
-  # tar_terra_rast(land, block_land(dem = DEM, 
-  #                                 canvas = canvas, 
-  #                                 land = land_mask)),
-  # tar_terra_rast(sea, terra::ifel(land == 0, 0, NA)),
+
   # # Calculate coast distance
   # # Now we need to combine our land data with the `elev` data to
   # # create the raster with which we are going to do distance

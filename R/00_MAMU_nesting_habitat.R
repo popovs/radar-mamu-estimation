@@ -76,51 +76,6 @@ prepare_nests <- function(filepath, regions = regions) {
 
 # PREPARE DEM -------------------------------------------------------------
 
-# # Returns the file path of the VRT
-# download_dem_tiles <- function(regions, output_dir) {
-#   # Function health checks
-#   stopifnot("`regions` must be an `sf` object with POLYGON geometry." = all(sf::st_is(regions, "POLYGON")))
-#   # Create output directory
-#   dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
-#   # Download it
-#   out <- bcmaps::cded(aoi = regions,
-#                       dest_vrt = output_dir)
-#   return(out)
-#   }
-
-# PREVIOUS DEM DOWNLOAD FXN IS OUTDATED
-# Use the {bcmaps} package now
-# download_dem_tile <- function(tile,
-#                               output_dir,
-#                               save_output = TRUE,
-#                               overwrite = TRUE) {
-#   # Create output dir
-#   output_dir <- file.path(output_dir, "DEM_tiles")
-#   dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
-#   # Download the tile
-#   MAMU::BC_DEM(letterblock = tile, 
-#                save_output = save_output,
-#                overwrite = overwrite,
-#                output_dir = output_dir)
-#   out <- list.files(output_dir, full.names = TRUE)
-#   out <- out[grep(paste0(tile, ".dem$"), out)]
-#   return(out)
-# }
-
-merge_vrt <- function(vrt_path,
-                      output_file,
-                      overwrite = FALSE) {
-  # Re-project VRT
-  vrt <- terra::rast(vrt_path)
-  dem_3005 <- terra::project(vrt, "EPSG:3005")
-  # Save it
-  terra::writeRaster(dem_3005,
-                     filename = output_file, 
-                     overwrite = overwrite)
-  return(output_file)
-}
-
-
 
 # Just a wrapper for terra::merge - plain old terra::merge bugs in pipeline?
 merge_dem <- function(x, y) {
@@ -358,7 +313,7 @@ get_usa_land <- function(extent) {
 get_bc_land <- function(extent) {
   # Rather than block off inland BC with a rough BC-shaped
   # polygon from Natural Earth, we're just going to use a 
-  # crude blocky shape that's cropped the extent.
+  # crude blocky shape that's cropped to the extent.
   # The reason for this is the DEM coastline is far
   # more detailed than the course NE polygon, and we would risk
   # losing coastline data if we masked the DEM with such a 
@@ -366,7 +321,11 @@ get_bc_land <- function(extent) {
   # Specify a blocky area that roughly covers inland BC + 
   # Alaska 
   # The shape was drawn in QGIS, then the coords extracted
-  coords <- coords <- "9101 1828989, 161816 1805142, 168236 1773039, 257205 1758364, 283804 1714338, 332416 1591433, 368187 1614535, 402123 1615739, 474582 1659306, 495793 1568789, 552660 1533018, 613654 1355539, 651259 1278494, 721769 1230971, 827248 1219965, 875974 950135, 929975 911784, 1007020 732012, 1271175 559578, 1318869 449513, 1487635 464188, 1458285 2034443, -1905 1957398, 9101 1828989"
+  # Draw shape -> Field calculator -> 
+  # Field type: text (unlimited length)
+  # Expression: geom_to_wkt($geometry)
+  #coords <- "9101 1828989, 161816 1805142, 168236 1773039, 257205 1758364, 283804 1714338, 332416 1591433, 368187 1614535, 402123 1615739, 474582 1659306, 495793 1568789, 552660 1533018, 613654 1355539, 651259 1278494, 721769 1230971, 827248 1219965, 875974 950135, 929975 911784, 1007020 732012, 1271175 559578, 1318869 449513, 1487635 464188, 1458285 2034443, -1905 1957398, 9101 1828989"
+  coords <- "270000 1750000, 1370000 1750000, 1390000 450000, 1270000 450000, 1230000 560000, 1150000 610000, 1080000 690000, 1010000 740000, 960000 840000, 910000 940000, 830000 1070000, 810000 1210000, 730000 1260000, 690000 1290000, 660000 1310000, 600000 1470000, 560000 1550000, 530000 1570000, 480000 1690000, 410000 1680000, 360000 1630000, 300000 1720000, 280000 1730000, 270000 1740000, 270000 1750000"
   coords <- gsub("\\s", ", ", coords)
   coords <- gsub(",,", ",", coords)
   coords <- matrix(as.numeric(strsplit(coords,",")[[1]]), ncol = 2, byrow = TRUE)
