@@ -73,17 +73,6 @@ prepare_nests <- function(filepath, regions = regions) {
 # }
 
 
-
-# PREPARE DEM -------------------------------------------------------------
-
-
-# Just a wrapper for terra::merge - plain old terra::merge bugs in pipeline?
-merge_dem <- function(x, y) {
-  out <- merge(x, y)
-  return(out)
-}
-
-
 # REGIONAL ELEVATION CUTOFFS ----------------------------------------------
 
 crop_dem <- function(dem, region_name, regions) {
@@ -300,42 +289,34 @@ reclass_raster <- function(dem, cutoffs, min_col, max_col, region, ...) { # ... 
 
 # DISTANCE FROM COAST CUTOFF ----------------------------------------------
 
-get_usa_land <- function(extent) {
-  usa <- rnaturalearth::ne_states("united states of america")
-  usa <- usa[usa$name %in% c("Alaska", "Washington"), ]
-  usa <- sf::st_as_sf(usa)
-  usa <- sf::st_transform(usa, 3005)
-  usa <- sf::st_crop(usa, extent)
-  usa <- terra::vect(usa)
-  return(usa)
-}
 
-get_bc_land <- function(extent) {
-  # Rather than block off inland BC with a rough BC-shaped
-  # polygon from Natural Earth, we're just going to use a 
-  # crude blocky shape that's cropped to the extent.
-  # The reason for this is the DEM coastline is far
-  # more detailed than the course NE polygon, and we would risk
-  # losing coastline data if we masked the DEM with such a 
-  # course polygon. So giant block it is.
-  # Specify a blocky area that roughly covers inland BC + 
-  # Alaska 
-  # The shape was drawn in QGIS, then the coords extracted
-  # Draw shape -> Field calculator -> 
-  # Field type: text (unlimited length)
-  # Expression: geom_to_wkt($geometry)
-  #coords <- "9101 1828989, 161816 1805142, 168236 1773039, 257205 1758364, 283804 1714338, 332416 1591433, 368187 1614535, 402123 1615739, 474582 1659306, 495793 1568789, 552660 1533018, 613654 1355539, 651259 1278494, 721769 1230971, 827248 1219965, 875974 950135, 929975 911784, 1007020 732012, 1271175 559578, 1318869 449513, 1487635 464188, 1458285 2034443, -1905 1957398, 9101 1828989"
-  coords <- "270000 1750000, 1370000 1750000, 1390000 450000, 1270000 450000, 1230000 560000, 1150000 610000, 1080000 690000, 1010000 740000, 960000 840000, 910000 940000, 830000 1070000, 810000 1210000, 730000 1260000, 690000 1290000, 660000 1310000, 600000 1470000, 560000 1550000, 530000 1570000, 480000 1690000, 410000 1680000, 360000 1630000, 300000 1720000, 280000 1730000, 270000 1740000, 270000 1750000"
-  coords <- gsub("\\s", ", ", coords)
-  coords <- gsub(",,", ",", coords)
-  coords <- matrix(as.numeric(strsplit(coords,",")[[1]]), ncol = 2, byrow = TRUE)
-  coords <- list(coords)
-  land <- sf::st_polygon(coords)
-  land <- sf::st_sfc(land)
-  land <- sf::st_crop(land, extent)
-  land <- terra::vect(land)
-  return(land)
-}
+
+# get_bc_land <- function(extent) {
+#   # Rather than block off inland BC with a rough BC-shaped
+#   # polygon from Natural Earth, we're just going to use a 
+#   # crude blocky shape that's cropped to the extent.
+#   # The reason for this is the DEM coastline is far
+#   # more detailed than the course NE polygon, and we would risk
+#   # losing coastline data if we masked the DEM with such a 
+#   # course polygon. So giant block it is.
+#   # Specify a blocky area that roughly covers inland BC + 
+#   # Alaska 
+#   # The shape was drawn in QGIS, then the coords extracted
+#   # Draw shape -> Field calculator -> 
+#   # Field type: text (unlimited length)
+#   # Expression: geom_to_wkt($geometry)
+#   #coords <- "9101 1828989, 161816 1805142, 168236 1773039, 257205 1758364, 283804 1714338, 332416 1591433, 368187 1614535, 402123 1615739, 474582 1659306, 495793 1568789, 552660 1533018, 613654 1355539, 651259 1278494, 721769 1230971, 827248 1219965, 875974 950135, 929975 911784, 1007020 732012, 1271175 559578, 1318869 449513, 1487635 464188, 1458285 2034443, -1905 1957398, 9101 1828989"
+#   coords <- "270000 1750000, 1370000 1750000, 1390000 450000, 1270000 450000, 1230000 560000, 1150000 610000, 1080000 690000, 1010000 740000, 960000 840000, 910000 940000, 830000 1070000, 810000 1210000, 730000 1260000, 690000 1290000, 660000 1310000, 600000 1470000, 560000 1550000, 530000 1570000, 480000 1690000, 410000 1680000, 360000 1630000, 300000 1720000, 280000 1730000, 270000 1740000, 270000 1750000"
+#   coords <- gsub("\\s", ", ", coords)
+#   coords <- gsub(",,", ",", coords)
+#   coords <- matrix(as.numeric(strsplit(coords,",")[[1]]), ncol = 2, byrow = TRUE)
+#   coords <- list(coords)
+#   land <- sf::st_polygon(coords)
+#   land <- sf::st_sfc(land)
+#   land <- sf::st_crop(land, extent)
+#   land <- terra::vect(land)
+#   return(land)
+# }
 
 merge_land <- function(usa_land, bc_land) {
   land <- terra::aggregate(terra::union(usa_land, bc_land))

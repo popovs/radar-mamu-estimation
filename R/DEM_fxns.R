@@ -2,6 +2,18 @@
 #' Functions to download DEM data and extract
 #' elevation information
 
+
+# Query rnaturalearth for USA land polygons
+get_usa_land <- function(extent) {
+  usa <- rnaturalearth::ne_states("united states of america")
+  usa <- usa[usa$name %in% c("Alaska", "Washington"), ]
+  usa <- sf::st_as_sf(usa)
+  usa <- sf::st_transform(usa, 3005)
+  usa <- sf::st_crop(usa, extent)
+  usa <- terra::vect(usa)
+  return(usa)
+}
+
 # Returns the filepath of the VRT
 query_cded <- function(regions, output_dir) {
   # Function health checks
@@ -26,3 +38,5 @@ resample_rast <- function(rast, res) {
   }
   return(rast)
 }
+
+

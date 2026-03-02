@@ -151,7 +151,7 @@ list(
   tar_terra_vect(bc_interior_vect, sf::st_read(bc_interior_vect_path) |>
                    sf::st_crop(study_bounds) |>
                    terra::vect()),
-  tar_terra_vect(land_vect, terra::union(usa_vect, bc_interior_vect)),
+  tar_terra_vect(land_mask, terra::union(usa_vect, bc_interior_vect)),
   ###### Study region mask ######
   # Finally, create a mask for the entire study region - this is
   # to crop the DEM to our `regions` polygon + AK coast and is 
@@ -175,47 +175,31 @@ list(
                    terra::project("epsg:3005") |> # reproject to m-based projection
                    resample_rast(res = res)), # resample to target resolution
   ##### Prepare Alaska coast DEM #####
-  # Resample to target resolution and project to EPSG 3005
+  # Resample to target resolution and project to EPSG 3005,
+  # then mask/select to land areas only
   tar_target(AK_DEM_path, "GIS/DEM/Alaska_DEM.tiff", format = "file"),
   tar_terra_rast(AK_DEM, terra::rast(AK_DEM_path) |> # read raster
                    terra::project("epsg:3005") |> # reproject to m-based projection
                    resample_rast(res = res) |> # resample to target resolution
                    terra::mask(ak_mask) |> # mask to land areas only
                    {\(.) terra::ifel(. > 0, ., NA)}()), # select only pixels whose elevation > 0. See here for `\(.)` notation syntax: https://stackoverflow.com/a/76422551/1454785
-  
   ##### Full DEM #####
   tar_terra_rast(DEM, terra::merge(BC_DEM, AK_DEM, first = TRUE) |> # merge BC and AK DEMs. In cases where they overlap, take the BC_DEM value.
                    terra::mask(study_region_mask) |> # mask to `regions` polygon + AK coast. Purely for aesthetic purposes, to cut off jagged DEM edges.
-                   {\(.) terra::ifel(. > 0, ., NA)}()) # select only pixels whose elevation > 0. See here for `\(.)` notation syntax: https://stackoverflow.com/a/76422551/1454785
+                   {\(.) terra::ifel(. > 0, ., NA)}()), # select only pixels whose elevation > 0. See here for `\(.)` notation syntax: https://stackoverflow.com/a/76422551/1454785
   
   #### LAND + SEA AREAS ####
   # Using a combination of the land area masks and DEMs, create
   # rasters of land area and sea area.
-  
-  
-  # TODO: maybe move ocean prep section here?
-  
-  ##### Sea areas #####
-  
-  # # Get USA land areas
-  # tar_terra_vect(usa_land, get_usa_land(extent = terra::ext(terra::merge(BC_DEM, AK_DEM)))),
-  # # Block off inland BC areas
-  # tar_target(bc_land_path, "GIS/DEM/land_mask.gpkg", format = "file"),
-  # tar_terra_vect(bc_land, terra::vect(bc_land_path)),
-  # tar_terra_vect(land_mask, merge_land(usa_land, bc_land)),
-  # # Create canvas of target area
-  # tar_terra_rast(canvas, create_canvas(target_rast = terra::merge(BC_DEM, AK_DEM))),
-  # # Block off land and extract `land` and `sea` areas
-  # tar_terra_rast(land, block_land(dem = terra::merge(BC_DEM, AK_DEM),
-  #                                 canvas = canvas,
-  #                                 land = land_mask)),
-  # tar_terra_rast(sea, terra::ifel(land == 0, 0, NA))
-  
-  ##### Merge BC and AK DEM #####
-  
-  
+  # Create raster canvas of target area
+  tar_terra_rast(canvas, create_canvas(target_rast = DEM)),
+  ##### Land #####
+  tar_terra_rast(land, block_land(dem = DEM,
+                                  canvas = canvas,
+                                  land = land_mask)),
+  ##### Sea #####
+  tar_terra_rast(sea, terra::ifel(land == 0, 0, NA))
 
-  
 
 # QUARANTINE --------------------------------------------------------------
 
