@@ -318,10 +318,10 @@ reclass_raster <- function(dem, cutoffs, min_col, max_col, region, ...) { # ... 
 #   return(land)
 # }
 
-merge_land <- function(usa_land, bc_land) {
-  land <- terra::aggregate(terra::union(usa_land, bc_land))
-  return(land)
-}
+# merge_land <- function(usa_land, bc_land) {
+#   land <- terra::aggregate(terra::union(usa_land, bc_land))
+#   return(land)
+# }
 
 create_canvas <- function(target_rast) {
   # Extract res of target
@@ -436,50 +436,50 @@ block_land <- function(dem, canvas, land) {
 
 # NEST COST DISTANCE ------------------------------------------------------
 
-cost_distance <- function(dem, sea) {
-  ## Prepare cost layer ##
-  
-  # Extract res of target
-  # Going to assume all data products are square res... 
-  # so just take the first number and assume it's equal to the second
-  res <- terra::res(dem)[1]
-  
-  # First, similar to elsewhere, lower the resolution of high res
-  # DEM by a factor of 10, or else the calculations will fail.
-  if (res < 100) {
-    c <- dem
-    terra::res(c) <- res * 10
-    c <- terra::resample(dem, c)
-  } else {
-    c <- dem
-  }
-  
-  # Ensure no negative values in the raster, or the costDist
-  # function will fail.
-  c <- terra::ifel(c < 0, 0, c)
-  
-  # Merge in the `sea` areas. We're going to assume zero
-  # cost to fly over the sea - we're interested in cost flying
-  # from sea inland, rather than sea to other sea pixels.
-  # Resample to match `dem`
-  sea <- terra::resample(sea, dem)
-  # Merge together
-  # Its not perfect since there's some pixels dropped around 
-  # the AK coastline due to the low res of the AK DEM data,
-  # but it'll be negligible for our results - we're not
-  # looking at AK coastal data in our study, after all.
-  c <- terra::merge(c, sea) # heh
-  
-  ## Calculate cost ##
-  # The cost distance function calculates distance from shore (i.e.,
-  # the `gridDist` function we just used above) and multiplies it
-  # by the 'cost' layer (elevation). Higher elevations are more
-  # costly to fly over. 
-  cost <- terra::costDist(c, target = 0, scale = 1000) # divide values by 1000 so output numbers are smaller
-  # Chop out cost == 0
-  cost <- terra::ifel(cost > 0, cost, NA)
-  return(cost)
-}
+# cost_distance <- function(dem, sea) {
+#   ## Prepare cost layer ##
+#   
+#   # Extract res of target
+#   # Going to assume all data products are square res... 
+#   # so just take the first number and assume it's equal to the second
+#   res <- terra::res(dem)[1]
+#   
+#   # First, similar to elsewhere, lower the resolution of high res
+#   # DEM by a factor of 10, or else the calculations will fail.
+#   if (res < 100) {
+#     c <- dem
+#     terra::res(c) <- res * 10
+#     c <- terra::resample(dem, c)
+#   } else {
+#     c <- dem
+#   }
+#   
+#   # Ensure no negative values in the raster, or the costDist
+#   # function will fail.
+#   c <- terra::ifel(c < 0, 0, c)
+#   
+#   # Merge in the `sea` areas. We're going to assume zero
+#   # cost to fly over the sea - we're interested in cost flying
+#   # from sea inland, rather than sea to other sea pixels.
+#   # Resample to match `dem`
+#   sea <- terra::resample(sea, dem)
+#   # Merge together
+#   # Its not perfect since there's some pixels dropped around 
+#   # the AK coastline due to the low res of the AK DEM data,
+#   # but it'll be negligible for our results - we're not
+#   # looking at AK coastal data in our study, after all.
+#   c <- terra::merge(c, sea) # heh
+#   
+#   ## Calculate cost ##
+#   # The cost distance function calculates distance from shore (i.e.,
+#   # the `gridDist` function we just used above) and multiplies it
+#   # by the 'cost' layer (elevation). Higher elevations are more
+#   # costly to fly over. 
+#   cost <- terra::costDist(c, target = 0, scale = 1000) # divide values by 1000 so output numbers are smaller
+#   # Chop out cost == 0
+#   cost <- terra::ifel(cost > 0, cost, NA)
+#   return(cost)
+# }
 
 
 
