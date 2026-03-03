@@ -31,6 +31,7 @@ nest_elev_m|stem|1302d9b2366c5715|b83a345de7cd8f90|b10fa6eb8556dec8|-1380933439|
 nest_cost|stem|d10c172cf912b7ef|101f00af8bc87b57|fb025e7a4b4c4ba0|-2144582238||t20515.7018229341s|s1089b|1089|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0.25||
 nest_dist_km|stem|359b0b82f1f68f41|8703af974af37877|9381d1ae5575ab9e|56989063||t20515.7018275774s|s1030b|1030|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0.11||
 nests|stem|03fdaa861103ca4b|1aa9b4ebff5bc8ed|8f68cc70474f00aa|-696592221||t20515.7021932467s|s8890b|8890|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0.01||
+elevation_cutoffs|stem|7d91405f3df9a413|f60dbbc3e82023c7|4aea343579977f63|-133466362||t20515.736526675s|s313b|313|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|group|||0.56||
 plot_headings|function|95b37f4712bc2dc6
 prepare_headings|function|1fb618c9c5b9ea38
 prepare_nests|function|91199c837c7650e0
@@ -41,7 +42,7 @@ block_land|function|b5d6f25a7c5cccdd
 directionality_crop|function|605e5daf3bdb5808
 plot_final_map|function|69aac62cce2c74fd
 upper_whisker|function|4c3c64f5f74e098e
-.Random.seed|object|d1afee44a1c7c232
+.Random.seed|object|c8ddfc81fe1ce0b5
 bootmean_internal|function|8cdb309a9bbe37ec
 circmean|function|7e16d5c55463d304
 save_plots|object|cc6a331fb3c0077c
@@ -79,4 +80,4 @@ watershed_cost|function|58114bcf20c4bc5c
 select_watersheds|function|c52ce9349bf93fe8
 extrapolate_density|function|e93bc7d0d80870aa
 calc_polar_mean|function|c2eaaf4d4761e4bf
-elevation_cutoffs|stem|7d91405f3df9a413|f60dbbc3e82023c7|4aea343579977f63|-133466362||t20515.736526675s|s313b|313|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|group|||0.56||
+cost_cutoffs|stem|b864f3f09c2c365e|6cbd3306d9429f2b|e1320a0c895bf02e|-1255138052||t20515.7440899135s|s332b|332|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|group|||0.13||

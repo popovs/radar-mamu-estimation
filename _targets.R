@@ -207,16 +207,7 @@ list(
   # Distance from sea, in km
   tar_terra_rast(sea_dist, distance(sea) / 1000),
   ##### Cost distance #####
-  # Evidence shows that MAMU make the least-cost flight path to
-  # their nests; that is, they tend to fly along valley contours
-  # rather than straight across ridges (even if the ridges are
-  # below their nest cutoff elevations). Here we will calculate a
-  # raster of the flight cost (elevation * distance from coast)
-  # to generate a landscape where birds are more or less likely to
-  # nest. This will be used to: 1) delineate the nesting catchment
-  # boundaries later and 2) eliminate "high cost" nesting areas
-  # that may still be included within the elevation cutoff and
-  # coast distance rasters.
+  # Elevation * Distance from coast
   tar_terra_rast(cost, terra::costDist(terra::merge(DEM, sea), 
                                        target = 0) |> 
                    {\(.) terra::ifel(. > 0, ., NA)}()),
@@ -267,60 +258,64 @@ list(
                                                                 region == "NVI" & is.na(nest_elev_m) ~ mean(elev_m_max[grepl("VI", region)]))) |>
                  dplyr::mutate(elev_m_min = 0) |>
                  dplyr::select(region, elev_m_min, elev_m_max),
-               region) # group by region col so targets later knows to run `reclass_elevation()` by row-level grouping
+               region), # group by region col so targets later knows to run `reclass_elevation()` by row-level grouping
+  #### NEST COST DISTANCE ####
+  # Next, we calculate the flight cost values of each nest.
+  # Evidence shows that MAMU take the least-cost flight paths to
+  # their nests; that is, they tend to fly along valley contours
+  # rather than straight across ridges (even if the ridges are
+  # below their nest cutoff elevations). Here we will calculate a
+  # raster of the flight cost (elevation * distance from coast)
+  # to generate a landscape where birds are more or less likely to
+  # nest. This will be used to: 1) delineate the nesting catchment
+  # boundaries later and 2) eliminate "high cost" nesting areas
+  # that may still be included within the elevation cutoff and
+  # coast distance rasters.
+  # Using the nest elevations extracted in the previous section,
+  # calculate and store regional cost cutoffs in a table
+  tar_group_by(cost_cutoffs,
+               # OPTION A: 95% QUANTILES
+               # nest_quantiles(nests,
+               #                quant_data = nest_cost,
+               #                prefix = "cost"),
+               # OPTION B: MAX VALUE AFTER GLOBAL OUTLIERS REMOVED
+               # A few outliers really skew the quantiles. Instead,
+               # grab the simple min/max of each region once outliers
+               # are removed. Outliers are define w a simple boxplot
+               # whisker - if they are outside the 1.5*IQR range, it's
+               # an outlier.
+               # nest_minmax_sans_outliers(nests,
+               #                           quant_data = nest_cost,
+               #                           prefix = "cost"),
+               # OPTION C: REGIONAL IQR AFTER GLOBAL OUTLIERS REMOVED
+               # nest_iqr_sans_outliers(nests = nests,
+               #                        quant_data = nest_cost,
+               #                        prefix = "cost",
+               #                        hg_exception = TRUE),
+               # OPTION D: ISOLATION TREE OUTLIER DETECTION
+               # nest_isoforest(nests = nests,
+               #                quant_data = nest_cost,
+               #                prefix = "cost"),
+               # OPTION X: NO OUTLIERS REMOVED
+               aggregate(nest_cost ~ region, nests, FUN = "max") |>
+                 dplyr::mutate(cost_max = ceiling((nest_cost) / 100) * 100) |>
+                 tidyr::complete(region) |>
+                 # If no nests present in certain regions, fill in with data from other regions
+                 # If no nests in NC, use the same value as CC
+                 # If no nests in AKB, use the same value as CC
+                 # If no nests in NVI, use mean value of all other VI regions
+                 dplyr::mutate(cost_max = dplyr::replace_when(cost_max, 
+                                                              region == "NC" & is.na(nest_cost) ~ max(cost_max[region == "CC"]),
+                                                              region == "AKB" & is.na(nest_cost) ~ max(cost_max[region == "CC"]),
+                                                              region == "NVI" & is.na(nest_cost) ~ mean(cost_max[grepl("VI", region)]))) |>
+                 #dplyr::mutate(cost_max = cost_max / 1000 / 1000) |> # Re-express cost in km^2 rather than m^2
+                 dplyr::mutate(cost_min = 0) |>
+                 dplyr::select(region, cost_min, cost_max),
+               region)
   
 # QUARANTINE --------------------------------------------------------------
 
-  
-  #
-  # #### NEST COST DISTANCE ####
-  # # Next, we calculate the flight cost values of each nest. 
-  # # Evidence shows that MAMU take the least-cost flightpaths to
-  # # their nests; that is, they tend to fly along valley contours
-  # # rather than straight across ridges (even if the ridges are
-  # # below their nest cutoff elevations). Here we will calculate a
-  # # raster of the flight cost (elevation * distance from coast)
-  # # to generate a landscape where birds are more or less likely to
-  # # nest. This will be used to: 1) delineate the nesting catchment 
-  # # boundaries later and 2) eliminate "high cost" nesting areas 
-  # # that may still be included within the elevation cutoff and 
-  # # coast distance rasters.
-  # tar_terra_rast(cost, cost_distance(DEM, sea)),
-  # # Extract nest cost
-  # # Same process as extracting elevation values + applying cutoffs
-  # tar_target(nest_cost, exactextractr::exact_extract(cost, nests, 'mean')),
-  # # Calculate and store regional cost cutoffs in a table
-  # tar_group_by(cost_cutoffs,
-  #              # OPTION A: 95% QUANTILES
-  #              # nest_quantiles(nests, 
-  #              #                quant_data = nest_cost,
-  #              #                prefix = "cost"),
-  #              # OPTION B: MAX VALUE AFTER GLOBAL OUTLIERS REMOVED
-  #              # A few outliers really skew the quantiles. Instead,
-  #              # grab the simple min/max of each region once outliers
-  #              # are removed. Outliers are define w a simple boxplot
-  #              # whisker - if they are outside the 1.5*IQR range, it's 
-  #              # an outlier.
-  #              # nest_minmax_sans_outliers(nests, 
-  #              #                           quant_data = nest_cost, 
-  #              #                           prefix = "cost"),
-  #              # OPTION C: REGIONAL IQR AFTER GLOBAL OUTLIERS REMOVED
-  #              # nest_iqr_sans_outliers(nests = nests,
-  #              #                        quant_data = nest_cost,
-  #              #                        prefix = "cost",
-  #              #                        hg_exception = TRUE),
-  #              # OPTION D: ISOLATION TREE OUTLIER DETECTION
-  #              # nest_isoforest(nests = nests,
-  #              #                quant_data = nest_cost,
-  #              #                prefix = "cost"),
-  #              # OPTION X: NO OUTLIERS REMOVED
-  #              aggregate(nest_cost ~ region, nests, FUN = "max") |>
-  #                dplyr::mutate(cost_max = ceiling((nest_cost) / 100) * 100) |>
-  #                tibble::add_row(region = "NC", cost_max = 3100) |> # manually specify NC (== CC)
-  #                #tibble::add_row(region = "NVI", cost_max = 6900) |> # manually specify NVI (mean of all other VI areas)
-  #                dplyr::mutate(cost_min = 0) |>
-  #                dplyr::select(region, cost_min, cost_max),
-  #              region),
+  # 
   # #### ITERATE OVER REGIONAL CUTOFFS ####
   # # For each region, iterate the following:
   # # 1. Chop up the DEM into regions
