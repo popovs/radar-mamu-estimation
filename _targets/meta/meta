@@ -36,7 +36,7 @@ block_land|function|b5d6f25a7c5cccdd
 directionality_crop|function|605e5daf3bdb5808
 plot_final_map|function|69aac62cce2c74fd
 upper_whisker|function|4c3c64f5f74e098e
-.Random.seed|object|0edbc0bbb218854f
+.Random.seed|object|d278ea03136071f7
 bootmean_internal|function|8cdb309a9bbe37ec
 cost_distance|function|27cffb531423da3a
 circmean|function|7e16d5c55463d304
@@ -76,5 +76,5 @@ watershed_cost|function|58114bcf20c4bc5c
 select_watersheds|function|c52ce9349bf93fe8
 extrapolate_density|function|e93bc7d0d80870aa
 calc_polar_mean|function|c2eaaf4d4761e4bf
-cost|stem|c9cd4bc1cf341eec|96268742aa570c03|01d94d7a563b05f3|1168846974||t20514.964966661s|s27028278b|27028278|format_custom&read=dGVycmE6OnJhc3QocGF0aCk&write=ewogICAgZG8uY2FsbCh0ZXJyYTo6d3JpdGVSYXN0ZXIsIGMobGlzdChvYmplY3QsIGZpbGVuYW1lID0gcGF0aCwgCiAgICAgICAgZmlsZXR5cGUgPSAiR1RpZmYiLCBvdmVyd3JpdGUgPSBUUlVFLCBnZGFsID0gTlVMTCksIGxpc3QoKSkpCn0&marshal=dGVycmE6OndyYXAob2JqZWN0KQ&unmarshal=dGVycmE6OnVud3JhcChvYmplY3Qp&convert=&copy=&repository=|local|list|||32.65||
-nest_cost|stem|6267c2bc5c9e1feb|afbe3dfdcc90a5af|a4cc4aa4c261505b|-2144582238||t20514.9649952253s|s1121b|1121|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0.03||
+cost|stem|e00846e8becea532|198fc24b5cd2111d|01d94d7a563b05f3|1168846974||t20515.0221668456s|s27027016b|27027016|format_custom&read=dGVycmE6OnJhc3QocGF0aCk&write=ewogICAgZG8uY2FsbCh0ZXJyYTo6d3JpdGVSYXN0ZXIsIGMobGlzdChvYmplY3QsIGZpbGVuYW1lID0gcGF0aCwgCiAgICAgICAgZmlsZXR5cGUgPSAiR1RpZmYiLCBvdmVyd3JpdGUgPSBUUlVFLCBnZGFsID0gTlVMTCksIGxpc3QoKSkpCn0&marshal=dGVycmE6OndyYXAob2JqZWN0KQ&unmarshal=dGVycmE6OnVud3JhcChvYmplY3Qp&convert=&copy=&repository=|local|list|||28.82||
+nest_cost|stem|d10c172cf912b7ef|afbe3dfdcc90a5af|f634d548972bb7d2|-2144582238||t20515.0221887088s|s1089b|1089|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0.04||

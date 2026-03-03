@@ -215,11 +215,10 @@ list(
   # that may still be included within the elevation cutoff and
   # coast distance rasters.
   tar_terra_rast(cost, terra::costDist(terra::merge(DEM, sea), 
-                                       target = 0, 
-                                       scale = 1000000) |> # rescale from m^2 to km^2
+                                       target = 0) |> 
                    {\(.) terra::ifel(. > 0, ., NA)}()),
   
-  #### EXTRACT NEST DATA ####
+  #### EXTRACT NEST VALUES ####
   # Elevation
   tar_target(nest_elev_m, terra::extract(DEM, nests, ID = FALSE)[[1]]),
   # Distance from sea
