@@ -109,8 +109,10 @@ list(
   tar_target(regions, prepare_regions(filepath = regions_path)),
   ##### Nests #####
   tar_target(nests_path, "GIS/MAMU_Nests_BC_CDC.gpkg", format = "file"), # Track nests gpkg file
-  tar_target(nests, prepare_nests(filepath = nests_path,
-                                  regions = regions)),
+  # nests_geom target will contain just the lat/longs of nests + region they're in
+  # Later, we will add extracted raster values to this dataset.
+  tar_target(nests_geom, prepare_nests(filepath = nests_path,
+                                       regions = regions)),
 
   ##### Radar surveys #####
   # TODO: maybe convert this to csv?
@@ -201,9 +203,10 @@ list(
   tar_terra_rast(sea, terra::ifel(land == 0, 0, NA)),
   
   #### DISTANCE TO SEA ####
+  ##### Sea distance #####
   # Distance from sea, in km
   tar_terra_rast(sea_dist, distance(sea) / 1000),
-  # Cost distance
+  ##### Cost distance #####
   # Evidence shows that MAMU make the least-cost flight path to
   # their nests; that is, they tend to fly along valley contours
   # rather than straight across ridges (even if the ridges are
@@ -220,47 +223,56 @@ list(
   
   #### EXTRACT NEST VALUES ####
   # Elevation
-  tar_target(nest_elev_m, terra::extract(DEM, nests, ID = FALSE)[[1]]),
+  tar_target(nest_elev_m, terra::extract(DEM, nests_geom, ID = FALSE)[[1]]),
   # Distance from sea
-  tar_target(nest_dist_km, terra::extract(sea_dist, nests, ID = FALSE)[[1]]),
+  tar_target(nest_dist_km, terra::extract(sea_dist, nests_geom, ID = FALSE)[[1]]),
   # Cost
-  tar_target(nest_cost, terra::extract(cost, nests, ID = FALSE)[[1]])
+  tar_target(nest_cost, terra::extract(cost, nests_geom, ID = FALSE)[[1]]),
+  ##### Nests #####
+  # Merge into a single dataset
+  tar_target(nests, cbind(nests_geom, nest_elev_m, nest_dist_km, nest_cost)),
 
-
+  #### REGIONAL ELEVATION CUTOFFS ####
+  # Extract nest elevations
+  # The exact elevational cutoffs vary by region and are primarily
+  # dictated by the growing conditions of the trees that MAMU
+  # prefer to nest in. Large coniferous trees that can support
+  # MAMU nests can grow in higher elevations at lower latitudes.
+  # Conversely, the further north you go, the lower the maximum
+  # MAMU nesting elevation. The nest data is the main source of
+  # cutoffs. Adding more nest data will trigger a re-run of this
+  # analysis.
+  # Using the nest elevations extracted in the previous section,
+  # calculate and store regional elevation cutoffs in a table
+  tar_group_by(elevation_cutoffs,
+               # OPTION A: 95% QUANTILES
+               # nest_quantiles(nests,
+               #                quant_data = nest_elev_m,
+               #                prefix = "elev_m"),
+               # OPTION B: ISOLATION TREE OUTLIER DETECTION
+               # nest_isoforest(nests,
+               #                quant_data = nest_elev_m,
+               #                prefix = "elev_m"),
+               # OPTION C: NO OUTLIERS REMOVED
+               aggregate(nest_elev_m ~ region, nests, FUN = "max") |>
+                 dplyr::mutate(elev_m_max = ceiling((nest_elev_m) / 100) * 100) |>
+                 tidyr::complete(region) |>
+                 # If no nests present in certain regions, fill in with data from other regions
+                 # If no nests in NC, use the same value as CC
+                 # If no nests in AKB, use the same value as CC
+                 # If no nests in NVI, use mean value of all other VI regions
+                 dplyr::mutate(elev_m_max = dplyr::replace_when(elev_m_max, 
+                                                                region == "NC" & is.na(nest_elev_m) ~ max(elev_m_max[region == "CC"]),
+                                                                region == "AKB" & is.na(nest_elev_m) ~ max(elev_m_max[region == "CC"]),
+                                                                region == "NVI" & is.na(nest_elev_m) ~ mean(elev_m_max[grepl("VI", region)]))) |>
+                 dplyr::mutate(elev_m_min = 0) |>
+                 dplyr::select(region, elev_m_min, elev_m_max),
+               region) # group by region col so targets later knows to run `reclass_elevation()` by row-level grouping
+  
 # QUARANTINE --------------------------------------------------------------
 
   
-  # #### REGIONAL ELEVATION CUTOFFS ####
-  # # Extract nest elevations
-  # # The exact elevational cutoffs vary by region and are primarily
-  # # dictated by the growing conditions of the trees that MAMU
-  # # prefer to nest in. Large coniferous trees that can support
-  # # MAMU nests can grow in higher elevations at lower latitudes.
-  # # Conversely, the further north you go, the lower the maximum
-  # # MAMU nesting elevation. The nest data is the main source of 
-  # # cutoffs. Adding more nest data will trigger a re-run of this
-  # # analysis.
-  # # Using exactextract to extract the mean elevation within the 
-  # # nest uncertainty radius (nests were buffered in `prepare_nests()`)
-  # tar_target(nest_elev_m, exactextractr::exact_extract(DEM, nests, 'mean')),
-  # # Calculate and store regional elevation cutoffs in a table
-  # tar_group_by(elevation_cutoffs,
-  #              # OPTION A: 95% QUANTILES
-  #              # nest_quantiles(nests, 
-  #              #                quant_data = nest_elev_m,
-  #              #                prefix = "elev_m"),
-  #              # OPTION B: ISOLATION TREE OUTLIER DETECTION
-  #              # nest_isoforest(nests,
-  #              #                quant_data = nest_elev_m,
-  #              #                prefix = "elev_m"),
-  #              # OPTION C: NO OUTLIERS REMOVED
-  #              aggregate(nest_elev_m ~ region, nests, FUN = "max") |> 
-  #                dplyr::mutate(elev_m_max = ceiling((nest_elev_m) / 100) * 100) |>
-  #                tibble::add_row(region = "NC", elev_m_max = 800) |> # manually specify NC (== CC)
-  #                #tibble::add_row(region = "NVI", elev_m_max = 1200) |> # manually specify NVI (mean of all other VI areas)
-  #                dplyr::mutate(elev_m_min = 0) |>
-  #                dplyr::select(region, elev_m_min, elev_m_max), 
-  #              region), # group by region col so targets later knows to run `reclass_elevation()` by row-level grouping
+  #
   # #### NEST COST DISTANCE ####
   # # Next, we calculate the flight cost values of each nest. 
   # # Evidence shows that MAMU take the least-cost flightpaths to
