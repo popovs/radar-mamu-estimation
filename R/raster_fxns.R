@@ -1,7 +1,12 @@
 #' Raster preparation fxns
-#' Functions to: download DEM data and extract elevation information
-#'
+#' Functions to: 
+#'  - Download DEM data and extract elevation information
+#'  - Resample, reclassify, and crop+mask rasters
+#'  - Query USA land boundaries
+#'  - Create empty raster canvases of specified resolution + extent
+#'  - Block off/mask land areas
 
+# Query the BC CDED DEM tiles using the {bcmaps} package
 # Returns the filepath of the VRT
 query_cded <- function(regions, output_dir) {
   # Function health checks
@@ -27,6 +32,7 @@ resample_rast <- function(rast, res) {
   return(rast)
 }
 
+# Reclassify input rasters based on supplied minimum/maximum cutoff values
 reclass_rast <- function(rast, cutoffs, min_col, max_col, region_name) { 
   cutoffs <- cutoffs[cutoffs$region == region_name,]
   message("Reclassifying ", cutoffs$region, "...")
@@ -38,6 +44,7 @@ reclass_rast <- function(rast, cutoffs, min_col, max_col, region_name) {
   return(rast)
 }
 
+# Crop raster to regions
 crop_rast <- function(rast, region_name, regions) {
   message("Cropping ", region_name)
   regions <- regions[regions$region == region_name, ]
@@ -57,6 +64,8 @@ get_usa_land <- function(extent) {
   return(usa)
 }
 
+# Create an empty raster canvas of a given raster resolution/extent,
+# to then later populate with values
 create_canvas <- function(target_rast) {
   # Extract res of target
   # Going to assume all data products are square res... 
@@ -89,7 +98,8 @@ create_canvas <- function(target_rast) {
   return(canvas)
 }
 
-block_land <- function(dem, canvas, land) {
+# Mask off land areas within a supplied canvas
+mask_land <- function(dem, canvas, land) {
   canvas <- terra::mask(canvas, land, inverse = TRUE) # Chunky interior land blocks
   canvas <- terra::ifel(is.na(canvas), 1, canvas) # masked areas == land == 1
   

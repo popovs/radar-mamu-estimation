@@ -109,15 +109,18 @@ list(
   tar_target(regions, prepare_regions(filepath = regions_path)),
   tar_target(regions_region, regions$region), # regions names within regions gpkg
   ##### Nests #####
+  # The 'nests' target will be prepared down the line, after
+  # all relevant raster data has been extracted at the nests.
   tar_target(nests_path, "GIS/MAMU_Nests_BC_CDC.gpkg", format = "file"), # Track nests gpkg file
   # nests_geom target will contain just the lat/longs of nests + region they're in
   # Later, we will add extracted raster values to this dataset.
   tar_target(nests_geom, prepare_nests(filepath = nests_path,
                                        regions = regions)),
-
   ##### Radar surveys #####
   # TODO: maybe convert this to csv?
   tar_target(s_path, "data/ECCC_FLNR_MAMU-RadarData-20240307.xlsx", format = "file"), # Track surveys excel file
+  ##### Flight headings #####
+  
   
   # Alt arrangement: track all paths first in one section, 
   # Then prep all inputs in another section
@@ -197,9 +200,9 @@ list(
   # Create raster canvas of target area
   tar_terra_rast(canvas, create_canvas(target_rast = DEM)),
   ##### Land #####
-  tar_terra_rast(land, block_land(dem = DEM,
-                                  canvas = canvas,
-                                  land = land_mask)),
+  tar_terra_rast(land, mask_land(dem = DEM,
+                                 canvas = canvas,
+                                 land = land_mask)),
   ##### Sea #####
   tar_terra_rast(sea, terra::ifel(land == 0, 0, NA)),
   
@@ -402,8 +405,6 @@ list(
   tar_terra_rast(maz, terra::cover(((elev > 0 ) * (cc > 0) * (c30km > 0)), # Anything accessible was stored as either '1' or '2' in each raster layer.
                                    sea + 1)) # and then we add the sea (+1, because it's all stored as 0 or NA)
   
-  
-
   
   
 # QUARANTINE --------------------------------------------------------------
