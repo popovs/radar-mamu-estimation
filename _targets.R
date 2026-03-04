@@ -343,6 +343,7 @@ list(
   tar_terra_rast(elev, regional_elev_cutoffs |>
                    terra::sprc() |>
                    terra::mosaic()),
+  
   ##### Regional cost cutoffs #####
   # Chop up cost raster
   tar_terra_rast(regional_cost,
@@ -362,46 +363,31 @@ list(
   # `cc` for 'cost cutoffs'
   tar_terra_rast(cc, regional_cost_cutoffs |>
                    terra::sprc() |>
-                   terra::mosaic())
+                   terra::mosaic()),
+  
+  ##### Coast distance cutoff #####
+  # Next we will create a separate raster of all points with
+  # 30 km distance from the coast, as BC nest survey data
+  # indicates that 99% of MAMU nests are within 30 km of the
+  # coastline. We are going to assume a straight-line 30 km
+  # distance from the shore, ignoring any barriers.
+  # This won't have any regional variation aside from
+  # Vancouver Island - we are going to assume that all of the
+  # island is regularly accessed for nests by MAMU.
+  # `c30km` for 'cutoff - 30km' 
+  tar_terra_rast(c30km, sea_dist |>
+                   terra::crop(regions[grepl("VI", regions$region), ],
+                               mask = TRUE) |>
+                   {\(.) terra::ifel(. > 0, 1, NA)}() |>
+                   terra::merge(sea_dist, first = TRUE) |>
+                   {\(.) terra::ifel(. > 0, sea_dist, NA)}() |>
+                   {\(.) terra::ifel(. <= 30, 1, NA)}())
   
 
   
   
 # QUARANTINE --------------------------------------------------------------
 
-  
-
-  # #### DISTANCE FROM COAST CUTOFF ####
-  # # Next we will create a separate raster of all points with
-  # # 30 km distance from the coast, as BC nest survey data
-  # # indicates that 99% of MAMU nests are within 30 km of the
-  # # coastline. We are going to assume a straight-line 30 km 
-  # # distance from the shore, ignoring any barriers.
-  # # The DEM data doesn't include inland BC.
-  # # These land areas need to be blocked off so the distance
-  # # algorithm can differentiate between land areas and
-  # # water areas.
-
-  # # Calculate coast distance
-  # # Now we need to combine our land data with the `elev` data to
-  # # create the raster with which we are going to do distance
-  # # calculations with. The `elev` data will cut off barriers
-  # # that the algorithm will have to travel around when 
-  # # calculating distance, while the `canvas` area will supply
-  # # land and sea data.
-  # #   - Mountain barriers -> NOT traveling around # 2025-03-01: to travel around mountains, use coast_distance_barriers fxn
-  # #   - Land areas -> traveling through
-  # #   - Sea areas -> traveling from
-  # # We will need to employ some if/else logic to correctly combine
-  # # these three data layers.
-  # # NOTE: IF WE INCLUDE ALASKA BORDER REGION LATER, we will need to 
-  # # include the Alaska DEM in this to correctly measure distance from
-  # # coast for the Alaska Border region. 
-  # tar_terra_rast(coast_dist, coast_distance(#elev = elev, 
-  #                                           sea = sea, 
-  #                                           dist_km = 30,
-  #                                           exclude_islands = TRUE, # exclude HG and VI from coast distance calcs - we know birds that access inland regions on HG/VI
-  #                                           regions = regions)),
   # #### MERGE CUTOFFS ####
   # # Finally, merge the cutoff rasters together to create a 
   # # "MAMU containment zone" area that has a high probability of
