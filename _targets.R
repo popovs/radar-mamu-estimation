@@ -388,7 +388,7 @@ list(
                    {\(.) terra::ifel(. > 0, ., NA)}() |>
                    {\(.) terra::ifel(. <= 30, 1, NA)}()),
   
-  #### MERGE CUTOFFS ####
+  #### MAMU ACCESSIBLE ZONE (MAZ) ####
   # Finally, merge the cutoff rasters together to create a
   # "MAMU containment zone" area that meets minimum threshold criteria
   # for spatially delineating MAMU nesting habitat survey catchments.
