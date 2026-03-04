@@ -382,7 +382,7 @@ list(
                                mask = TRUE) |>
                    {\(.) terra::ifel(. > 0, 1, NA)}() |>
                    terra::merge(sea_dist, first = TRUE) |>
-                   {\(.) terra::ifel(. > 0, sea_dist, NA)}() |>
+                   {\(.) terra::ifel(. > 0, ., NA)}() |>
                    {\(.) terra::ifel(. <= 30, 1, NA)}()),
   
   #### MERGE CUTOFFS ####
