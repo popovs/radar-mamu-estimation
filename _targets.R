@@ -383,7 +383,7 @@ list(
                    {\(.) terra::ifel(. > 0, 1, NA)}() |>
                    terra::merge(sea_dist, first = TRUE) |>
                    {\(.) terra::ifel(. > 0, sea_dist, NA)}() |>
-                   {\(.) terra::ifel(. <= 30, 1, NA)}())
+                   {\(.) terra::ifel(. <= 30, 1, NA)}()),
   
   #### MERGE CUTOFFS ####
   # Finally, merge the cutoff rasters together to create a
@@ -399,10 +399,8 @@ list(
   # this area is assumed to encompass most of the suitable
   # nesting habitat within each region. Finally, we assume that
   # any sea areas are accessible as well.
-  # NOTE: cost cutoffs are so conservative they don't make any difference to MAZ
-  # i.e. [(elev > 0) * (cc > 0) * (coast_dist > 0)] == [(elev > 0) * (coast_dist > 0)]
-  # tar_terra_rast(maz, terra::cover(((elev > 0 ) * (coast_dist > 0)), # Anything accessible was stored as either '1' or '2' in each raster layer.
-  #                                  sea + 1)), # and then we add the sea (+1, because it's all stored as 0 or NA)
+  tar_terra_rast(maz, terra::cover(((elev > 0 ) * (cc > 0) * (c30km > 0)), # Anything accessible was stored as either '1' or '2' in each raster layer.
+                                   sea + 1)) # and then we add the sea (+1, because it's all stored as 0 or NA)
   
   
 
