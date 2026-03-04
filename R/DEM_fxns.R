@@ -39,4 +39,21 @@ resample_rast <- function(rast, res) {
   return(rast)
 }
 
+reclass_rast <- function(rast, cutoffs, min_col, max_col, region_name) { 
+  cutoffs <- cutoffs[cutoffs$region == region_name,]
+  message("Reclassifying ", cutoffs$region, "...")
+  min <- cutoffs[[min_col]]
+  max <- cutoffs[[max_col]]
+  rast <- terra::ifel(rast > 0, rast, NA)
+  rast <- terra::ifel(rast < max, rast, NA)
+  rast <- terra::ifel(rast < min, 1, 2)
+  return(rast)
+}
 
+crop_rast <- function(rast, region_name, regions) {
+  message("Cropping ", region_name)
+  regions <- regions[regions$region == region_name, ]
+  tmp <- terra::crop(rast, regions)
+  tmp <- terra::mask(tmp, regions) # This can be done in one step with terra::crop(mask = T), but was resulting in buggy raster values - so doing it in two steps here.
+  return(tmp)
+}

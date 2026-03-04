@@ -107,6 +107,7 @@ list(
   ##### Regions #####
   tar_target(regions_path, "GIS/cons_reg.gpkg", format = "file"), # Track regions gpkg file
   tar_target(regions, prepare_regions(filepath = regions_path)),
+  tar_target(regions_region, regions$region), # regions names within regions gpkg
   ##### Nests #####
   tar_target(nests_path, "GIS/MAMU_Nests_BC_CDC.gpkg", format = "file"), # Track nests gpkg file
   # nests_geom target will contain just the lat/longs of nests + region they're in
@@ -213,17 +214,19 @@ list(
                    {\(.) terra::ifel(. > 0, ., NA)}()),
   
   #### EXTRACT NEST VALUES ####
+  ##### Elevation, distance from sea, cost #####
   # Elevation
   tar_target(nest_elev_m, terra::extract(DEM, nests_geom, ID = FALSE)[[1]]),
   # Distance from sea
   tar_target(nest_dist_km, terra::extract(sea_dist, nests_geom, ID = FALSE)[[1]]),
   # Cost
   tar_target(nest_cost, terra::extract(cost, nests_geom, ID = FALSE)[[1]]),
-  ##### Nests #####
+  ##### Merge nest data #####
   # Merge into a single dataset
   tar_target(nests, cbind(nests_geom, nest_elev_m, nest_dist_km, nest_cost)),
 
-  #### REGIONAL ELEVATION CUTOFFS ####
+  #### REGIONAL CUTOFFS ####
+  ##### Elevation cutoffs #####
   # Extract nest elevations
   # The exact elevational cutoffs vary by region and are primarily
   # dictated by the growing conditions of the trees that MAMU
@@ -259,7 +262,8 @@ list(
                  dplyr::mutate(elev_m_min = 0) |>
                  dplyr::select(region, elev_m_min, elev_m_max),
                region), # group by region col so targets later knows to run `reclass_elevation()` by row-level grouping
-  #### NEST COST DISTANCE ####
+  
+  ##### Cost cutoffs #####
   # Next, we calculate the flight cost values of each nest.
   # Evidence shows that MAMU take the least-cost flight paths to
   # their nests; that is, they tend to fly along valley contours
@@ -311,55 +315,62 @@ list(
                  #dplyr::mutate(cost_max = cost_max / 1000 / 1000) |> # Re-express cost in km^2 rather than m^2
                  dplyr::mutate(cost_min = 0) |>
                  dplyr::select(region, cost_min, cost_max),
-               region)
+               region),
+  
+  #### ITERATE OVER REGIONAL CUTOFFS ####
+  # For each region, iterate the following:
+  # 1. Chop up the raster into regions
+  # 2. Apply elevation cutoffs to each regional raster
+  # 3. Merge into single raster
+
+  ##### Regional elevation cutoffs #####
+  # Chop up DEM
+  tar_terra_rast(regional_DEM, 
+                 crop_rast(rast = DEM,
+                           region_name = regions_region,
+                           regions = regions),
+                 pattern = map(regions_region)),
+  # Apply elevation cutoffs to each regional DEM
+  tar_terra_rast(regional_elev_cutoffs,
+                 reclass_rast(rast = regional_DEM,
+                              region_name = regions_region,
+                              cutoffs = elevation_cutoffs,
+                              min_col = "elev_m_min",
+                              max_col = "elev_m_max"),
+                 pattern = map(regional_DEM, regions_region)),
+  # Merge
+  # `elev` for 'elevation cutoffs'
+  tar_terra_rast(elev, regional_elev_cutoffs |>
+                   terra::sprc() |>
+                   terra::mosaic()),
+  ##### Regional cost cutoffs #####
+  # Chop up cost raster
+  tar_terra_rast(regional_cost,
+                 crop_rast(rast = cost,
+                           region_name = regions_region,
+                           regions = regions),
+                 pattern = map(regions_region)),
+  # Apply cost cutoffs to each regional cost raster
+  tar_terra_rast(regional_cost_cutoffs,
+                 reclass_rast(rast = regional_cost,
+                              region_name = regions_region,
+                              cutoffs = cost_cutoffs,
+                              min_col = "cost_min",
+                              max_col = "cost_max"),
+                 pattern = map(regional_cost, regions_region)),
+  # Merge
+  # `cc` for 'cost cutoffs'
+  tar_terra_rast(cc, regional_cost_cutoffs |>
+                   terra::sprc() |>
+                   terra::mosaic())
+  
+
+  
   
 # QUARANTINE --------------------------------------------------------------
 
-  # 
-  # #### ITERATE OVER REGIONAL CUTOFFS ####
-  # # For each region, iterate the following:
-  # # 1. Chop up the DEM into regions
-  # # 2. Apply elevation cutoffs to each regional DEM
-  # # 3. Apply cost distance cutoffs to each regional DEM
-  # mapped <- tar_map(
-  #   values = regions_map, # params need to be passed as a df/tibble, defined OUTSIDE the pipeline
-  #   # Intersect DEM with each conservation region
-  #   tar_terra_rast(regional_DEM, 
-  #                  crop_dem(
-  #                    dem = DEM,
-  #                    region_name = region, # `region` in this case refers to the `region` column in `regions_map` df
-  #                    regions = regions # `regions` is the regions sf object (very first target)
-  #                  )),
-  #   # Apply elevation cutoffs for each region
-  #   tar_terra_rast(regional_elev_cutoffs,
-  #                  reclass_raster(
-  #                    dem = regional_DEM,
-  #                    region = region,
-  #                    cutoffs = elevation_cutoffs,
-  #                    min_col = "elev_m_min",
-  #                    max_col = "elev_m_max"
-  #                    )),
-  #   # Apply cost cutoffs for each region 
-  #   tar_terra_rast(regional_cost_cutoffs,
-  #                  reclass_raster(
-  #                    dem = regional_DEM,
-  #                    region = region,
-  #                    cutoffs = cost_cutoffs,
-  #                    min_col = "cost_min",
-  #                    max_col = "cost_max"
-  #                  ))
-  #   ),
-  # # Combine into single raster
-  # # `elev` for 'elevation cutoffs'
-  # tar_combine(elev_sprc, mapped[[2]], command = terra::sprc(list(!!!.x)) |> terra::wrap()), # need to wrap it to prevent "invalid pointer" error: https://stackoverflow.com/questions/74855695/load-raster-data-with-terra-in-targets-pipeline
-  # tar_terra_rast(elev, terra::unwrap(elev_sprc) |> 
-  #                  terra::mosaic(fun = "max") |> # choose 'max' - by default assume value is 2, or accessible, in cases where mosaicing rasters results in some 1 or 2 overlap
-  #                  terra::resample(DEM)), # resample to match DEM resolution
-  # # `cc` for 'cost cutoffs'
-  # tar_combine(cc_sprc, mapped[[3]], command = terra::sprc(list(!!!.x)) |> terra::wrap()), # need to wrap it to prevent "invalid pointer" error: https://stackoverflow.com/questions/74855695/load-raster-data-with-terra-in-targets-pipeline
-  # tar_terra_rast(cc, terra::unwrap(cc_sprc) |>
-  #                  terra::mosaic(fun = "max") |> # choose 'max' - by default assume value is 2, or accessible, in cases where mosaicing rasters results in some 1 or 2 overlap
-  #                  terra::resample(DEM)),
+  
+
   # #### DISTANCE FROM COAST CUTOFF ####
   # # Next we will create a separate raster of all points with
   # # 30 km distance from the coast, as BC nest survey data

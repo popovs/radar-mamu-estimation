@@ -75,13 +75,7 @@ prepare_nests <- function(filepath, regions = regions) {
 
 # REGIONAL ELEVATION CUTOFFS ----------------------------------------------
 
-crop_dem <- function(dem, region_name, regions) {
-  message("Cropping and saving ", region_name)
-  regions <- regions[regions$region == region_name, ]
-  tmp <- terra::crop(dem, regions)
-  tmp <- terra::mask(tmp, regions) # This can be done in one step with terra::crop(mask = T), but was resulting in buggy raster values - so doing it in two steps here.
-  return(tmp)
-}
+
 
 
 nest_quantiles <- function(nests, quant_data, prefix, quantiles = c(0.025, 0.975)) {
@@ -275,16 +269,7 @@ nest_isoforest <- function(nests, quant_data, prefix) {
   return(quants)
 }
 
-reclass_raster <- function(dem, cutoffs, min_col, max_col, region, ...) { # ... param to ignore other cols in the dataframe when it gets passed in
-  cutoffs <- cutoffs[cutoffs$region == region,]
-  message("Reclassifying ", cutoffs$region, "...")
-  min <- cutoffs[[min_col]]
-  max <- cutoffs[[max_col]]
-  dem <- terra::ifel(dem > 0, dem, NA)
-  dem <- terra::ifel(dem < max, dem, NA)
-  dem <- terra::ifel(dem < min, 1, 2)
-  return(dem)
-}
+
 
 
 # DISTANCE FROM COAST CUTOFF ----------------------------------------------
