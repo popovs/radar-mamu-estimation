@@ -342,7 +342,8 @@ list(
   # `elev` for 'elevation cutoffs'
   tar_terra_rast(elev, regional_elev_cutoffs |>
                    terra::sprc() |>
-                   terra::mosaic()),
+                   terra::mosaic() |>
+                   terra::resample(DEM)), # resample to same size/resolution as base DEM
   
   ##### Regional cost cutoffs #####
   # Chop up cost raster
@@ -363,7 +364,8 @@ list(
   # `cc` for 'cost cutoffs'
   tar_terra_rast(cc, regional_cost_cutoffs |>
                    terra::sprc() |>
-                   terra::mosaic()),
+                   terra::mosaic() |>
+                   terra::resample(DEM)), # resample to same size/resolution as base DEM
   
   ##### Coast distance cutoff #####
   # Next we will create a separate raster of all points with
@@ -383,32 +385,32 @@ list(
                    {\(.) terra::ifel(. > 0, sea_dist, NA)}() |>
                    {\(.) terra::ifel(. <= 30, 1, NA)}())
   
+  #### MERGE CUTOFFS ####
+  # Finally, merge the cutoff rasters together to create a
+  # "MAMU containment zone" area that meets minimum threshold criteria
+  # for spatially delineating MAMU nesting habitat survey catchments.
+  # All the raster prep functions above set the resolution to match
+  # `res` and the extent to match `DEM`. Therefore we can safely
+  # layer all our raster layers.
+  # Create MAMU Accessible Zone (MAZ)
+  # 'MAMU accessible', i.e. it's below elevation cutoff,
+  # within 30km of ocean, and within cost distance. Does not
+  # necessarily imply it's all suitable nesting habitat; rather,
+  # this area is assumed to encompass most of the suitable
+  # nesting habitat within each region. Finally, we assume that
+  # any sea areas are accessible as well.
+  # NOTE: cost cutoffs are so conservative they don't make any difference to MAZ
+  # i.e. [(elev > 0) * (cc > 0) * (coast_dist > 0)] == [(elev > 0) * (coast_dist > 0)]
+  # tar_terra_rast(maz, terra::cover(((elev > 0 ) * (coast_dist > 0)), # Anything accessible was stored as either '1' or '2' in each raster layer.
+  #                                  sea + 1)), # and then we add the sea (+1, because it's all stored as 0 or NA)
+  
+  
 
   
   
 # QUARANTINE --------------------------------------------------------------
 
-  # #### MERGE CUTOFFS ####
-  # # Finally, merge the cutoff rasters together to create a 
-  # # "MAMU containment zone" area that has a high probability of
-  # # containing high quality MAMU nesting habitat. This raster 
-  # # will be used as our maximum MAMU area within BC that we will 
-  # # extrapolate our population estimates to.
-  # # All the raster prep functions above set the resolution to match
-  # # `res` and the extent to match `DEM`. Therefore we can safely
-  # # layer all our raster layers.
-  # # Create MAMU Accessible Zone (MAZ)
-  # # First layer - 'MAMU accessible', i.e. it's below elevation cutoff,
-  # # within 30km of ocean, and within cost distance. Does not 
-  # # necessarily imply it's all suitable nesting habitat; rather, 
-  # # this area is assumed to encompass ~95% of all suitable
-  # # nesting habitat within each region. Then we assume that
-  # # anything over/crossing the sea is accessible as well.
-  # # NOTE: cost cutoffs are so conservative they don't make any difference to MAZ
-  # # i.e. [(elev > 0) * (cc > 0) * (coast_dist > 0)] == [(elev > 0) * (coast_dist > 0)]
-  # tar_terra_rast(maz, terra::cover(((elev > 0 ) * (coast_dist > 0)), # Anything accessible was stored as either '1' or '2' in each raster layer.
-  #                                  sea + 1)), # and then we add the sea (+1, because it's all stored as 0 or NA)
-  # #### GENERATE RADAR CONES ####
+# #### GENERATE RADAR CONES ####
   # # Here, radar survey 'catchments' containing marbled murrelet 
   # # nesting habitat will be generated, using a few basic 
   # # assumptions about bird habitat + BC Digital Elevation Model 
