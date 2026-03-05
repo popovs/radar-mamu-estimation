@@ -417,16 +417,33 @@ list(
   tar_target(stn, prepare_stn(s, h_0, regions)),
   tar_target(stn_gpkg,
              save_sf(sf = stn, output_path = "temp/QGIS temp/stn.gpkg"),
-             format = "file")
+             format = "file"),
   
+  ##### Polar mean flight headings #####
   # Calculate polar mean flight headings
-  # We're using a simplified
-  # assumption here and taking the mean of all the bird flight
-  # headings here. While the heading on the radar screen might
-  # not necessarily translate 1-to-1 to the real world flight
-  # direction, the error in this will be captured by the cone
-  # we generate around the mean heading.
+  # Most birds will be flying in the same general direction
+  # as they head inland, with some variation. Calculate the 
+  # polar mean flight heading with 95% bootstrapped confidence
+  # intervals about the mean.
+  # OLD METHOD:
   # tar_target(h, calc_polar_mean(headings = h_0, n_reps = 1000, alpha = 0.05)),
+  # NEW METHOD (using CircStats pkg):
+  tar_target(h, h_0 |>
+               dplyr::mutate(rad = heading * pi / 180) |>
+               dplyr::group_by(site) |>
+               dplyr::summarise(n = CircStats::circ.disp(rad)[[1]],
+                                r = CircStats::circ.disp(rad)[[2]],
+                                rbar = CircStats::circ.disp(rad)[[3]],
+                                var = CircStats::circ.disp(rad)[[4]],
+                                mean = CircStats::circ.mean(rad),
+                                lower = mean - var,
+                                upper = mean + var) |>
+               dplyr::mutate(mean = mean * 180 / pi,
+                             lower = lower * 180 / pi,
+                             upper = upper * 180 / pi) |>
+               dplyr::mutate(mean = dplyr::if_else(mean < 0, mean + 360, mean),
+                             lower = dplyr::if_else(lower < 0, lower + 360, lower),
+                             upper = dplyr::if_else(upper < 0, upper + 360, upper)))
   
   # # Calculate cones
   # tar_target(cones, generate_cones(h = h,
