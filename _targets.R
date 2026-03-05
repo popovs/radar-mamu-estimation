@@ -103,33 +103,25 @@ save_plots <- FALSE
 # PIPELINE ----------------------------------------------------------------
 
 list(
-  #### PREPARE DATA FILES ####
-  ##### Regions #####
+  #### PREPARE INPUTS ####
+  ##### Track files #####
   tar_target(regions_path, "GIS/cons_reg.gpkg", format = "file"), # Track regions gpkg file
+  tar_target(nests_path, "GIS/MAMU_Nests_BC_CDC.gpkg", format = "file"), # Track nests gpkg file
+  tar_target(s_path, "data/ECCC_FLNR_MAMU-RadarData-20240307.csv", format = "file"), # Track surveys excel file
+  ##### Read & prepare files #####
+  # Regions #
   tar_target(regions, prepare_regions(filepath = regions_path)),
-  tar_target(regions_region, regions$region), # regions names within regions gpkg
-  ##### Nests #####
+  tar_target(regions_region, regions$region), # track regions names within regions gpkg
+  # Nests #
   # The 'nests' target will be prepared down the line, after
   # all relevant raster data has been extracted at the nests.
-  tar_target(nests_path, "GIS/MAMU_Nests_BC_CDC.gpkg", format = "file"), # Track nests gpkg file
-  # nests_geom target will contain just the lat/longs of nests + region they're in
+  # 'nests_geom' target contains just the coords of nests + region they're in
   # Later, we will add extracted raster values to this dataset.
   tar_target(nests_geom, prepare_nests(filepath = nests_path,
                                        regions = regions)),
-  ##### Radar surveys #####
-  # TODO: maybe convert this to csv?
-  tar_target(s_path, "data/ECCC_FLNR_MAMU-RadarData-20240307.xlsx", format = "file"), # Track surveys excel file
-  ##### Flight headings #####
-  
-  
-  # Alt arrangement: track all paths first in one section, 
-  # Then prep all inputs in another section
-  # tar_target(regions, prepare_regions(filepath = regions_path)),
-  # tar_target(s, prepare_surveys(filepath = s_path,
-  #                               regions = regions)),
-  # tar_target(nests, prepare_nests(filepath = nests_path,
-  #                                 regions = regions)),
-  
+  # Radar Surveys #
+  tar_target(s, prepare_surveys(filepath = s_path,
+                                regions = regions)),
   ##### Land area masks #####
   # This study assumes MAMU can access land from any sea area on 
   # the map. Therefore, need to effectively split land from sea.

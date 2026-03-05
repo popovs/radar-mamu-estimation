@@ -28,18 +28,29 @@ prepare_nests <- function(filepath, regions = regions) {
 
 # PREPARE SURVEYS ---------------------------------------------------------
 
+# Read survey data, clean up, convert to sf object, and assign pipeline regions
 prepare_surveys <- function(filepath, regions = regions) {
-  s <- MAMU::process_radar_data(filepath)
-  s$site <- s$new_name # `process_radar_data()` stores cleaned up/consolidated site names in the `new_name` col
+  s <- read.csv(filepath)
+  
+  # Basic dataframe tidying
+  s <- janitor::clean_names(s)
+  s$survey_date <- lubridate::make_date(year = s$year, month = s$month, day = s$day)
+  s$doy <- lubridate::yday(s$survey_date)
+  s$site <- stringr::str_trim(s$site)
+  s$site <- stringr::str_squish(s$site)
+  
   # Create spatial object
   s <- s[!is.na(s$lon), ]
-  s <- sf::st_as_sf(s, coords = c("lon", "lat"), crs = 4326, remove = FALSE)
+  s <- sf::st_as_sf(s, coords = c("lon", "lat"), 
+                    crs = 4326, 
+                    remove = FALSE) |>
+    sf::st_transform(3005)
+  
   # Merge in regions from pipeline
   # Anything already stored in the pre-existing `region` col
   # will be moved to `region_old`
   s$region_old <- s$region
   s <- dplyr::select(s, -region)
-  regions <- sf::st_transform(regions, 4326)
   regions <- sf::st_make_valid(regions)
   s <- sf::st_intersection(s, regions)
   return(s)
