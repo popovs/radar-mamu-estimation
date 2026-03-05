@@ -440,18 +440,20 @@ list(
                                 upper = mean + var) |>
                dplyr::mutate(mean = mean * 180 / pi,
                              lower = lower * 180 / pi,
-                             upper = upper * 180 / pi) |>
+                             upper = upper * 180 / pi,
+                             theta = upper - lower) |>
                dplyr::mutate(mean = dplyr::if_else(mean < 0, mean + 360, mean),
                              lower = dplyr::if_else(lower < 0, lower + 360, lower),
-                             upper = dplyr::if_else(upper < 0, upper + 360, upper)))
+                             upper = dplyr::if_else(upper < 0, upper + 360, upper),
+                             theta = dplyr::if_else(theta > 180, 360 - theta, theta)))
   
-  # # Calculate cones
+  # Calculate cones
   # tar_target(cones, generate_cones(h = h,
   #                                  stn = stn,
   #                                  radius = 30000, # length cones to select appropriate watersheds (in meters)
   #                                  res = res)),
   # tar_target(cones_gpkg,
-  #            save_sf(sf = cones, output_path = "GIS/flight_headings.gpkg"),
+  #            save_sf(sf = cones, output_path = "temp/QGIS temp/flight_headings.gpkg"),
   #            format = "file")
   
   
