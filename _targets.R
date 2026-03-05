@@ -122,9 +122,11 @@ list(
   # Radar Surveys #
   tar_target(s, prepare_surveys(filepath = s_path,
                                 regions = regions)),
+  
+  #### PREPARE DEM ####
   ##### Land area masks #####
-  # This study assumes MAMU can access land from any sea area on 
-  # the map. Therefore, need to effectively split land from sea.
+  # These masks will be used to clean up the DEM data and split apart
+  # land areas from sea areas.
   # Create vector masks to accurately mask land vs sea areas of the DEM.
   # While the BC DEM is quite accurate, the AK DEM in particular has some
   # anomalously high sea areas (e.g., >50 m "above sea level" for some
@@ -157,8 +159,6 @@ list(
   # edges. 
   tar_terra_vect(study_region_mask, terra::union(terra::buffer(usa_vect, 10000),
                                                  terra::vect(regions))),
-  
-  #### PREPARE DEM ####
   ##### Query BC CDED tiles #####
   # Note this target simply points to the DEM VRT filepath - it is not 
   # a raster in and of itself.
