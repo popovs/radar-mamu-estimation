@@ -107,7 +107,8 @@ list(
   ##### Track files #####
   tar_target(regions_path, "GIS/cons_reg.gpkg", format = "file"), # Track regions gpkg file
   tar_target(nests_path, "GIS/MAMU_Nests_BC_CDC.gpkg", format = "file"), # Track nests gpkg file
-  tar_target(s_path, "data/ECCC_FLNR_MAMU-RadarData-20240307.csv", format = "file"), # Track surveys excel file
+  tar_target(s_path, "data/ECCC_FLNR_MAMU-RadarData-20240307.csv", format = "file"), # Track surveys csv file
+  tar_target(h_path, "data/headings.csv", format = "file"), # Track flight headings csv file
   ##### Read & prepare files #####
   # Regions #
   tar_target(regions, prepare_regions(filepath = regions_path)),
@@ -115,13 +116,15 @@ list(
   # Nests #
   # The 'nests' target will be prepared down the line, after
   # all relevant raster data has been extracted at the nests.
-  # 'nests_geom' target contains just the coords of nests + region they're in
+  # 'nests_0' target contains just the coords of nests + region they're in
   # Later, we will add extracted raster values to this dataset.
-  tar_target(nests_geom, prepare_nests(filepath = nests_path,
+  tar_target(nests_0, prepare_nests(filepath = nests_path,
                                        regions = regions)),
   # Radar Surveys #
   tar_target(s, prepare_surveys(filepath = s_path,
                                 regions = regions)),
+  # Flight Headings #
+  tar_target(h_0, prepare_headings(h_path)),
   
   #### PREPARE DEM ####
   ##### Land area masks #####
@@ -211,14 +214,14 @@ list(
   #### EXTRACT NEST VALUES ####
   ##### Elevation, distance from sea, cost #####
   # Elevation
-  tar_target(nest_elev_m, terra::extract(DEM, nests_geom, ID = FALSE)[[1]]),
+  tar_target(nest_elev_m, terra::extract(DEM, nests_0, ID = FALSE)[[1]]),
   # Distance from sea
-  tar_target(nest_dist_km, terra::extract(sea_dist, nests_geom, ID = FALSE)[[1]]),
+  tar_target(nest_dist_km, terra::extract(sea_dist, nests_0, ID = FALSE)[[1]]),
   # Cost
-  tar_target(nest_cost, terra::extract(cost, nests_geom, ID = FALSE)[[1]]),
+  tar_target(nest_cost, terra::extract(cost, nests_0, ID = FALSE)[[1]]),
   ##### Merge nest data #####
   # Merge into a single dataset
-  tar_target(nests, cbind(nests_geom, nest_elev_m, nest_dist_km, nest_cost)),
+  tar_target(nests, cbind(nests_0, nest_elev_m, nest_dist_km, nest_cost)),
 
   #### REGIONAL CUTOFFS ####
   ##### Elevation cutoffs #####
@@ -395,41 +398,48 @@ list(
   # nesting habitat within each region. Finally, we assume that
   # any sea areas are accessible as well.
   tar_terra_rast(maz, terra::cover(((elev > 0 ) * (cc > 0) * (c30km > 0)), # Anything accessible was stored as either '1' or '2' in each raster layer.
-                                   sea + 1)) # and then we add the sea (+1, because it's all stored as 0 or NA)
+                                   sea + 1)), # and then we add the sea (+1, because it's all stored as 0 or NA)
   
+  #### GENERATE RADAR CONES ####
+  # Here, radar survey 'catchments' containing marbled murrelet
+  # nesting habitat will be generated, using a few basic
+  # assumptions about bird habitat + BC Digital Elevation Model
+  # (DEM) data.
+  ##### stn #####
+  # Extract individual station coords
+  # While radar stations themselves are typically on land,
+  # the birds typically are flying over the water in the inlet.
+  # Calculate the 'mean flight entry point' where birds enter
+  # the radar screen relative to the radar unit itself, and
+  # use that as our 'stn' coordinates. I.e. we care where 
+  # the *birds* are relative to land entry, don't care about
+  # where the radar station is set up.
+  tar_target(stn, prepare_stn(s, h_0, regions)),
+  tar_target(stn_gpkg,
+             save_sf(sf = stn, output_path = "temp/QGIS temp/stn.gpkg"),
+             format = "file")
+  
+  # Calculate polar mean flight headings
+  # We're using a simplified
+  # assumption here and taking the mean of all the bird flight
+  # headings here. While the heading on the radar screen might
+  # not necessarily translate 1-to-1 to the real world flight
+  # direction, the error in this will be captured by the cone
+  # we generate around the mean heading.
+  # tar_target(h, calc_polar_mean(headings = h_0, n_reps = 1000, alpha = 0.05)),
+  
+  # # Calculate cones
+  # tar_target(cones, generate_cones(h = h,
+  #                                  stn = stn,
+  #                                  radius = 30000, # length cones to select appropriate watersheds (in meters)
+  #                                  res = res)),
+  # tar_target(cones_gpkg,
+  #            save_sf(sf = cones, output_path = "GIS/flight_headings.gpkg"),
+  #            format = "file")
   
   
 # QUARANTINE --------------------------------------------------------------
 
-# #### GENERATE RADAR CONES ####
-  # # Here, radar survey 'catchments' containing marbled murrelet 
-  # # nesting habitat will be generated, using a few basic 
-  # # assumptions about bird habitat + BC Digital Elevation Model 
-  # # (DEM) data. 
-  # # First, we read in bird headings data. We're using a simplified
-  # # assumption here and taking the mean of all the bird flight
-  # # headings here. While the heading on the radar screen might
-  # # not necessarily translate 1-to-1 to the real world flight
-  # # direction, the error in this will be captured by the cone
-  # # we generate around the mean heading.
-  # # Read in flight headings data
-  # tar_target(h_file, "data/headings.xlsx", format = "file"),
-  # tar_target(h_0, prepare_headings(h_file)),
-  # # Extract individual station coords
-  # tar_target(stn, prepare_stn(s, h_0, regions)),
-  # tar_target(stn_gpkg, 
-  #            save_sf(sf = stn, output_path = "temp/stn.gpkg"), 
-  #            format = "file"),
-  # # Calculate polar mean flight headings
-  # tar_target(h, calc_polar_mean(headings = h_0, n_reps = 1000, alpha = 0.05)),
-  # # Calculate cones
-  # tar_target(cones, generate_cones(h = h, 
-  #                                  stn = stn, 
-  #                                  radius = 30000, # length cones to select appropriate watersheds (in meters)
-  #                                  res = res)),
-  # tar_target(cones_gpkg, 
-  #            save_sf(sf = cones, output_path = "GIS/flight_headings.gpkg"), 
-  #            format = "file"),
   # #### SELECT TARGETED WATERSHED CATCHMENTS ####
   # # Now, based on the MAMU flight headings at each radar station,
   # # select the watershed catchments the birds are targeting (i.e.,

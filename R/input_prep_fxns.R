@@ -1,4 +1,5 @@
 #' Data inputs preparation fxns
+#' 
 #' The functions here read in the base data files of the pipeline
 #' and prepare them for analysis.
 
@@ -74,11 +75,6 @@ prepare_headings <- function(filepath) {
   # Flag if there's any likely data errors
   stopifnot("You have headings >360 that are likely typos." = !any(headings$heading > 360))
   
-  # Clean up station names as needed
-  stn_lookup <- MAMU::rs # rename station lookup table
-  headings <- merge(headings, stn_lookup, by.x = "name", by.y = "original_name", all.x = TRUE)
-  headings$name <- ifelse(is.na(headings$new_name), headings$name, headings$new_name)
-  
   # First clean up station lat/longs. While the radar 
   # station is on land, the birds are flying in off
   # to the side. So, for each observation at each station,
@@ -96,7 +92,9 @@ prepare_headings <- function(filepath) {
   # Now, using the bearing from the station and the distance from the 
   # station, find the true "mean bird entry point" on to the radar
   # field, relative to the radar station.
-  relative_pts <- as.data.frame(geosphere::destPoint(p = headings[,c("lon", "lat")], b = headings$initial_degrees, d = headings$distance))
+  relative_pts <- as.data.frame(geosphere::destPoint(p = headings[,c("lon", "lat")], 
+                                                     b = headings$initial_degrees, 
+                                                     d = headings$distance))
   names(relative_pts) <- c("rel_lon", "rel_lat")
   headings <- cbind(headings, relative_pts)
   
@@ -104,10 +102,10 @@ prepare_headings <- function(filepath) {
   
   # Split out incoming and outgoing headings
   inc <- headings[grep("Incoming", headings$flightpath_type, ignore.case = T),
-                  c("name", "lat", "lon", "rel_lat", "rel_lon", "initial_direction", "initial_degrees", "distance", "heading")]
+                  c("site", "lat", "lon", "rel_lat", "rel_lon", "initial_direction", "initial_degrees", "distance", "heading")]
   inc$flightpath_type <- "Incoming"
   out <- headings[grep("Outgoing", headings$flightpath_type, ignore.case = T),
-                  c("name", "lat", "lon", "rel_lat", "rel_lon", "initial_direction", "initial_degrees", "distance", "heading")]
+                  c("site", "lat", "lon", "rel_lat", "rel_lon", "initial_direction", "initial_degrees", "distance", "heading")]
   out$flightpath_type <- "Outgoing"
   
   inc <- inc[!is.na(inc$heading),]
@@ -122,7 +120,7 @@ prepare_headings <- function(filepath) {
   # Now merge in and out back together
   # `h` now functionally contains *'incoming' headings only*
   h <- rbind(inc, out)
-  h <- h[order(h$name),]
+  h <- h[order(h$site),]
   
   return(h)
 }
@@ -158,13 +156,13 @@ prepare_stn <- function(s, headings, regions) {
   
   # Next do the same thing with radar stations
   h_stn <- headings |>
-    dplyr::select(name, rel_lat, rel_lon) |>
-    dplyr::group_by(name) |>
+    dplyr::select(site, rel_lat, rel_lon) |>
+    dplyr::group_by(site) |>
     dplyr::summarise(rel_lat = mean(rel_lat, na.rm = TRUE),
                      rel_lon = mean(rel_lon, na.rm = TRUE))
   
   # Merge with stn, then grab the rel_lat/lon if it's available
-  stn <- merge(stn, h_stn, by.x = "site", by.y = "name", all.x = TRUE)
+  stn <- merge(stn, h_stn, by = "site", all.x = TRUE)
   stn$lat <- ifelse(is.na(stn$rel_lat), stn$lat, stn$rel_lat)
   stn$lon <- ifelse(is.na(stn$rel_lon), stn$lon, stn$rel_lon)
   stn$rel_coord <- !is.na(stn$rel_lat) # keep track of which stations used relative coords

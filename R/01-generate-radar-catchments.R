@@ -831,11 +831,3 @@ access_catchments <- function(cost_catchments, maz, stn, cones,
 }
 
 
-# SAVE OUTPUTS ------------------------------------------------------------
-
-# ... and still have it be tracked by `targets`
-
-save_sf <- function(sf, output_path) {
-  sf::st_write(sf, output_path, append = FALSE)
-  return(output_path)
-}
