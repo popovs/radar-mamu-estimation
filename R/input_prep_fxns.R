@@ -172,7 +172,8 @@ prepare_stn <- function(s, headings, regions) {
     dplyr::select(-rel_lat, -rel_lon) |>
     sf::st_as_sf(crs = 4326, 
                  coords = c("lon", "lat"), 
-                 remove = FALSE)
+                 remove = FALSE) |>
+    sf::st_transform(3005)
   
   return(stn)
 }
