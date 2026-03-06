@@ -69,18 +69,28 @@ nest_dist_km|stem|359b0b82f1f68f41|4a9391a53121307e|eec250df9201d32b|56989063||t
 nests|stem|03fdaa861103ca4b|29f802dc4adf4983|e7825b9fb1a9cb11|-696592221||t20517.7024107042s|s8890b|8890|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0||
 stn|stem|13d69b44cc2ec488|22e27f2e789b2892|c9bf83d789eb9b75|529122795||t20517.986417041s|s12916b|12916|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||1.11||
 stn_gpkg|stem|f9551fb2ca52919e|ccb35a6dff38b5c8|91c24c1e468cfa81|-204749463|temp/QGIS temp/stn.gpkg|t20517.9864214132s|s135168b|135168|file|local|vector|||0.14||
-cones|stem||11b47c66b0041d8c|37ebdf5cb15c86ab|-1169636422||t20517.9897917429s||0|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0.14||replacement has length zero
+h|stem|8b873253fee2d44d|b2326fd6e2d765c7|d0d815e0b93f96cc|-1482155975||t20517.9967720111s|s6152b|6152|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0.31||
+cones|stem|1df601a90fa46457|11b47c66b0041d8c|93c6d598aee63a6b|-1169636422||t20517.9968891555s|s11811b|11811|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||9.89||
+cones_gpkg|stem|a3db5259f18191b3|2278d0b35c344015|97914c5e1620a4cd|895392031|temp/QGIS temp/flight_headings.gpkg|t20517.996892745s|s143360b|143360|file|local|vector|||0.12||
+watersheds_file|stem|edf0f238b183ec0e|4ffc3ed95894d987|2c530c1562a7fbd1|-486571451|GIS/Watersheds/code_2_HG_merge.gpkg|t20490.8868287037s|s56193024b|56193024|file|local|vector|||0.02||
+watersheds_raw|stem|9bc68925daee0607|694f276ae5de2f39|91316a48361162fc|-1659179280||t20518.003754435s|s26705983b|26705983|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||16.96|attribute variables are assumed to be spatially constant throughout all geometries|
+annual_max_mamu|stem|829e653a3196c251|7ba1a465c9398233|15d6191419c82e13|2008668618||t20518.0046103132s|s8868b|8868|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0.11||
+mean_max_mamu_cc|stem|5ae2a0485eb11caf|e284503ac138bc91|22ec61b4c4e3d883|1074394901||t20518.0046516499s|s4237b|4237|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||3.32||
+mean_max_mamu_reg|stem|7488d22afac6dc3f|16f2384c643d6191|22ec61b4c4e3d883|-1159112802||t20518.004657147s|s352b|352|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0.24||
+watersheds|stem|777cbe3c3e68dd4b|2c37164f8e02a8b6|336d06b2348b6038|-1349130144||t20518.0047128473s|s8009057b|8009057|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||4.02|attribute variables are assumed to be spatially constant throughout all geometries. st_centroid assumes attributes are constant over geometries. st_centroid assumes attributes are constant over geometries|
+nest_likelihood_full|stem|e74321c0a6c972f1|e9d492023dd369ed|345abe9e3d7516cd|257760180||t20518.0082639461s|s71121163b|71121163|format_custom&read=dGVycmE6OnJhc3QocGF0aCk&write=ewogICAgZG8uY2FsbCh0ZXJyYTo6d3JpdGVSYXN0ZXIsIGMobGlzdChvYmplY3QsIGZpbGVuYW1lID0gcGF0aCwgCiAgICAgICAgZmlsZXR5cGUgPSAiR1RpZmYiLCBvdmVyd3JpdGUgPSBUUlVFLCBnZGFsID0gTlVMTCksIGxpc3QoKSkpCn0&marshal=dGVycmE6OndyYXAob2JqZWN0KQ&unmarshal=dGVycmE6OnVud3JhcChvYmplY3Qp&convert=&copy=&repository=|local|list|||18.28|NaNs produced. NaNs produced|
+full_cc|stem|83fd4e69c46cbde4|6f9f45d1be7273c9|b797b90c2c5cd180|1159476977||t20518.0096263727s|s145462b|145462|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||117.02||
 rasterize_density|function|e34dbbfad12a5274
 circmean|function|7e16d5c55463d304
 lower_whisker|function|1e7a5ba70256e744
 upper_whisker|function|4c3c64f5f74e098e
 adj_gamma_mean|function|8a62f429378aac78
-directionality_crop|function|605e5daf3bdb5808
+directionality_crop|function|699086331ef1c8d1
 study_bounds|object|29116127e036346a
 get_usa_land|function|219103f4d243e5f1
 query_cded|function|023191af61b761e4
 nest_isoforest|function|cace87dc5e5748f5
-.Random.seed|object|a92c89435f75f169
+.Random.seed|object|858a34a5b3e7141c
 plot_headings|function|95b37f4712bc2dc6
 resample_rast|function|98bf9db3764c3019
 reclass_rast|function|e6e9aca4d6b676a0
@@ -92,7 +102,7 @@ plot_catchment|function|15fb6c00a26046d9
 prepare_mamu_habitat_tiff|function|fa580f0ea916a3ea
 res|object|926fba0b13bbd9f6
 plot_watersheds|function|59e2d84f4ce2ed6a
-nest_gamma_decay|function|e6bd1174b7603a9c
+nest_gamma_decay|function|8ccbdfbea3c13b60
 prepare_stn|function|2f45044281e8a7cd
 create_canvas|function|2ca59c5e75d0c208
 prepare_surveys|function|a7f5565e45dda48c
@@ -119,4 +129,4 @@ select_watersheds|function|c52ce9349bf93fe8
 generate_cones|function|5dc8c35ef57bcdb4
 watershed_cost|function|58114bcf20c4bc5c
 calc_polar_mean|function|0c2285819899880b
-h|stem|536318eb524414eb|0f1720d4e79e57c9|d0d815e0b93f96cc|-1482155975||t20517.9937706644s|s6671b|6671|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0.27||
+cropped_cc|stem||5574b53ea58d514d|044d9f678f340add|505140990||t20518.00965015s||0|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||15.65|attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed|replacement has 2 rows, data has 1

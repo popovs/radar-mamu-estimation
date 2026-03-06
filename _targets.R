@@ -438,6 +438,8 @@ list(
                                 mean = CircStats::circ.mean(rad),
                                 lower = mean - var,
                                 upper = mean + var) |>
+               # Filter to only include samples with minumum sample size of 30
+               dplyr::filter(n >= 30) |>
                dplyr::mutate(mean = mean * 180 / pi,
                              lower = lower * 180 / pi,
                              upper = upper * 180 / pi,
@@ -445,16 +447,16 @@ list(
                dplyr::mutate(mean = dplyr::if_else(mean < 0, mean + 360, mean),
                              lower = dplyr::if_else(lower < 0, lower + 360, lower),
                              upper = dplyr::if_else(upper < 0, upper + 360, upper),
-                             theta = dplyr::if_else(theta > 180, 360 - theta, theta)))
+                             theta = dplyr::if_else(theta > 180, 360 - theta, theta))),
   
-  # Calculate cones
-  # tar_target(cones, generate_cones(h = h,
-  #                                  stn = stn,
-  #                                  radius = 30000, # length cones to select appropriate watersheds (in meters)
-  #                                  res = res)),
-  # tar_target(cones_gpkg,
-  #            save_sf(sf = cones, output_path = "temp/QGIS temp/flight_headings.gpkg"),
-  #            format = "file")
+  ##### Calculate cones #####
+  tar_target(cones, generate_cones(h = h,
+                                   stn = stn,
+                                   radius = 30000, # length cones to select appropriate watersheds (in meters)
+                                   res = res)),
+  tar_target(cones_gpkg,
+             save_sf(sf = cones, output_path = "temp/QGIS temp/flight_headings.gpkg"),
+             format = "file"),
   
   
 # QUARANTINE --------------------------------------------------------------
@@ -467,8 +469,8 @@ list(
   # #tar_target(watersheds_file, "GIS/Watersheds/WSA_WS_SVW_polygon.shp", format = "file"),
   # tar_target(watersheds_file, "GIS/Watersheds/code_2_HG_merge.gpkg", format = "file"),
   # tar_target(watersheds_raw, prepare_watersheds(watersheds_file, regions)),
-  # tar_target(watersheds, select_watersheds(watersheds = watersheds_raw, 
-  #                                          cones = cones, 
+  # tar_target(watersheds, select_watersheds(watersheds = watersheds_raw,
+  #                                          cones = cones,
   #                                          min_cone_coverage = 0.01,
   #                                          output_plots = save_plots, # defined at the top of script
   #                                          output_dir = "temp/cone_inspection",
@@ -479,7 +481,7 @@ list(
   # tar_target(full_cc, watershed_cost(watersheds = watersheds,
   #                                    dem = DEM,
   #                                    cones = cones,
-  #                                    stn = stn, 
+  #                                    stn = stn,
   #                                    cost = cost,
   #                                    output_plots = save_plots, # defined at the top of script
   #                                    cost_cutoffs = cost_cutoffs,
@@ -487,17 +489,17 @@ list(
   #                                    headings = h_0,
   #                                    h = h,
   #                                    nests = nests)),
-  # # Cut out pieces behind heading 
+  # # Cut out pieces behind heading
   # # Birds aren't flying backwards from radar station
   # tar_target(cropped_cc, directionality_crop(cost_catchments = full_cc,
-  #                                            stn = stn, 
+  #                                            stn = stn,
   #                                            h = h,
   #                                            watersheds = watersheds,
-  #                                            cones = cones, 
+  #                                            cones = cones,
   #                                            res = res)),
   # # Intersect with MAMU-accessible areas
-  # tar_target(final_cc, access_catchments(cost_catchments = cropped_cc, 
-  #                                        maz = maz, 
+  # tar_target(final_cc, access_catchments(cost_catchments = cropped_cc,
+  #                                        maz = maz,
   #                                        stn = stn,
   #                                        raster_stats = TRUE,
   #                                        cost = cost,
@@ -508,8 +510,8 @@ list(
   #                                        watersheds = watersheds,
   #                                        cones = cones,
   #                                        nests = nests)),
-  # tar_target(cc_gpkg, 
-  #            save_sf(sf = final_cc, output_path = "GIS/radar_derived_catchments.gpkg"), 
+  # tar_target(cc_gpkg,
+  #            save_sf(sf = final_cc, output_path = "GIS/radar_derived_catchments.gpkg"),
   #            format = "file"),
   # #### CATCHMENTS x HABITAT ####
   # # Intersect with 2024 MAMU suitable habitat layer
@@ -546,54 +548,54 @@ list(
   # #            ),
   # #### ANNUAL MAX MAMU COUNTS ####
   # # Select maximum MAMU count per station per year
-  # tar_target(annual_max_mamu, s |> 
+  # tar_target(annual_max_mamu, s |>
   #              sf::st_drop_geometry() |>
-  #              dplyr::group_by(site, region, year) |> 
-  #              dplyr::summarise(max_mamu = max(mamuinpd, na.rm = TRUE),
+  #              dplyr::group_by(site, region, year) |>
+  #              dplyr::summarise(max_mamu = max(mamu_in_pd, na.rm = TRUE),
   #                               N = dplyr::n())),
   # # Calculate bootstrapped mean annual maximum per catchment
   # # (across all years)
-  # tar_target(mean_max_mamu_cc, bootmean(annual_max_mamu, 
+  # tar_target(mean_max_mamu_cc, bootmean(annual_max_mamu,
   #                                       group_by = "site",
-  #                                       dat_col = "max_mamu", 
+  #                                       dat_col = "max_mamu",
   #                                       CI_level = 0.95) |>
-  #              dplyr::mutate(dplyr::across(c(bootmean, boot_min, boot_max), 
+  #              dplyr::mutate(dplyr::across(c(bootmean, boot_min, boot_max),
   #                                          round))),
   # # Regional mean annual maximum per catchment
   # # (across all years) for paper table purposes
-  # tar_target(mean_max_mamu_reg, bootmean(annual_max_mamu, 
+  # tar_target(mean_max_mamu_reg, bootmean(annual_max_mamu,
   #                                       group_by = "region",
-  #                                       dat_col = "max_mamu", 
+  #                                       dat_col = "max_mamu",
   #                                       CI_level = 0.95) |>
-  #              dplyr::mutate(dplyr::across(c(bootmean, boot_min, boot_max), 
+  #              dplyr::mutate(dplyr::across(c(bootmean, boot_min, boot_max),
   #                                          round))),
   # #### DENSITY CALCS ####
   # # NOTE suitable habitat =/= even MAMU density across whole layer!
-  # # While interior habitat might be equally 'suitable' to coastal habitat, the 
+  # # While interior habitat might be equally 'suitable' to coastal habitat, the
   # # habitat closer to sea will have more MAMU population than more interior sites.
   # # Total habitat (ha) across whole suitable habitat layer
-  # tar_target(total_suit_hab_area_ha, sum(reg_habitat$sh_area_ha)), 
+  # tar_target(total_suit_hab_area_ha, sum(reg_habitat$sh_area_ha)),
   # # Habitat (ha) summarized by region
-  # tar_target(regional_suit_hab_area_ha, sf::st_drop_geometry(reg_habitat)), 
+  # tar_target(regional_suit_hab_area_ha, sf::st_drop_geometry(reg_habitat)),
   # # Calculate the mean density of birds within each catchment
   # # Using the bootstrapped mean + upper + lower CIs
-  # tar_target(cc_density, catchment_density(mm = mean_max_mamu_cc, 
+  # tar_target(cc_density, catchment_density(mm = mean_max_mamu_cc,
   #                                          catchment_habitat = cc_habitat)),
   # # Calculate the weighted mean density of birds within each region
   # # Catchments that take up more area of the region have higher weight
-  # tar_target(reg_density, cc_density |> 
+  # tar_target(reg_density, cc_density |>
   #              dplyr::filter(region == "NC") |>
   #              dplyr::mutate(region = "AKB") |> # Add in dummy rows for AKB, using NC density
   #              dplyr::bind_rows(cc_density) |>
-  #              dplyr::group_by(region) |> 
+  #              dplyr::group_by(region) |>
   #              dplyr::summarise(N = dplyr::n(),
-  #                               bootmean = sum(bootmean), 
-  #                               boot_min = sum(boot_min, na.rm = TRUE), 
-  #                               boot_max = sum(boot_max, na.rm = TRUE), 
-  #                               area_ha = sum(area_ha), 
+  #                               bootmean = sum(bootmean),
+  #                               boot_min = sum(boot_min, na.rm = TRUE),
+  #                               boot_max = sum(boot_max, na.rm = TRUE),
+  #                               area_ha = sum(area_ha),
   #                               sh_area_ha = sum(sh_area_ha)) |>
-  #              dplyr::mutate(density = bootmean / sh_area_ha, 
-  #                            density_lwr = boot_min / sh_area_ha, 
+  #              dplyr::mutate(density = bootmean / sh_area_ha,
+  #                            density_lwr = boot_min / sh_area_ha,
   #                            density_upr = boot_max / sh_area_ha)),
   # # Fit a nest gamma decay function + rasterize it
   # # Certain habitats may meet the criteria for "suitable habitat".
@@ -604,7 +606,7 @@ list(
   # # from the coast you are, the less likely the nests are likely to
   # # occur. The nest data follow a gamma distribution of likelihood
   # # vs distance from shore. So, fit a gamma distribution to the nest
-  # # data, and then map that gamma distribution decay curve to a 
+  # # data, and then map that gamma distribution decay curve to a
   # # raster. Cells <30km from shore will have a higher probability,
   # # closer to 1, while distances >30km will decay down to 0 probability.
   # # `nest_likelihood` has cut out all non-habitat pieces
@@ -616,17 +618,17 @@ list(
   #                                                       coast = sea)),
   # # Rasterize the regional mean density
   # # Apply the nest probability decay function to regional densities
-  # # Now, apply that gamma decay function to the density layer such 
+  # # Now, apply that gamma decay function to the density layer such
   # # that the mean density per region will remain the same as calculated
   # # in `reg_density`, but the *spatial pattern* of the density follows
   # # the nest gamma distribution.
-  # tar_terra_rast(density_map, extrapolate_density(regions, 
-  #                                                 reg_density, 
+  # tar_terra_rast(density_map, extrapolate_density(regions,
+  #                                                 reg_density,
   #                                                 nest_likelihood)),
   # #### POPULATION CALCS ####
   # # Calculate MAMU population!
-  # tar_target(regional_population, calculate_population(density_map, 
-  #                                                      sf = regions, 
+  # tar_target(regional_population, calculate_population(density_map,
+  #                                                      sf = regions,
   #                                                      merge_df = reg_density) |>
   #              dplyr::arrange(region)),
   # tar_target(total_population, calculate_population(density_map)),

@@ -327,10 +327,10 @@ nest_gamma_decay <- function(nests, # `nests` target
                              habitat = NULL # `suitable_habitat` target
 ) {
   # Max nest dist 
-  max_nest_dist <- ceiling(max(nests$dist_km, na.rm = TRUE))
+  max_nest_dist <- ceiling(max(nests$nest_dist_km, na.rm = TRUE))
   # 1) fit gamma function to the nest data
   # First fit the gamma distribution to the nest data
-  fit <- fitdistrplus::fitdist(nests[["dist_km"]], 
+  fit <- fitdistrplus::fitdist(nests[["nest_dist_km"]], 
                                distr = "gamma", 
                                method = "mle")
   

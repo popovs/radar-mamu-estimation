@@ -510,7 +510,7 @@ directionality_crop <- function(cost_catchments,
     dplyr::summarize()
   
   # Merge `h` and `stn`
-  stn <- merge(stn, h, by.x = "site", by.y = "name")
+  stn <- merge(stn, h, by = "site")
   stn <- sf::st_transform(stn, 3005)
   
   sites <- unique(cost_catchments$site)
