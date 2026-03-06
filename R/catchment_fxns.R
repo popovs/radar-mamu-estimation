@@ -9,9 +9,12 @@
 #' catchment delineation.
 
 
-# WATERSHEDS --------------------------------------------------------------
 
+# SELECT TARGETED WATERSHEDS ----------------------------------------------
 
+# Select watersheds that incoming MAMU may be targeting by
+# selecting all watersheds that overlap with at least 2% of
+# the generated radar cone.
 select_watersheds <- function(watersheds, 
                               cones, 
                               min_cone_coverage = 0.02,
@@ -112,6 +115,8 @@ select_watersheds <- function(watersheds,
 
 # COST DISTANCE WITHIN CATCHMENTS -----------------------------------------
 
+# Calculate the cost of flying through the selected watersheds 
+# from the radar entry point (mouth of the watershed)
 watershed_cost <- function(watersheds, 
                            dem, 
                            cones, 
@@ -338,8 +343,6 @@ directionality_crop <- function(cost_catchments,
 
 
 # ACCESSIBLE AREAS --------------------------------------------------------
-
-
 
 # Intersect the cost catchments with the 'MAMU accessible zone'
 # area. If the area is inaccessible to MAMU, it should be cut out,
