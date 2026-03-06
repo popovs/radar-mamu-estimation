@@ -109,23 +109,25 @@ list(
   tar_target(nests_path, "GIS/MAMU_Nests_BC_CDC.gpkg", format = "file"), # Track nests gpkg file
   tar_target(s_path, "data/ECCC_FLNR_MAMU-RadarData-20240307.csv", format = "file"), # Track surveys csv file
   tar_target(h_path, "data/headings.csv", format = "file"), # Track flight headings csv file
+  tar_target(ws_path, "GIS/Watersheds/code_2_HG_merge.gpkg", format = "file"), # Track watersheds gpkg file
   ##### Read & prepare files #####
-  # Regions #
+  ###### Regions ######
   tar_target(regions, prepare_regions(filepath = regions_path)),
   tar_target(regions_region, regions$region), # track regions names within regions gpkg
-  # Nests #
+  ###### Nests ######
   # The 'nests' target will be prepared down the line, after
   # all relevant raster data has been extracted at the nests.
   # 'nests_0' target contains just the coords of nests + region they're in
   # Later, we will add extracted raster values to this dataset.
   tar_target(nests_0, prepare_nests(filepath = nests_path,
                                        regions = regions)),
-  # Radar Surveys #
+  ###### Radar Surveys ######
   tar_target(s, prepare_surveys(filepath = s_path,
                                 regions = regions)),
-  # Flight Headings #
+  ###### Flight Headings ######
   tar_target(h_0, prepare_headings(h_path)),
-  
+  ###### Watersheds ######
+  tar_target(watersheds_0, prepare_watersheds(ws_path, regions)),
   #### PREPARE DEM ####
   ##### Land area masks #####
   # These masks will be used to clean up the DEM data and split apart
@@ -457,26 +459,23 @@ list(
   tar_target(cones_gpkg,
              save_sf(sf = cones, output_path = "temp/QGIS temp/flight_headings.gpkg"),
              format = "file"),
+  #### SELECT TARGETED WATERSHED CATCHMENTS ####
+  # Now, based on the MAMU flight headings at each radar station,
+  # select the watershed catchments the birds are targeting (i.e.,
+  # the watersheds the radar cones overlap with).
+  tar_target(watersheds, select_watersheds(watersheds = watersheds_0,
+                                           cones = cones,
+                                           min_cone_coverage = 0.01,
+                                           output_plots = save_plots, # defined at the top of script
+                                           output_dir = "temp/cone_inspection",
+                                           stn = stn,
+                                           headings = h_0,
+                                           h = h))
   
   
 # QUARANTINE --------------------------------------------------------------
 
-  # #### SELECT TARGETED WATERSHED CATCHMENTS ####
-  # # Now, based on the MAMU flight headings at each radar station,
-  # # select the watershed catchments the birds are targeting (i.e.,
-  # # the watersheds the radar cones overlap with).
-  # #tar_target(watersheds_file, "GIS/Watersheds/code_2_watersheds.gpkg", format = "file"),
-  # #tar_target(watersheds_file, "GIS/Watersheds/WSA_WS_SVW_polygon.shp", format = "file"),
-  # tar_target(watersheds_file, "GIS/Watersheds/code_2_HG_merge.gpkg", format = "file"),
-  # tar_target(watersheds_raw, prepare_watersheds(watersheds_file, regions)),
-  # tar_target(watersheds, select_watersheds(watersheds = watersheds_raw,
-  #                                          cones = cones,
-  #                                          min_cone_coverage = 0.01,
-  #                                          output_plots = save_plots, # defined at the top of script
-  #                                          output_dir = "temp/cone_inspection",
-  #                                          stn = stn,
-  #                                          headings = h_0,
-  #                                          h = h)),
+  
   # # Calculate how much it costs to fly within the selected watersheds
   # tar_target(full_cc, watershed_cost(watersheds = watersheds,
   #                                    dem = DEM,
