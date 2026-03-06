@@ -30,6 +30,16 @@ prepare_nests <- function(filepath, regions = regions) {
 # PREPARE SURVEYS ---------------------------------------------------------
 
 # Read survey data, clean up, convert to sf object, and assign pipeline regions
+#' The function first performs a few housekeeping tasks:
+#' * Make R-friendly column names
+#' * Create the `survey_date` column from the year, month, and day columns
+#' * Re-calculate day-of-year (`doy`)
+#'
+#' It then filters down the data with the following criteria:
+#' * Include only "Complete" surveys
+#' * Include only pre-dawn surveys (i.e., after 2 am and before 8 am)
+#' * Exclude August surveys
+#' * Exclude Alaska border region surveys
 prepare_surveys <- function(filepath, regions = regions) {
   s <- read.csv(filepath)
   
@@ -39,6 +49,16 @@ prepare_surveys <- function(filepath, regions = regions) {
   s$doy <- lubridate::yday(s$survey_date)
   s$site <- stringr::str_trim(s$site)
   s$site <- stringr::str_squish(s$site)
+  
+  # Filter down to appropriate data
+  # Use only complete surveys
+  s <- s[which(s$status == "Complete"), ]
+  # Use only pre-dawn surveys
+  s <- s[which(s$start_hr < 8), ]
+  # Exclude August surveys
+  s <- s[which(s$month != 8), ]
+  # Exclude Alaska border region
+  s <- s[which(s$region != "AS"), ]
   
   # Create spatial object
   s <- s[!is.na(s$lon), ]

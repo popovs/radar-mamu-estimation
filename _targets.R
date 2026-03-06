@@ -459,7 +459,8 @@ list(
   tar_target(cones_gpkg,
              save_sf(sf = cones, output_path = "temp/QGIS temp/flight_headings.gpkg"),
              format = "file"),
-  #### SELECT TARGETED WATERSHED CATCHMENTS ####
+  #### CREATE CATCHMENTS ####
+  ##### Select targeted watersheds #####
   # Now, based on the MAMU flight headings at each radar station,
   # select the watershed catchments the birds are targeting (i.e.,
   # the watersheds the radar cones overlap with).
@@ -470,32 +471,36 @@ list(
                                            output_dir = "temp/cone_inspection",
                                            stn = stn,
                                            headings = h_0,
-                                           h = h))
+                                           h = h)),
+  ##### Watershed flight cost #####
+  # Calculate how much it costs to fly within the selected watersheds
+  tar_target(full_cc, watershed_cost(watersheds = watersheds,
+                                     dem = DEM,
+                                     cones = cones,
+                                     stn = stn,
+                                     cost = cost,
+                                     output_plots = save_plots, # defined at the top of script
+                                     cost_cutoffs = cost_cutoffs,
+                                     output_dir = "temp/cost_inspection",
+                                     headings = h_0,
+                                     h = h,
+                                     nests = nests)),
+  ##### Crop catchments #####
+  # Cut out pieces behind heading
+  # Birds aren't flying backwards from radar station
+  tar_target(cropped_cc, directionality_crop(cost_catchments = full_cc,
+                                             stn = stn,
+                                             h = h,
+                                             watersheds = watersheds,
+                                             cones = cones,
+                                             res = res))
   
   
 # QUARANTINE --------------------------------------------------------------
 
   
-  # # Calculate how much it costs to fly within the selected watersheds
-  # tar_target(full_cc, watershed_cost(watersheds = watersheds,
-  #                                    dem = DEM,
-  #                                    cones = cones,
-  #                                    stn = stn,
-  #                                    cost = cost,
-  #                                    output_plots = save_plots, # defined at the top of script
-  #                                    cost_cutoffs = cost_cutoffs,
-  #                                    output_dir = "temp/cost_inspection",
-  #                                    headings = h_0,
-  #                                    h = h,
-  #                                    nests = nests)),
-  # # Cut out pieces behind heading
-  # # Birds aren't flying backwards from radar station
-  # tar_target(cropped_cc, directionality_crop(cost_catchments = full_cc,
-  #                                            stn = stn,
-  #                                            h = h,
-  #                                            watersheds = watersheds,
-  #                                            cones = cones,
-  #                                            res = res)),
+  
+  #
   # # Intersect with MAMU-accessible areas
   # tar_target(final_cc, access_catchments(cost_catchments = cropped_cc,
   #                                        maz = maz,
