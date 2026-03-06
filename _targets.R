@@ -110,6 +110,7 @@ list(
   tar_target(s_path, "data/ECCC_FLNR_MAMU-RadarData-20240307.csv", format = "file"), # Track surveys csv file
   tar_target(h_path, "data/headings.csv", format = "file"), # Track flight headings csv file
   tar_target(ws_path, "GIS/Watersheds/code_2_HG_merge.gpkg", format = "file"), # Track watersheds gpkg file
+  tar_target(sh_path, "GIS/Suitable Habitat/2024_provincial_suitable_habitat.gpkg", format = "file"), # Track suitable habitat file
   ##### Read & prepare files #####
   ###### Regions ######
   tar_target(regions, prepare_regions(filepath = regions_path)),
@@ -128,6 +129,9 @@ list(
   tar_target(h_0, prepare_headings(h_path)),
   ###### Watersheds ######
   tar_target(watersheds_0, prepare_watersheds(ws_path, regions)),
+  ###### Suitable Habitat ######
+  tar_target(suitable_habitat, prepare_habitat(sh_path, regions)),
+  
   #### PREPARE DEM ####
   ##### Land area masks #####
   # These masks will be used to clean up the DEM data and split apart
@@ -493,63 +497,68 @@ list(
                                              h = h,
                                              watersheds = watersheds,
                                              cones = cones,
-                                             res = res))
+                                             res = res)),
+  ##### Intersect with MAZ #####
+  # Intersect with MAMU-accessible areas
+  tar_target(final_cc, access_catchments(cost_catchments = cropped_cc,
+                                         maz = maz,
+                                         stn = stn,
+                                         raster_stats = TRUE,
+                                         cost = cost,
+                                         output_plots = save_plots, # defined at top of script
+                                         output_dir = "temp/final_catchment_inspection",
+                                         headings = h_0,
+                                         h = h,
+                                         watersheds = watersheds,
+                                         cones = cones,
+                                         nests = nests)),
+  tar_target(cc_gpkg,
+             save_sf(sf = final_cc, output_path = "temp/QGIS temp/radar_derived_catchments.gpkg"),
+             format = "file"),
+  
+  #### CATCHMENTS X HABITAT ####
+  # Intersect suitable habitat in each catchment
+  # TODO: dplyr warning:
+  # `summarise()` has regrouped the output.       [4m 39.6s, 3+, 63-]
+  # ℹ Summaries were computed grouped by site, area_ha, region, loc, and mean_cost.
+  # ℹ Output is grouped by site, area_ha, region, and loc.
+  # ℹ Use `summarise(.groups = "drop_last")` to silence this message.
+  # ℹ Use `summarise(.by = c(site, area_ha, region, loc, mean_cost))` for
+  # per-operation grouping (`?dplyr::dplyr_by`) instead.
+  tar_target(cc_habitat, st_habitat_in_sf(sf = final_cc,
+                                          habitat = suitable_habitat,
+                                          use_probability = TRUE)),
+  # Intersect suitable habitat in each region
+  # TODO: dplyr warning:
+  # ℹ Summaries were computed grouped by MMCR_NAME and region.
+  # ℹ Output is grouped by MMCR_NAME.
+  # ℹ Use `summarise(.groups = "drop_last")` to silence this message.
+  # ℹ Use `summarise(.by = c(MMCR_NAME, region))` for per-operation grouping
+  # (`?dplyr::dplyr_by`) instead.
+  tar_target(reg_habitat, st_habitat_in_sf(sf = regions,
+                                           habitat = suitable_habitat,
+                                           use_probability = TRUE))
+  # Final visualization
+  # tar_render(final_visualization,
+  #            path = "Rmd/catchments_visualization.Rmd",
+  #            output_file = "catchments_visualization.pdf",
+  #            #error = "null",
+  #            quiet = TRUE,
+  #            params = list(catchments = final_cc,
+  #                          watersheds = watersheds_raw,
+  #                          suitable_habitat = suitable_habitat,
+  #                          cones = cones,
+  #                          stn = stn,
+  #                          nests = nests,
+  #                          apikey = jawg_token,
+  #                          headings = h_0,
+  #                          h = h)
+  #            ),
   
   
 # QUARANTINE --------------------------------------------------------------
 
-  
-  
-  #
-  # # Intersect with MAMU-accessible areas
-  # tar_target(final_cc, access_catchments(cost_catchments = cropped_cc,
-  #                                        maz = maz,
-  #                                        stn = stn,
-  #                                        raster_stats = TRUE,
-  #                                        cost = cost,
-  #                                        output_plots = save_plots, # defined at top of script
-  #                                        output_dir = "temp/final_catchment_inspection",
-  #                                        headings = h_0,
-  #                                        h = h,
-  #                                        watersheds = watersheds,
-  #                                        cones = cones,
-  #                                        nests = nests)),
-  # tar_target(cc_gpkg,
-  #            save_sf(sf = final_cc, output_path = "GIS/radar_derived_catchments.gpkg"),
-  #            format = "file"),
-  # #### CATCHMENTS x HABITAT ####
-  # # Intersect with 2024 MAMU suitable habitat layer
-  # tar_target(suitable_habitat, prepare_mamu_habitat_gpkg(path = "GIS/2024_suitable_habitat/",
-  #                                                   maz = maz,
-  #                                                   regions = regions)),
-  # # Intersect with 2025 MAMU suitable habitat layer
-  # # tar_terra_rast(suitable_habitat, prepare_mamu_habitat_tiff(path = "GIS/2025_suitable_habitat/mamu_predict_2025_feb_03.tif",
-  # #                                                            maz = maz,
-  # #                                                            band = "X1")),
-  # # Intersect suitable habitat in each catchment
-  # tar_target(cc_habitat, st_habitat_in_sf(sf = final_cc,
-  #                                         habitat = suitable_habitat,
-  #                                         use_probability = TRUE)),
-  # # Intersect suitable habitat in each region
-  # tar_target(reg_habitat, st_habitat_in_sf(sf = regions,
-  #                                          habitat = suitable_habitat,
-  #                                          use_probability = TRUE)),
-  # # Final visualization
-  # # tar_render(final_visualization,
-  # #            path = "Rmd/catchments_visualization.Rmd",
-  # #            output_file = "catchments_visualization.pdf",
-  # #            #error = "null",
-  # #            quiet = TRUE,
-  # #            params = list(catchments = final_cc,
-  # #                          watersheds = watersheds_raw,
-  # #                          suitable_habitat = suitable_habitat,
-  # #                          cones = cones,
-  # #                          stn = stn,
-  # #                          nests = nests,
-  # #                          apikey = jawg_token,
-  # #                          headings = h_0,
-  # #                          h = h)
-  # #            ),
+
   # #### ANNUAL MAX MAMU COUNTS ####
   # # Select maximum MAMU count per station per year
   # tar_target(annual_max_mamu, s |>
