@@ -13,15 +13,6 @@
 
 
 
-prepare_watersheds <- function(filepath, regions) {
-  ws <- sf::st_read(filepath)
-  ws <- sf::st_transform(ws, 3005)
-  ws <- sf::st_intersection(ws, regions)
-  return(ws)
-}
-
-
-
 
 # PLOTTING FXNS -----------------------------------------------------------
 

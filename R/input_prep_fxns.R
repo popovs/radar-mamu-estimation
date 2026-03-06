@@ -177,3 +177,19 @@ prepare_stn <- function(s, headings, regions) {
   
   return(stn)
 }
+
+
+
+# PREPARE WATERSHEDS ------------------------------------------------------
+
+prepare_watersheds <- function(filepath, regions) {
+  ws <- sf::st_read(filepath)
+  ws <- sf::st_transform(ws, 3005)
+  ws <- sf::st_intersection(ws, regions)
+  return(ws)
+}
+
+
+
+
+
