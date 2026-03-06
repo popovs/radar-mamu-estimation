@@ -537,7 +537,7 @@ list(
   # (`?dplyr::dplyr_by`) instead.
   tar_target(reg_habitat, st_habitat_in_sf(sf = regions,
                                            habitat = suitable_habitat,
-                                           use_probability = TRUE))
+                                           use_probability = TRUE)),
   # Final visualization
   # tar_render(final_visualization,
   #            path = "Rmd/catchments_visualization.Rmd",
@@ -554,34 +554,36 @@ list(
   #                          headings = h_0,
   #                          h = h)
   #            ),
+  #### ANNUAL MAX MAMU COUNTS ####
+  # Select maximum MAMU count per station per year
+  tar_target(annual_max_mamu, s |>
+               sf::st_drop_geometry() |>
+               dplyr::group_by(site, region, year) |>
+               dplyr::summarise(max_mamu = max(mamu_in_pd, na.rm = TRUE),
+                                N = dplyr::n())),
+  # Calculate bootstrapped mean annual maximum per catchment
+  # (across all years)
+  # TODO: triggering a bunch of warnings
+  tar_target(mean_max_mamu_cc, bootmean(annual_max_mamu,
+                                        group_by = "site",
+                                        dat_col = "max_mamu",
+                                        CI_level = 0.95) |>
+               dplyr::mutate(dplyr::across(c(bootmean, boot_min, boot_max),
+                                           round))),
+  # Regional mean annual maximum per catchment
+  # (across all years) for paper table purposes
+  tar_target(mean_max_mamu_reg, bootmean(annual_max_mamu,
+                                        group_by = "region",
+                                        dat_col = "max_mamu",
+                                        CI_level = 0.95) |>
+               dplyr::mutate(dplyr::across(c(bootmean, boot_min, boot_max),
+                                           round)))
   
   
 # QUARANTINE --------------------------------------------------------------
 
 
-  # #### ANNUAL MAX MAMU COUNTS ####
-  # # Select maximum MAMU count per station per year
-  # tar_target(annual_max_mamu, s |>
-  #              sf::st_drop_geometry() |>
-  #              dplyr::group_by(site, region, year) |>
-  #              dplyr::summarise(max_mamu = max(mamu_in_pd, na.rm = TRUE),
-  #                               N = dplyr::n())),
-  # # Calculate bootstrapped mean annual maximum per catchment
-  # # (across all years)
-  # tar_target(mean_max_mamu_cc, bootmean(annual_max_mamu,
-  #                                       group_by = "site",
-  #                                       dat_col = "max_mamu",
-  #                                       CI_level = 0.95) |>
-  #              dplyr::mutate(dplyr::across(c(bootmean, boot_min, boot_max),
-  #                                          round))),
-  # # Regional mean annual maximum per catchment
-  # # (across all years) for paper table purposes
-  # tar_target(mean_max_mamu_reg, bootmean(annual_max_mamu,
-  #                                       group_by = "region",
-  #                                       dat_col = "max_mamu",
-  #                                       CI_level = 0.95) |>
-  #              dplyr::mutate(dplyr::across(c(bootmean, boot_min, boot_max),
-  #                                          round))),
+  
   # #### DENSITY CALCS ####
   # # NOTE suitable habitat =/= even MAMU density across whole layer!
   # # While interior habitat might be equally 'suitable' to coastal habitat, the
