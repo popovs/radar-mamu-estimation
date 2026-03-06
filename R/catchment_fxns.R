@@ -1,15 +1,12 @@
-#' 01 GENERATE RADAR CATCHMENTS
-
-#' This script contains functions that will extract
-#' radar station points, extract and calculate mean
-#' bird flight headings, and combine that information
+#' Catchment fxns
+#' 
+#' This script contains functions that combine information 
+#' about flight headings (radar_cone_fxns.R) 
 #' with watershed data and nest cost distance to
 #' create MAMU population catchments. That is, if
 #' a MAMU flies into a given watershed mouth, it is
 #' assumed it is targeting a nest within the corresponding
 #' catchment delineation.
-
-
 
 
 # WATERSHEDS --------------------------------------------------------------
@@ -456,5 +453,3 @@ access_catchments <- function(cost_catchments, maz, stn, cones,
   cc_maz <- sf::st_collection_extract(cc_maz, "POLYGON")
   return(cc_maz)
 }
-
-
