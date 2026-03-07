@@ -577,76 +577,73 @@ list(
                                         dat_col = "max_mamu",
                                         CI_level = 0.95) |>
                dplyr::mutate(dplyr::across(c(bootmean, boot_min, boot_max),
-                                           round)))
+                                           round))),
+  #### DENSITY CALCS ####
+  # NOTE suitable habitat =/= even MAMU density across whole layer!
+  # While interior habitat might be equally 'suitable' to coastal habitat, the
+  # habitat closer to sea will have more MAMU population than more interior sites.
+  # Total habitat (ha) across whole suitable habitat layer
+  tar_target(total_suit_hab_area_ha, sum(reg_habitat$sh_area_ha)),
+  # Habitat (ha) summarized by region
+  tar_target(regional_suit_hab_area_ha, sf::st_drop_geometry(reg_habitat)),
+  # Calculate the mean density of birds within each catchment
+  # Using the bootstrapped mean + upper + lower CIs
+  tar_target(cc_density, catchment_density(mm = mean_max_mamu_cc,
+                                           catchment_habitat = cc_habitat)),
+  # Calculate the weighted mean density of birds within each region
+  # Catchments that take up more area of the region have higher weight
+  tar_target(reg_density, cc_density |>
+               dplyr::filter(region == "NC") |>
+               dplyr::mutate(region = "AKB") |> # Add in dummy rows for AKB, using NC density
+               dplyr::bind_rows(cc_density) |>
+               dplyr::group_by(region) |>
+               dplyr::summarise(N = dplyr::n(),
+                                bootmean = sum(bootmean),
+                                boot_min = sum(boot_min, na.rm = TRUE),
+                                boot_max = sum(boot_max, na.rm = TRUE),
+                                area_ha = sum(area_ha),
+                                sh_area_ha = sum(sh_area_ha)) |>
+               dplyr::mutate(density = bootmean / sh_area_ha,
+                             density_lwr = boot_min / sh_area_ha,
+                             density_upr = boot_max / sh_area_ha)),
+  # Fit a nest gamma decay function + rasterize it
+  # Certain habitats may meet the criteria for "suitable habitat".
+  # However, while habitat may be suitable for MAMU nesting in terms
+  # of tree species composition, the suitable habitat layers do not
+  # explicitly take into account the fact that ~99% of nests occur
+  # within 30km of the coastline, and, crucially, that the further
+  # from the coast you are, the less likely the nests are likely to
+  # occur. The nest data follow a gamma distribution of likelihood
+  # vs distance from shore. So, fit a gamma distribution to the nest
+  # data, and then map that gamma distribution decay curve to a
+  # raster. Cells <30km from shore will have a higher probability,
+  # closer to 1, while distances >30km will decay down to 0 probability.
+  # `nest_likelihood` has cut out all non-habitat pieces
+  # TODO: it's using straight-line distance, not gridDistance
+  tar_terra_rast(nest_likelihood, nest_gamma_decay(nests = nests,
+                                                   coast = sea,
+                                                   habitat = suitable_habitat)),
+  # `nest_likelihood_full` is primarily for visualization purposes
+  tar_terra_rast(nest_likelihood_full, nest_gamma_decay(nests = nests,
+                                                        coast = sea)),
+  # Rasterize the regional mean density
+  # Apply the nest probability decay function to regional densities
+  # Now, apply that gamma decay function to the density layer such
+  # that the mean density per region will remain the same as calculated
+  # in `reg_density`, but the *spatial pattern* of the density follows
+  # the nest gamma distribution.
+  tar_terra_rast(density_map, extrapolate_density(regions,
+                                                  reg_density,
+                                                  nest_likelihood)),
   
+  #### POPULATION CALCS ####
+  # Calculate MAMU population!
+  tar_target(regional_population, calculate_population(density_map,
+                                                       sf = regions,
+                                                       merge_df = reg_density) |>
+               dplyr::arrange(region)),
+  tar_target(total_population, calculate_population(density_map)),
+  tar_target(total_density, colSums(cc_density[,c("bootmean", "boot_min", "boot_max")], na.rm = TRUE) / sum(cc_density$sh_area_ha)),
+  tar_target(bc_density, total_population / total_suit_hab_area_ha)
   
-# QUARANTINE --------------------------------------------------------------
-
-
-  
-  # #### DENSITY CALCS ####
-  # # NOTE suitable habitat =/= even MAMU density across whole layer!
-  # # While interior habitat might be equally 'suitable' to coastal habitat, the
-  # # habitat closer to sea will have more MAMU population than more interior sites.
-  # # Total habitat (ha) across whole suitable habitat layer
-  # tar_target(total_suit_hab_area_ha, sum(reg_habitat$sh_area_ha)),
-  # # Habitat (ha) summarized by region
-  # tar_target(regional_suit_hab_area_ha, sf::st_drop_geometry(reg_habitat)),
-  # # Calculate the mean density of birds within each catchment
-  # # Using the bootstrapped mean + upper + lower CIs
-  # tar_target(cc_density, catchment_density(mm = mean_max_mamu_cc,
-  #                                          catchment_habitat = cc_habitat)),
-  # # Calculate the weighted mean density of birds within each region
-  # # Catchments that take up more area of the region have higher weight
-  # tar_target(reg_density, cc_density |>
-  #              dplyr::filter(region == "NC") |>
-  #              dplyr::mutate(region = "AKB") |> # Add in dummy rows for AKB, using NC density
-  #              dplyr::bind_rows(cc_density) |>
-  #              dplyr::group_by(region) |>
-  #              dplyr::summarise(N = dplyr::n(),
-  #                               bootmean = sum(bootmean),
-  #                               boot_min = sum(boot_min, na.rm = TRUE),
-  #                               boot_max = sum(boot_max, na.rm = TRUE),
-  #                               area_ha = sum(area_ha),
-  #                               sh_area_ha = sum(sh_area_ha)) |>
-  #              dplyr::mutate(density = bootmean / sh_area_ha,
-  #                            density_lwr = boot_min / sh_area_ha,
-  #                            density_upr = boot_max / sh_area_ha)),
-  # # Fit a nest gamma decay function + rasterize it
-  # # Certain habitats may meet the criteria for "suitable habitat".
-  # # However, while habitat may be suitable for MAMU nesting in terms
-  # # of tree species composition, the suitable habitat layers do not
-  # # explicitly take into account the fact that ~99% of nests occur
-  # # within 30km of the coastline, and, crucially, that the further
-  # # from the coast you are, the less likely the nests are likely to
-  # # occur. The nest data follow a gamma distribution of likelihood
-  # # vs distance from shore. So, fit a gamma distribution to the nest
-  # # data, and then map that gamma distribution decay curve to a
-  # # raster. Cells <30km from shore will have a higher probability,
-  # # closer to 1, while distances >30km will decay down to 0 probability.
-  # # `nest_likelihood` has cut out all non-habitat pieces
-  # tar_terra_rast(nest_likelihood, nest_gamma_decay(nests = nests,
-  #                                                  coast = sea,
-  #                                                  habitat = suitable_habitat)),
-  # # `nest_likelihood_full` is primarily for visualization purposes
-  # tar_terra_rast(nest_likelihood_full, nest_gamma_decay(nests = nests,
-  #                                                       coast = sea)),
-  # # Rasterize the regional mean density
-  # # Apply the nest probability decay function to regional densities
-  # # Now, apply that gamma decay function to the density layer such
-  # # that the mean density per region will remain the same as calculated
-  # # in `reg_density`, but the *spatial pattern* of the density follows
-  # # the nest gamma distribution.
-  # tar_terra_rast(density_map, extrapolate_density(regions,
-  #                                                 reg_density,
-  #                                                 nest_likelihood)),
-  # #### POPULATION CALCS ####
-  # # Calculate MAMU population!
-  # tar_target(regional_population, calculate_population(density_map,
-  #                                                      sf = regions,
-  #                                                      merge_df = reg_density) |>
-  #              dplyr::arrange(region)),
-  # tar_target(total_population, calculate_population(density_map)),
-  # tar_target(total_density, colSums(cc_density[,c("bootmean", "boot_min", "boot_max")], na.rm = TRUE) / sum(cc_density$sh_area_ha)),
-  # tar_target(bc_density, total_population / total_suit_hab_area_ha)
 ) 
