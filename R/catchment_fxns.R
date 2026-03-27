@@ -166,7 +166,7 @@ watershed_cost <- function(watersheds,
     # Assign -1 to origin
     if (is.na(terra::cellFromXY(tmp, origin))) message("Unable to find origin for ", x)
     tmp[terra::cellFromXY(tmp, origin)] <- -1
-    tmp <- terra::costDist(tmp, -1, scale = 1000, maxiter = 100)
+    tmp <- terra::costDist(tmp, -1, maxiter = 100)
     # IMPORTANT! Our cut distance cutoffs assume the origin is from
     # a point at sea. For inland stations, we need to add the base
     # cost of *how much it costs to fly further from that station.*

@@ -40,6 +40,7 @@ prepare_nests <- function(filepath, regions = regions) {
 #' * Include only pre-dawn surveys (i.e., after 2 am and before 8 am)
 #' * Exclude August surveys
 #' * Exclude Alaska border region surveys
+#' * Exclude 'Interior' (i.e. only keep coastal) stations
 prepare_surveys <- function(filepath, regions = regions) {
   s <- read.csv(filepath)
   
@@ -59,6 +60,8 @@ prepare_surveys <- function(filepath, regions = regions) {
   s <- s[which(s$month != 8), ]
   # Exclude Alaska border region
   s <- s[which(s$region != "AS"), ]
+  # Exclude Inland sites
+  s <- s[which(s$loc == "Coastal"), ]
   
   # Create spatial object
   s <- s[!is.na(s$lon), ]
