@@ -5,8 +5,8 @@
 
 plot_headings <- function(site, headings, h) {
   # Subset to needed data
-  headings <- headings[headings$name == site, ]
-  h <- h[h$name == site, ]
+  headings <- headings[headings$site == site, ]
+  h <- h[h$site == site, ]
   # Incoming headings plot
   p_inc <- ggplot2::ggplot(data = headings[headings$flightpath_type == "Incoming",]) + 
     ggplot2::geom_histogram(ggplot2::aes(x = heading)) + 

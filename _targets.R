@@ -94,10 +94,10 @@ study_bounds <- sf::st_bbox(c(xmin = 164728, ymin = 333912, xmax = 1387220, ymax
 
 # API tokens
 # Necessary for plotting fxns
-#source("temp/apikey.R")
+source("temp/apikey.R")
 
 # SAVE PLOTS? Yes or no
-save_plots <- FALSE
+save_plots <- TRUE
 
 
 # PIPELINE ----------------------------------------------------------------

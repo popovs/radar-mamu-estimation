@@ -74,7 +74,6 @@ stn|stem|2102c155198b8052|22e27f2e789b2892|36405e12313deb1f|529122795||t20518.71
 cones|stem|01305469adeacd70|11b47c66b0041d8c|fef50c54666517ac|-1169636422||t20518.7163288009s|s11800b|11800|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||14.83||
 stn_gpkg|stem|72d19bee2c53bf3f|ccb35a6dff38b5c8|71c5ecb33aa1f102|-204749463|temp/QGIS temp/stn.gpkg|t20518.7163343354s|s135168b|135168|file|local|vector|||0.19||
 cones_gpkg|stem|4856b4fb0879a0f1|2278d0b35c344015|2bbdb88dcdd5a61d|895392031|temp/QGIS temp/flight_headings.gpkg|t20518.7163396887s|s143360b|143360|file|local|vector|||0.12||
-watersheds|stem|e93d8a1f23505cdc|3481cf7b9c978ae4|03a5b2ae87c9eac8|-1349130144||t20518.716453815s|s7998053b|7998053|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||8.33|attribute variables are assumed to be spatially constant throughout all geometries. st_centroid assumes attributes are constant over geometries. st_centroid assumes attributes are constant over geometries|
 full_cc|stem|83fd4e69c46cbde4|6f9f45d1be7273c9|a86528281dd3eaa8|1159476977||t20518.7186511591s|s145462b|145462|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||188.66||
 cropped_cc|stem|e86fff6c6388cc5d|5574b53ea58d514d|4dcacb83bf42931a|505140990||t20518.7188501777s|s5276082b|5276082|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||16.72|attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed to be spatially constant throughout all geometries. attribute variables are assumed|
 sh_path|stem|3a288e3833e7394a|fff0affd38eca901|2c530c1562a7fbd1|-2084530700|GIS/Suitable Habitat/2024_provincial_suitable_habitat.gpkg|t20518.921707955s|s243462144b|243462144|file|local|vector|||0.07||
@@ -87,6 +86,16 @@ total_suit_hab_area_ha|stem|96234464f9df59e0|ee682cd2ecee852c|03b9da5de37aa531|-
 regional_suit_hab_area_ha|stem|097f663bbf9b66ee|bf226a86fd40cfeb|03b9da5de37aa531|-468087835||t20518.998851344s|s645b|645|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0.01||
 nest_likelihood|stem|da695b524ab9368f|a32071767440caa6|b62f3315366b35e2|657486456||t20518.9995548546s|s4014160b|4014160|format_custom&read=dGVycmE6OnJhc3QocGF0aCk&write=ewogICAgZG8uY2FsbCh0ZXJyYTo6d3JpdGVSYXN0ZXIsIGMobGlzdChvYmplY3QsIGZpbGVuYW1lID0gcGF0aCwgCiAgICAgICAgZmlsZXR5cGUgPSAiR1RpZmYiLCBvdmVyd3JpdGUgPSBUUlVFLCBnZGFsID0gTlVMTCksIGxpc3QoKSkpCn0&marshal=dGVycmE6OndyYXAob2JqZWN0KQ&unmarshal=dGVycmE6OnVud3JhcChvYmplY3Qp&convert=&copy=&repository=|local|list|||58.59|NaNs produced. NaNs produced|
 nest_likelihood_full|stem|e74321c0a6c972f1|e9d492023dd369ed|345abe9e3d7516cd|257760180||t20518.9997796549s|s71121163b|71121163|format_custom&read=dGVycmE6OnJhc3QocGF0aCk&write=ewogICAgZG8uY2FsbCh0ZXJyYTo6d3JpdGVSYXN0ZXIsIGMobGlzdChvYmplY3QsIGZpbGVuYW1lID0gcGF0aCwgCiAgICAgICAgZmlsZXR5cGUgPSAiR1RpZmYiLCBvdmVyd3JpdGUgPSBUUlVFLCBnZGFsID0gTlVMTCksIGxpc3QoKSkpCn0&marshal=dGVycmE6OndyYXAob2JqZWN0KQ&unmarshal=dGVycmE6OnVud3JhcChvYmplY3Qp&convert=&copy=&repository=|local|list|||16.67|NaNs produced. NaNs produced|
+final_cc|stem|a5bfde06221ec2ae|889ef66631e59405|f7eae6568ab35cc5|937262529||t20539.8828562897s|s3420248b|3420248|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||26.05|attribute variables are assumed to be spatially constant throughout all geometries. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.|
+cc_habitat|stem|284590c7b86a4ad1|a93f219079318e21|f4aa90ba407021f0|1969874743||t20539.8845157721s|s51183768b|51183768|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||140.8|attribute variables are assumed to be spatially constant throughout all geometries|
+cc_gpkg|stem|0878ccaa20f1f177|d0c550ffae0a97aa|0ff3843108b50ea4|-1719884871|temp/QGIS temp/radar_derived_catchments.gpkg|t20539.8845302286s|s11599872b|11599872|file|local|vector|||0.46||
+cc_density|stem|76cbd75a7507a89a|473ee59d199054f9|3dbd1d7e89fd6c33|1606636249||t20539.8845395107s|s5718b|5718|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0.03||
+total_density|stem|0760da8706f234d8|756fc59df005c3e8|678f04e3dd4897ad|1553158417||t20539.8845442004s|s239b|239|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0||
+reg_density|stem|8f017f9b600afefc|ca6fa038e73488e2|3795b1ca50273642|-343691882||t20539.8845496753s|s770b|770|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0.05||
+density_map|stem|f39be0e212a935e1|f00bcc67ef59de11|fc8c158a2ddcc8f2|115979272||t20539.8848734286s|s9037342b|9037342|format_custom&read=dGVycmE6OnJhc3QocGF0aCk&write=ewogICAgZG8uY2FsbCh0ZXJyYTo6d3JpdGVSYXN0ZXIsIGMobGlzdChvYmplY3QsIGZpbGVuYW1lID0gcGF0aCwgCiAgICAgICAgZmlsZXR5cGUgPSAiR1RpZmYiLCBvdmVyd3JpdGUgPSBUUlVFLCBnZGFsID0gTlVMTCksIGxpc3QoKSkpCn0&marshal=dGVycmE6OndyYXAob2JqZWN0KQ&unmarshal=dGVycmE6OnVud3JhcChvYmplY3Qp&convert=&copy=&repository=|local|list|||23.33||
+total_population|stem|dcac547bb4a6c7d1|b8ef4ac0b24f7943|c59d80ad7c0e3ba1|1690109568||t20539.8849416276s|s139b|139|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||4.83||
+regional_population|stem|84a78c7f3b917f26|3b67ab5814b50f2e|ad374dc71aa6f5c6|1975736088||t20539.885021884s|s998b|998|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||5.84||
+bc_density|stem|783298d98180c6d0|8de4e254587950cb|c7a812e1bcdf7cdc|-297569176||t20539.8850321256s|s240b|240|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0.01||
 rasterize_density|function|e34dbbfad12a5274
 circmean|function|7e16d5c55463d304
 lower_whisker|function|1e7a5ba70256e744
@@ -97,7 +106,7 @@ study_bounds|object|29116127e036346a
 get_usa_land|function|219103f4d243e5f1
 query_cded|function|023191af61b761e4
 nest_isoforest|function|cace87dc5e5748f5
-.Random.seed|object|a7901065081148b3
+.Random.seed|object|13dbf8281c99787a
 plot_headings|function|95b37f4712bc2dc6
 resample_rast|function|98bf9db3764c3019
 reclass_rast|function|e6e9aca4d6b676a0
@@ -122,10 +131,11 @@ plot_cost|function|e409142df0cd4b1f
 nest_quantiles|function|3f110938157a87bc
 prepare_regions|function|3d0e6404c9f82c9f
 prepare_watersheds|function|c6de9c92b0d9cdd9
+apikey|object|977cd5f6ecca09bd
 calculate_population|function|541e30949f16843c
 prepare_headings|function|c23e8d9c06abdca2
 prepare_nests|function|91199c837c7650e0
-save_plots|object|cc6a331fb3c0077c
+save_plots|object|988c41ba10911dc8
 circboot|function|affeeb8e0be332fd
 nest_iqr_sans_outliers|function|2519dfb3803355f0
 nest_minmax_sans_outliers|function|77ac78cdb7bd306d
@@ -137,13 +147,56 @@ generate_cones|function|5dc8c35ef57bcdb4
 prepare_habitat|function|bc6ed27910a6b157
 watershed_cost|function|58114bcf20c4bc5c
 calc_polar_mean|function|0c2285819899880b
-final_cc|stem|a5bfde06221ec2ae|889ef66631e59405|f7eae6568ab35cc5|937262529||t20539.8828562897s|s3420248b|3420248|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||26.05|attribute variables are assumed to be spatially constant throughout all geometries. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.. x is already of type POLYGON.|
-cc_habitat|stem|284590c7b86a4ad1|a93f219079318e21|f4aa90ba407021f0|1969874743||t20539.8845157721s|s51183768b|51183768|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||140.8|attribute variables are assumed to be spatially constant throughout all geometries|
-cc_gpkg|stem|0878ccaa20f1f177|d0c550ffae0a97aa|0ff3843108b50ea4|-1719884871|temp/QGIS temp/radar_derived_catchments.gpkg|t20539.8845302286s|s11599872b|11599872|file|local|vector|||0.46||
-cc_density|stem|76cbd75a7507a89a|473ee59d199054f9|3dbd1d7e89fd6c33|1606636249||t20539.8845395107s|s5718b|5718|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0.03||
-total_density|stem|0760da8706f234d8|756fc59df005c3e8|678f04e3dd4897ad|1553158417||t20539.8845442004s|s239b|239|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0||
-reg_density|stem|8f017f9b600afefc|ca6fa038e73488e2|3795b1ca50273642|-343691882||t20539.8845496753s|s770b|770|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0.05||
-density_map|stem|f39be0e212a935e1|f00bcc67ef59de11|fc8c158a2ddcc8f2|115979272||t20539.8848734286s|s9037342b|9037342|format_custom&read=dGVycmE6OnJhc3QocGF0aCk&write=ewogICAgZG8uY2FsbCh0ZXJyYTo6d3JpdGVSYXN0ZXIsIGMobGlzdChvYmplY3QsIGZpbGVuYW1lID0gcGF0aCwgCiAgICAgICAgZmlsZXR5cGUgPSAiR1RpZmYiLCBvdmVyd3JpdGUgPSBUUlVFLCBnZGFsID0gTlVMTCksIGxpc3QoKSkpCn0&marshal=dGVycmE6OndyYXAob2JqZWN0KQ&unmarshal=dGVycmE6OnVud3JhcChvYmplY3Qp&convert=&copy=&repository=|local|list|||23.33||
-total_population|stem|dcac547bb4a6c7d1|b8ef4ac0b24f7943|c59d80ad7c0e3ba1|1690109568||t20539.8849416276s|s139b|139|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||4.83||
-regional_population|stem|84a78c7f3b917f26|3b67ab5814b50f2e|ad374dc71aa6f5c6|1975736088||t20539.885021884s|s998b|998|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||5.84||
-bc_density|stem|783298d98180c6d0|8de4e254587950cb|c7a812e1bcdf7cdc|-297569176||t20539.8850321256s|s240b|240|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0.01||
+watersheds|stem|e93d8a1f23505cdc|3481cf7b9c978ae4|5f9390d9313c0596|-1349130144||t20518.716453815s||7998053|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||6.23|attribute variables are assumed to be spatially constant throughout all geometries. st_centroid assumes attributes are constant over geometries. st_centroid assumes attributes are constant over geometries. Unknown or uninitialised column: `name`.|Can't subset rows with `h$name == site`. ✖ Logical subscript `h$name == site` must be size 1 or 89, not 0.
+rasterize_density|function|e34dbbfad12a5274
+circmean|function|7e16d5c55463d304
+lower_whisker|function|1e7a5ba70256e744
+upper_whisker|function|4c3c64f5f74e098e
+adj_gamma_mean|function|8a62f429378aac78
+directionality_crop|function|699086331ef1c8d1
+study_bounds|object|29116127e036346a
+get_usa_land|function|219103f4d243e5f1
+query_cded|function|023191af61b761e4
+nest_isoforest|function|cace87dc5e5748f5
+.Random.seed|object|7f634ddc47c45e41
+plot_headings|function|a14aa7a1e798ef51
+resample_rast|function|98bf9db3764c3019
+reclass_rast|function|e6e9aca4d6b676a0
+plot_final_map|function|69aac62cce2c74fd
+catchment_density|function|ea5238065657071b
+bootmean_internal|function|8cdb309a9bbe37ec
+save_sf|function|327da3de9a725aa2
+plot_catchment|function|15fb6c00a26046d9
+prepare_mamu_habitat_tiff|function|ba9026069b1e45f6
+res|object|926fba0b13bbd9f6
+plot_watersheds|function|59e2d84f4ce2ed6a
+nest_gamma_decay|function|8ccbdfbea3c13b60
+prepare_stn|function|2f45044281e8a7cd
+create_canvas|function|2ca59c5e75d0c208
+prepare_surveys|function|05f4c16e7ae21a16
+radar_cone|function|ce9a309b250c925f
+prepare_mamu_habitat_gpkg|function|b9616a177c082171
+crop_rast|function|f3acd6a47c98cc43
+st_habitat_in_sf|function|043bc3665a74ed8c
+mask_land|function|b5d6f25a7c5cccdd
+plot_cost|function|e409142df0cd4b1f
+nest_quantiles|function|3f110938157a87bc
+prepare_regions|function|3d0e6404c9f82c9f
+prepare_watersheds|function|c6de9c92b0d9cdd9
+apikey|object|977cd5f6ecca09bd
+calculate_population|function|541e30949f16843c
+prepare_headings|function|c23e8d9c06abdca2
+prepare_nests|function|91199c837c7650e0
+save_plots|object|988c41ba10911dc8
+circboot|function|affeeb8e0be332fd
+nest_iqr_sans_outliers|function|2519dfb3803355f0
+nest_minmax_sans_outliers|function|77ac78cdb7bd306d
+extrapolate_density|function|e93bc7d0d80870aa
+bootmean|function|315f164d8a7a40d1
+access_catchments|function|3db31baac0812dbf
+select_watersheds|function|c6fdc90a46b55238
+generate_cones|function|5dc8c35ef57bcdb4
+prepare_habitat|function|bc6ed27910a6b157
+watershed_cost|function|232c1783ea635e40
+calc_polar_mean|function|0c2285819899880b
+watersheds|stem|e93d8a1f23505cdc|3481cf7b9c978ae4|0404f1da3adb3266|-1349130144||t20539.8989254059s|s7998053b|7998053|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||177.64|attribute variables are assumed to be spatially constant throughout all geometries. st_centroid assumes attributes are constant over geometries. st_centroid assumes attributes are constant over geometries. Removed 2 rows containing missing values or values outside the scale range (`geom_bar()`).. Removed 2 rows containing missing values or values outside the scale range (`geom_bar()`).. Removed 2 rows containing missing values or values outside the scale range (`geom_bar()`).. Removed 2 rows containing missing values or values outside the scale range (`geom_bar()`).. Removed 2 rows containing missing values or values outside the scale range (`geom_bar()`).. Removed 2 rows containing missing values or values outside the scale range (`geom_bar()`).. Removed 2 rows containing missing values or values outside the scale range (`geom_bar()`).. Removed 2 rows containing missing values or values outside the scale range (`geom_bar()`).. Removed 2 rows containing missing values or values outside the scale range (`geom_bar()`).. Removed 2 rows containing missing values or values outside the scale range (`geom_bar()`).. Removed 2 rows containing missing values or values outside the scale range (`geom_bar()`).. Removed 2 rows containing missing values or values outside the scale range (`geom_bar()`).. Removed 2 rows containing missing values or values outside the scale range (`geom_bar()`).. Removed 2 rows containing missing values or values outside the scale range (`geom_bar()`).. Removed 2 rows containing missing values or values outside the scale range (`geom_bar()`).. Removed 2 rows containing missing values or values outside the scale range (`geom_bar()`).. Removed 2 rows containing missing values or values outside the scale range (`geom_bar()`).. Removed 2 rows containing missing values or values outside the scale range (`geom_bar()`).. Removed 2 rows|
