@@ -371,7 +371,15 @@ access_catchments <- function(cost_catchments, maz, stn, cones,
   # Prep `stn`
   stn <- sf::st_transform(stn, 3005)
   
-  # Select pieces within a 10km radius of the origin
+  # Select the piece closest to the origin
+  # The whole point of the MAZ is that it's easiest to fly
+  # *within* the MAZ area - so by this assumption the birds
+  # won't cross from one MAZ patch to another if they
+  # are not connected. The central assumption of this work
+  # is that there is another, easier route to access a different
+  # piece of the catchment (if it was indeed chopped into multiple
+  # pieces in this step). Therefore, select the catchment piece
+  # closest to the origin.
   sites <- unique(cost_catchments$site)
   cc_maz <- lapply(sites, function(x) {
     message("Selecting pieces accessible from the origin for ", x)
@@ -380,13 +388,18 @@ access_catchments <- function(cost_catchments, maz, stn, cones,
     tmp <- sf::st_make_valid(tmp) |>
       sf::st_collection_extract("POLYGON") |>
       sf::st_cast("POLYGON", warn = FALSE)
-    if (origin$region == "HG") {
-      tmp <- tmp[sf::st_intersects(tmp, sf::st_buffer(origin, 10000), sparse = FALSE),]
-    } else {
-      #tmp <- tmp[sf::st_nearest_feature(origin, tmp),]
-      x_cone <- cones[cones$site == x, ]
-      tmp <- tmp[sf::st_intersects(x_cone, tmp)[[1]], ]
-    }
+    # Calculate distance of each tmp piece to origin
+    tmp_origin_dist <- sf::st_distance(tmp, origin) |>
+      as.vector()
+    # Select the piece w the minimum tmp_origin_dist
+    tmp <- tmp[tmp_origin_dist == min(tmp_origin_dist), ]
+    # if (origin$region == "HG") {
+    #   tmp <- tmp[sf::st_intersects(tmp, sf::st_buffer(origin, 10000), sparse = FALSE),]
+    # } else {
+    #   #tmp <- tmp[sf::st_nearest_feature(origin, tmp),]
+    #   x_cone <- cones[cones$site == x, ]
+    #   tmp <- tmp[sf::st_intersects(x_cone, tmp)[[1]], ]
+    # }
     return(tmp)
   })
   
