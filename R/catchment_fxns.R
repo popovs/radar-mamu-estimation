@@ -167,6 +167,8 @@ watershed_cost <- function(watersheds,
     if (is.na(terra::cellFromXY(tmp, origin))) message("Unable to find origin for ", x)
     tmp[terra::cellFromXY(tmp, origin)] <- -1
     tmp <- terra::costDist(tmp, -1, maxiter = 100)
+    # TODO: cutting out inland stations from analysis
+    # remove any code related to this & commit to git
     # IMPORTANT! Our cut distance cutoffs assume the origin is from
     # a point at sea. For inland stations, we need to add the base
     # cost of *how much it costs to fly further from that station.*
@@ -177,7 +179,8 @@ watershed_cost <- function(watersheds,
     #   tmp <- tmp + stn_cost
     # }
     tmp <- terra::ifel(tmp > 0, tmp, NA)
-    tmp <- terra::crop(tmp, watersheds[watersheds$site == x,], mask = TRUE) # now crop to watersheds shape
+    # TODO: maybe delete this? Otherwise birds can't 'travel' across water areas
+    #tmp <- terra::crop(tmp, watersheds[watersheds$site == x,], mask = TRUE) # now crop to watersheds shape
     return(tmp)
   })
   
@@ -235,7 +238,6 @@ watershed_cost <- function(watersheds,
   
   # Clean up output
   catchments2 <- dplyr::bind_rows(catchments2)
-  # catchments2$site <- sites
   catchments2 <- catchments2[, "site"]
   
   return(catchments2)
@@ -267,6 +269,8 @@ directionality_crop <- function(cost_catchments,
     dplyr::group_by(site) |>
     dplyr::summarize()
   
+  sf::st_geometry(watersheds) <- "geometry"
+  
   # Merge `h` and `stn`
   stn <- merge(stn, h, by = "site")
   stn <- sf::st_transform(stn, 3005)
@@ -280,10 +284,10 @@ directionality_crop <- function(cost_catchments,
     # long enough. 
     # NOTE!! This will cause a BUG if the string isn't
     # wide enough to chop full_cc polygon in half!!
-    stn <- stn[stn$site == x, ]
-    x0 <- sf::st_coordinates(stn)[1]
-    y0 <- sf::st_coordinates(stn)[2]
-    alpha <- (180 - stn$mean) * (pi / 180) # convert degrees to radians + rotate 90°
+    stnx <- stn[stn$site == x, ]
+    x0 <- sf::st_coordinates(stnx)[1]
+    y0 <- sf::st_coordinates(stnx)[2]
+    alpha <- (180 - stnx$mean) * (pi / 180) # convert degrees to radians + rotate 90°
     d <- 50000 # 30km
     x1 <- x0 + (d * cos(alpha))
     y1 <- y0 + (d * sin(alpha))
@@ -299,7 +303,7 @@ directionality_crop <- function(cost_catchments,
     c <- sf::st_make_valid(c)
     c <- sf::st_collection_extract(c, "POLYGON")
     # Create a line directly under (one unit of resolution) the cut
-    beta <- (90 - stn$mean) * (pi / 180)
+    beta <- (90 - stnx$mean) * (pi / 180)
     xx <- x0 - (res * cos(beta))
     yy <- y0 - (res * sin(beta))
     x1 <- xx + (5000 * cos(alpha)) # let's make this line much shorter, 10km total
@@ -318,15 +322,16 @@ directionality_crop <- function(cost_catchments,
       dplyr::group_by(site) |>
       dplyr::summarise() # merge any pieces that may have been cut
     # Clean up the edges a bit
+    ixn <- dplyr::bind_rows(watersheds[watersheds$site == x, ],
+                            cones[cones$site == x, ]) |>
+      dplyr::summarise()
     c <- sf::st_buffer(c, res) |>
       smoothr::smooth() |>
-      sf::st_intersection(watersheds[watersheds$site == x, ]) |>
-      dplyr::filter(site == site.1) |>
-      dplyr::select(-site.1)
+      sf::st_intersection(ixn)
     # Multipart polygon to singlepart
     c <- sf::st_cast(c, "POLYGON", warn = FALSE)
-    # Now select the piece closest to the station
-    #c <- c[st_nearest_feature(stn, c),]
+    # Now select the piece(s) overlapping the station cone
+    #c <- c[st_nearest_feature(stnx, c),]
     c <- c[sf::st_intersects(c, cones[cones$site == x,], sparse = FALSE), ]
   })
   

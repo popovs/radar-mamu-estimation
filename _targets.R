@@ -213,7 +213,7 @@ list(
   tar_terra_rast(sea_dist, distance(sea) / 1000),
   ##### Cost distance #####
   # Elevation * Distance from coast
-  tar_terra_rast(cost, terra::costDist(terra::merge(DEM, sea), 
+  tar_terra_rast(cost, terra::costDist(terra::merge(DEM, sea), # IMPORTANT! We want to 'allow' MAMU to cross over sea areas when calculating flight costs.
                                        target = 0) |> 
                    {\(.) terra::ifel(. > 0, ., NA)}()),
   
@@ -479,7 +479,7 @@ list(
   ##### Watershed flight cost #####
   # Calculate how much it costs to fly within the selected watersheds
   tar_target(full_cc, watershed_cost(watersheds = watersheds,
-                                     dem = DEM,
+                                     dem = terra::merge(DEM, sea), # IMPORTANT! We want to 'allow' MAMU to cross over sea areas when calculating flight costs.
                                      cones = cones,
                                      stn = stn,
                                      cost = cost,
@@ -503,6 +503,8 @@ list(
   tar_target(final_cc, access_catchments(cost_catchments = cropped_cc,
                                          maz = maz,
                                          stn = stn,
+                                         cones = cones,
+                                         sea = sea, # IMPORTANT! We want to 'allow' MAMU to cross over sea areas when calculating flight costs. 
                                          raster_stats = TRUE,
                                          cost = cost,
                                          output_plots = save_plots, # defined at top of script
@@ -510,7 +512,6 @@ list(
                                          headings = h_0,
                                          h = h,
                                          watersheds = watersheds,
-                                         cones = cones,
                                          nests = nests)),
   tar_target(cc_gpkg,
              save_sf(sf = final_cc, output_path = "temp/QGIS temp/radar_derived_catchments.gpkg"),
