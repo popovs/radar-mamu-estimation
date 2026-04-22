@@ -1,0 +1,1 @@
+Alaska_DEM.tiff was downloaded from: https://arcticdem.apps.pgc.umn.edu/
