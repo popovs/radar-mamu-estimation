@@ -97,7 +97,7 @@ study_bounds <- sf::st_bbox(c(xmin = 164728, ymin = 333912, xmax = 1387220, ymax
 source("temp/apikey.R")
 
 # SAVE PLOTS? Yes or no
-save_plots <- TRUE
+save_plots <- FALSE
 
 
 # PIPELINE ----------------------------------------------------------------
@@ -262,7 +262,7 @@ list(
                  dplyr::mutate(elev_m_max = dplyr::replace_when(elev_m_max, 
                                                                 region == "NC" & is.na(nest_elev_m) ~ max(elev_m_max[region == "CC"]),
                                                                 region == "AKB" & is.na(nest_elev_m) ~ max(elev_m_max[region == "CC"]),
-                                                                region == "NVI" & is.na(nest_elev_m) ~ mean(elev_m_max[grepl("VI", region)]))) |>
+                                                                region == "NVI" & is.na(nest_elev_m) ~ mean(elev_m_max[grepl("VI", region)], na.rm = TRUE))) |>
                  dplyr::mutate(elev_m_min = 0) |>
                  dplyr::select(region, elev_m_min, elev_m_max),
                region), # group by region col so targets later knows to run `reclass_elevation()` by row-level grouping
@@ -315,7 +315,7 @@ list(
                  dplyr::mutate(cost_max = dplyr::replace_when(cost_max, 
                                                               region == "NC" & is.na(nest_cost) ~ max(cost_max[region == "CC"]),
                                                               region == "AKB" & is.na(nest_cost) ~ max(cost_max[region == "CC"]),
-                                                              region == "NVI" & is.na(nest_cost) ~ mean(cost_max[grepl("VI", region)]))) |>
+                                                              region == "NVI" & is.na(nest_cost) ~ mean(cost_max[grepl("VI", region)], na.rm = TRUE))) |>
                  #dplyr::mutate(cost_max = cost_max / 1000 / 1000) |> # Re-express cost in km^2 rather than m^2
                  dplyr::mutate(cost_min = 0) |>
                  dplyr::select(region, cost_min, cost_max),
