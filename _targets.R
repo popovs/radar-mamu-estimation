@@ -210,7 +210,7 @@ list(
   #### DISTANCE TO SEA ####
   ##### Sea distance #####
   # Distance from sea, in km
-  tar_terra_rast(sea_dist, distance(sea) / 1000),
+  tar_terra_rast(sea_dist, terra::distance(sea) / 1000),
   ##### Cost distance #####
   # Elevation * Distance from coast
   tar_terra_rast(cost, terra::costDist(terra::merge(DEM, sea), # IMPORTANT! We want to 'allow' MAMU to cross over sea areas when calculating flight costs.
@@ -607,6 +607,7 @@ list(
                dplyr::mutate(density = bootmean / sh_area_ha,
                              density_lwr = boot_min / sh_area_ha,
                              density_upr = boot_max / sh_area_ha)),
+  ##### Nest probability #####
   # Fit a nest gamma decay function + rasterize it
   # Certain habitats may meet the criteria for "suitable habitat".
   # However, while habitat may be suitable for MAMU nesting in terms
@@ -620,13 +621,12 @@ list(
   # raster. Cells <30km from shore will have a higher probability,
   # closer to 1, while distances >30km will decay down to 0 probability.
   # `nest_likelihood` has cut out all non-habitat pieces
-  # TODO: it's using straight-line distance, not gridDistance
   tar_terra_rast(nest_likelihood, nest_gamma_decay(nests = nests,
-                                                   coast = sea,
+                                                   sea_dist = sea_dist,
                                                    habitat = suitable_habitat)),
   # `nest_likelihood_full` is primarily for visualization purposes
   tar_terra_rast(nest_likelihood_full, nest_gamma_decay(nests = nests,
-                                                        coast = sea)),
+                                                        sea_dist = sea_dist)),
   # Rasterize the regional mean density
   # Apply the nest probability decay function to regional densities
   # Now, apply that gamma decay function to the density layer such

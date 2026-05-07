@@ -201,7 +201,7 @@ catchment_density <- function(mm = mean_max_mamu_cc, # mean_max_mamu_cc is the d
 # curve to the suitable habitat layer such that distances <30km
 # from shore are more likely, while distances >30km are less so.
 nest_gamma_decay <- function(nests, # `nests` target 
-                             coast, # `sea` target
+                             sea_dist, # `sea_dist` target
                              habitat = NULL # `suitable_habitat` target
 ) {
   # Max nest dist 
@@ -211,20 +211,15 @@ nest_gamma_decay <- function(nests, # `nests` target
   fit <- fitdistrplus::fitdist(nests[["nest_dist_km"]], 
                                distr = "gamma", 
                                method = "mle")
+  # plot(fit) # inspect fit
   
   # 2) derive a raster of distance from coast
-  # Fill in the NA values of raster with `0`;
-  # Replace any areas already == 0 with `2`
-  # (i.e. all sea == 2, while all land == 0)
-  coast <- terra::ifel(is.na(coast), 0, 2)
-  coast_dist <- terra::gridDist(coast, target = 2) # generate raster with all distances from cells == 2
-  coast_dist <- terra::ifel(coast_dist == 0, NA, coast_dist) # turn any sea areas to NA
-  coast_dist <- coast_dist / 1000 # convert to m
+  # 2026-04-24 edit: just using the pre-existing coast dist raster target
   
   # 3) replace distance from coast with gamma probabilities
   # Derive a table of every distance from 0-62 km with the 
   # gamma density function value at each distance, at 10m intervals
-  distances <- terra::values(coast_dist)
+  distances <- terra::values(sea_dist)
   # Predict values at each distance following the fit gamma distr 
   g <- dgamma(distances, 
               shape = fit$estimate[[1]], 
@@ -234,9 +229,12 @@ nest_gamma_decay <- function(nests, # `nests` target
   
   # Now put the nest probability values into a raster
   p <- terra::rast(vals = p, 
-                   crs = terra::crs(coast_dist), 
-                   terra::ext(coast_dist), 
-                   res = terra::res(coast_dist))
+                   crs = terra::crs(sea_dist), 
+                   terra::ext(sea_dist), 
+                   res = terra::res(sea_dist))
+  
+  # Cut out ocean bits
+  p <- ifel(p == 0, NA, p)
   
   if (is.null(habitat)) {
     
@@ -247,7 +245,7 @@ nest_gamma_decay <- function(nests, # `nests` target
     # 4) rasterize the suitable habitat (if not a raster already)
     if (!inherits(habitat, "SpatRaster")) {
       temp <- terra::rast(terra::vect(sf::st_geometry(habitat)),
-                          res = terra::res(coast_dist))
+                          res = terra::res(sea_dist))
       habitat <- terra::rasterize(terra::vect(habitat), temp)
     }
     
