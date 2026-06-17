@@ -359,7 +359,7 @@ extrapolate_density <- function(regions, reg_density, nest_likelihood) {
   # the same value as in the `reg_density` table
   adj_tbl <- lapply(1:nrow(regions), function(x) {
     reg_x <- regions[x,] # Pull out the region in question
-    reg_x <- merge(reg_x, reg_density) # Merge in the densities for that region
+    reg_x <- merge(reg_x, reg_density, all.x = TRUE) # Merge in the densities for that region
     nl_x <- terra::crop(nest_likelihood, reg_x, mask = TRUE) # Intersect nest_likelihood with region
     # Drop geometry of region to stop annoying geom from popping 
     # up in all subsequent operations

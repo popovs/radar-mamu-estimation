@@ -41,7 +41,9 @@ prepare_nests <- function(filepath, regions = regions) {
 #' * Exclude August surveys
 #' * Exclude Alaska border region surveys
 #' * Exclude 'Interior' (i.e. only keep coastal) stations
-prepare_surveys <- function(filepath, regions = regions) {
+prepare_surveys <- function(filepath, 
+                            regions = regions,
+                            N_years_min = 2) {
   s <- read.csv(filepath)
   
   # Basic dataframe tidying
@@ -50,6 +52,11 @@ prepare_surveys <- function(filepath, regions = regions) {
   s$doy <- lubridate::yday(s$survey_date)
   s$site <- stringr::str_trim(s$site)
   s$site <- stringr::str_squish(s$site)
+  
+  # Calculate N unique years within the data
+  s <- s |> 
+    dplyr::group_by(site) |> 
+    dplyr::mutate(N_years = dplyr::n_distinct(year))
   
   # Filter down to appropriate data
   # Use only complete surveys
@@ -62,6 +69,8 @@ prepare_surveys <- function(filepath, regions = regions) {
   s <- s[which(s$region != "AS"), ]
   # Exclude Inland sites
   s <- s[which(s$loc == "Coastal"), ]
+  # Minimum sample size (N years of data) cutoff
+  s <- s[which(s$N_years >= N_years_min), ]
   
   # Create spatial object
   s <- s[!is.na(s$lon), ]

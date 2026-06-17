@@ -124,9 +124,13 @@ list(
                                        regions = regions)),
   ###### Radar Surveys ######
   tar_target(s, prepare_surveys(filepath = s_path,
-                                regions = regions)),
+                                regions = regions,
+                                N_years_min = 3)), # minimum sample size (N unique years) cutoff
   ###### Flight Headings ######
-  tar_target(h_0, prepare_headings(h_path)),
+  tar_target(h_0, prepare_headings(h_path) |>
+               # Now filter it to only stations/sites that meet our
+               # filtering criteria to applied to our main `s` dataset
+               dplyr::filter(site %in% s$site)),
   ###### Watersheds ######
   tar_target(watersheds_0, prepare_watersheds(ws_path, regions)),
   ###### Suitable Habitat ######
@@ -564,7 +568,6 @@ list(
                                 N = dplyr::n())),
   # Calculate bootstrapped mean annual maximum per catchment
   # (across all years)
-  # TODO: triggering a bunch of warnings
   tar_target(mean_max_mamu_cc, bootmean(annual_max_mamu,
                                         group_by = "site",
                                         dat_col = "max_mamu",
