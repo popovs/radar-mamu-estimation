@@ -482,6 +482,7 @@ list(
                                            h = h)),
   ##### Watershed flight cost #####
   # Calculate how much it costs to fly within the selected watersheds
+  # + cut off flight after 30km
   tar_target(full_cc, watershed_cost(watersheds = watersheds,
                                      dem = terra::merge(DEM, sea), # IMPORTANT! We want to 'allow' MAMU to cross over sea areas when calculating flight costs.
                                      cones = cones,
