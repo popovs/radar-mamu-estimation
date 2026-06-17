@@ -168,7 +168,7 @@ watershed_cost <- function(watersheds,
     tmp[terra::cellFromXY(tmp, origin)] <- -1
     tmp <- terra::costDist(tmp, -1, maxiter = 100)
     # TODO: cutting out inland stations from analysis
-    # remove any code related to this & commit to git
+    # if re-incorporating later, add this back in
     # IMPORTANT! Our cut distance cutoffs assume the origin is from
     # a point at sea. For inland stations, we need to add the base
     # cost of *how much it costs to fly further from that station.*
@@ -178,9 +178,18 @@ watershed_cost <- function(watersheds,
     #   stn_cost <- terra::extract(cost, origin)[[1]]
     #   tmp <- tmp + stn_cost
     # }
-    tmp <- terra::ifel(tmp > 0, tmp, NA)
-    # TODO: maybe delete this? Otherwise birds can't 'travel' across water areas
-    #tmp <- terra::crop(tmp, watersheds[watersheds$site == x,], mask = TRUE) # now crop to watersheds shape
+    # Next, set max limit of 30km flight from the station
+    # Otherwise, we assume the birds access a nest from a 
+    # more efficient route - not via this catchment
+    # Create 30km radius raster
+    boundary_30km <- terra::distance(tmp, stn[stn$site == x,])
+    boundary_30km <- terra::ifel(boundary_30km <= 30000, 1, NA)
+    
+    # Intersect the two - creating a raster that contains
+    # the cost of flying through the watershed, bounded by
+    # a 30km radius from the station.
+    tmp <- tmp * boundary_30km
+    
     return(tmp)
   })
   
@@ -221,7 +230,7 @@ watershed_cost <- function(watersheds,
   watersheds <- merge(watersheds, sf::st_drop_geometry(stn[,c("site", "region")]))
   watersheds <- merge(watersheds, cost_cutoffs)
   # Apply the regional cost cutoff to each individual
-  # cost catchment (i.e., draw boundaries on each cost
+  # cost catchment (i.e., draw cost boundaries on each cost
   # catchment)
   catchments2 <- lapply(sites, function(x) {
     message("Setting max boundaries of cost catchment for ", x)
