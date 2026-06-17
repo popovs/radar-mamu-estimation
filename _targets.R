@@ -97,7 +97,7 @@ study_bounds <- sf::st_bbox(c(xmin = 164728, ymin = 333912, xmax = 1387220, ymax
 source("temp/apikey.R")
 
 # SAVE PLOTS? Yes or no
-save_plots <- TRUE
+save_plots <- FALSE
 
 
 # PIPELINE ----------------------------------------------------------------
@@ -124,9 +124,13 @@ list(
                                        regions = regions)),
   ###### Radar Surveys ######
   tar_target(s, prepare_surveys(filepath = s_path,
-                                regions = regions)),
+                                regions = regions,
+                                N_years_min = 3)), # minimum sample size (N unique years) cutoff
   ###### Flight Headings ######
-  tar_target(h_0, prepare_headings(h_path)),
+  tar_target(h_0, prepare_headings(h_path) |>
+               # Now filter it to only stations/sites that meet our
+               # filtering criteria to applied to our main `s` dataset
+               dplyr::filter(site %in% s$site)),
   ###### Watersheds ######
   tar_target(watersheds_0, prepare_watersheds(ws_path, regions)),
   ###### Suitable Habitat ######
@@ -210,7 +214,7 @@ list(
   #### DISTANCE TO SEA ####
   ##### Sea distance #####
   # Distance from sea, in km
-  tar_terra_rast(sea_dist, distance(sea) / 1000),
+  tar_terra_rast(sea_dist, terra::distance(sea) / 1000),
   ##### Cost distance #####
   # Elevation * Distance from coast
   tar_terra_rast(cost, terra::costDist(terra::merge(DEM, sea), # IMPORTANT! We want to 'allow' MAMU to cross over sea areas when calculating flight costs.
@@ -262,7 +266,7 @@ list(
                  dplyr::mutate(elev_m_max = dplyr::replace_when(elev_m_max, 
                                                                 region == "NC" & is.na(nest_elev_m) ~ max(elev_m_max[region == "CC"]),
                                                                 region == "AKB" & is.na(nest_elev_m) ~ max(elev_m_max[region == "CC"]),
-                                                                region == "NVI" & is.na(nest_elev_m) ~ mean(elev_m_max[grepl("VI", region)]))) |>
+                                                                region == "NVI" & is.na(nest_elev_m) ~ mean(elev_m_max[grepl("VI", region)], na.rm = TRUE))) |>
                  dplyr::mutate(elev_m_min = 0) |>
                  dplyr::select(region, elev_m_min, elev_m_max),
                region), # group by region col so targets later knows to run `reclass_elevation()` by row-level grouping
@@ -315,7 +319,7 @@ list(
                  dplyr::mutate(cost_max = dplyr::replace_when(cost_max, 
                                                               region == "NC" & is.na(nest_cost) ~ max(cost_max[region == "CC"]),
                                                               region == "AKB" & is.na(nest_cost) ~ max(cost_max[region == "CC"]),
-                                                              region == "NVI" & is.na(nest_cost) ~ mean(cost_max[grepl("VI", region)]))) |>
+                                                              region == "NVI" & is.na(nest_cost) ~ mean(cost_max[grepl("VI", region)], na.rm = TRUE))) |>
                  #dplyr::mutate(cost_max = cost_max / 1000 / 1000) |> # Re-express cost in km^2 rather than m^2
                  dplyr::mutate(cost_min = 0) |>
                  dplyr::select(region, cost_min, cost_max),
@@ -564,7 +568,6 @@ list(
                                 N = dplyr::n())),
   # Calculate bootstrapped mean annual maximum per catchment
   # (across all years)
-  # TODO: triggering a bunch of warnings
   tar_target(mean_max_mamu_cc, bootmean(annual_max_mamu,
                                         group_by = "site",
                                         dat_col = "max_mamu",
@@ -607,6 +610,7 @@ list(
                dplyr::mutate(density = bootmean / sh_area_ha,
                              density_lwr = boot_min / sh_area_ha,
                              density_upr = boot_max / sh_area_ha)),
+  ##### Nest probability #####
   # Fit a nest gamma decay function + rasterize it
   # Certain habitats may meet the criteria for "suitable habitat".
   # However, while habitat may be suitable for MAMU nesting in terms
@@ -620,13 +624,12 @@ list(
   # raster. Cells <30km from shore will have a higher probability,
   # closer to 1, while distances >30km will decay down to 0 probability.
   # `nest_likelihood` has cut out all non-habitat pieces
-  # TODO: it's using straight-line distance, not gridDistance
   tar_terra_rast(nest_likelihood, nest_gamma_decay(nests = nests,
-                                                   coast = sea,
+                                                   sea_dist = sea_dist,
                                                    habitat = suitable_habitat)),
   # `nest_likelihood_full` is primarily for visualization purposes
   tar_terra_rast(nest_likelihood_full, nest_gamma_decay(nests = nests,
-                                                        coast = sea)),
+                                                        sea_dist = sea_dist)),
   # Rasterize the regional mean density
   # Apply the nest probability decay function to regional densities
   # Now, apply that gamma decay function to the density layer such
