@@ -117,141 +117,245 @@ select_watersheds <- function(watersheds,
 
 # Calculate the cost of flying through the selected watersheds 
 # from the radar entry point (mouth of the watershed)
-watershed_cost <- function(watersheds, 
-                           dem, 
-                           cones, 
-                           stn, 
-                           cost,
-                           cost_cutoffs,
-                           output_plots = TRUE,
-                           output_dir,
-                           ...) {
+# This fxn is designed for use for one site at a time
+st_cost_catchment <- function(site,
+                           watersheds,
+                           dem, # note this is land + sea merged
+                           cones,
+                           stn,
+                           nest_likelihood,
+                           cost_function = "e" # cost fxn, one of movecost::mc_cost_functions
+                           ) {
+  message("Calculating cost catchment for ", site)
+  
   # Dissolve watersheds together by site
   watersheds <- watersheds |>
     dplyr::select(site) |>
     dplyr::group_by(site) |>
     dplyr::summarize()
   
-  # Reproject stn
-  stn <- sf::st_transform(stn, 3005)
+  # Filter all inputs down to the appropriate site
+  w <- watersheds[watersheds$site == site, ]
+  cone <- cones[cones$site == site, ]
+  stn <- stn[stn$site == site, ]
+  nl <- terra::crop(nest_likelihood, w, mask = TRUE) # crop nest likelihood raster to our watershed
   
-  sites <- unique(watersheds$site)
-  # Make 'cost catchments'
-  catchments <- lapply(sites, function(x) {
-    message("Creating catchment for ", x)
-    tmp <- watersheds[watersheds$site == x,]
-    tmp <- terra::crop(dem, tmp, mask = TRUE)
-    tmp2 <- terra::crop(dem, cones[cones$site == x, ], mask = TRUE) # also extract anything in the cone path - e.g. water - so birds can cross over water areas in the cone's path
-    tmp <- terra::merge(tmp, tmp2)
-    # Choose the point closest on the raster to the radar
-    # station as the origin point
-    # Extract origin coordinate
-    i <- stn[stn$site == x,]
-    j <- sf::st_union(sf::st_as_sf(terra::as.polygons(tmp)))
-    origin <- sf::st_nearest_points(i, j)
-    origin <- sf::st_coordinates(origin)
-    origin <- origin[,1:2] # drop 'L1' column
-    i <- sf::st_coordinates(i)
-    origin <- rbind(origin, i)
-    # drop the duplicated rows - that's our point `stn`, and we only
-    # care about origin point in/on the polygon
-    if (nrow(unique(origin)) == 1) { # vanilla `ifelse` doesn't play nicely with matrices
-      origin <- unique(origin)
-    } else if (nrow(unique(origin == 2))) {
-      origin <- origin[!(duplicated(origin) | duplicated(origin, fromLast = TRUE)), ]
-    } else {
-      message("Something weird going on with ", x)
-    }
-    origin <- matrix(origin, ncol = 2)
-    # Assign -1 to origin
-    if (is.na(terra::cellFromXY(tmp, origin))) message("Unable to find origin for ", x)
-    tmp[terra::cellFromXY(tmp, origin)] <- -1
-    tmp <- terra::costDist(tmp, -1, maxiter = 100)
-    # TODO: cutting out inland stations from analysis
-    # if re-incorporating later, add this back in
-    # IMPORTANT! Our cut distance cutoffs assume the origin is from
-    # a point at sea. For inland stations, we need to add the base
-    # cost of *how much it costs to fly further from that station.*
-    # Therefore, we need to load up the cost of the station and add 
-    # that value to the `tmp` cost raster.
-    # if (stn[stn$site == x,]$loc == "Inland") {
-    #   stn_cost <- terra::extract(cost, origin)[[1]]
-    #   tmp <- tmp + stn_cost
-    # }
-    # Next, set max limit of 30km flight from the station
-    # Otherwise, we assume the birds access a nest from a 
-    # more efficient route - not via this catchment
-    # Create 30km radius raster
-    boundary_30km <- terra::distance(tmp, stn[stn$site == x,])
-    boundary_30km <- terra::ifel(boundary_30km <= 30000, 1, NA)
+  # Prepare watershed DEM
+  tmp <- terra::crop(dem, w, mask = TRUE)
+  tmp2 <- terra::crop(dem, cone, mask = TRUE) # also extract anything in the cone path - e.g. water - so birds can cross over water areas in the cone's path
+  tmp <- terra::merge(tmp, tmp2)
+  
+  # Calculate resistance surface for the selected watersheds
+  surf <- movecost::mc_surface(dtm = tmp, funct = cost_function)
+  
+  # Calculate the origin pixel of the surface raster
+  # (In many cases, the station coordinate does not actually
+  # exactly overlap the raster)
+  p <- terra::as.points(tmp, values = FALSE) # extract raster centroids
+  p <- sf::st_as_sf(p)
+  origin <- p[sf::st_nearest_feature(stn, p), ] # pull closest raster centroid to our station
+  
+  # Calculate accumulated cost surface from origin
+  acc <- movecost::mc_accum(surf, origin = origin)
+  
+  # Now let's make 100 'pseudo nests' within the watershed, all
+  # falling within the most likely habitat areas, and calculate
+  # path lengths of traveling from the origin to each pseudo-nest
+  # Sample 10 'nests' from nlf
+  pseudo_nests <- terra::spatSample(nl,
+                                    size = 100, 
+                                    method = "weights", # incorporate the raster probability into the sampling
+                                    na.rm = TRUE,
+                                    as.points = TRUE) |>
+    sf::st_as_sf()
+  
+  # Calculate least-cost paths between origin and the pseudonests
+  paths <- movecost::mc_paths(surf, 
+                              origin = origin,
+                              destin = pseudo_nests)
+  
+  # We assume throughout the next that MAMU are willing to fly at 
+  # most 30km in a straight line to their nest; be definition, we
+  # assume that same cutoff for meandering (i.e. longer) pathways.
+  # If a MAMU takes a very meandering, long path from this origin
+  # to a pseudonest, the assumption is that they in fact will prefer
+  # to take a more efficient route to said nest via a different
+  # watershed mouth. Therefore, we apply the same 30km distance 
+  # cutoff to the least cost paths routes. 
+  # So, extract out the raster cost of the longest route, up to 30km
+  # in length.
+  # The exception is Haida Gwaii: it's a very narrow island and
+  # all known nests are within 5km of the coast. Let's assume a max
+  # length route of 10km to be conservative.
+  max_path <- ifelse(stn$region == "HG", 15000, 30000)
+  max_cost <- paths$paths[paths$paths$length <= units::as_units(max_path, "m"), ] |> 
+    dplyr::pull(cost) |> 
+    max()
+  
+  # Draw cost catchment boundary
+  cat <- movecost::mc_boundary(surface = surf, 
+                               origin = origin,
+                               limit = max_cost)
+  
+  # Prepare our function output
+  out <- cat$boundaries
+  out$site <- site
+  out$region <- stn$region
+
+  # Crop out any sea-areas (both for aesthetics and
+  # also so sea areas don't get counted within the 
+  # catchment areas)
+  out <- sf::st_intersection(out, w)
+  
+  # Recalculate area; rearrange cols
+  out <- out |>
+    dplyr::rename(max_cost = limit) |>
+    dplyr::mutate(area = sf::st_area(geometry),
+                  area_ha = units::set_units(area, "ha")) |>
+    dplyr::select(site, region, max_cost, area_ha, perimeter)
+  
+  return(out)
     
-    # Intersect the two - creating a raster that contains
-    # the cost of flying through the watershed, bounded by
-    # a 30km radius from the station.
-    tmp <- tmp * boundary_30km
-    
-    return(tmp)
-  })
-  
-  names(catchments) <- sites
-  
-  # Save plots to inspect...
-  # TODO: ideally split this out and make it its own 
-  # target that uses the catchments output. It's time
-  # consuming to recreate all the catchments just because
-  # of a plotting error.
-  if (output_plots == TRUE) {
-    # Unpack dots
-    plot_data <- list(...)
-    headings <- plot_data$headings
-    h <- plot_data$h
-    nests <- plot_data$nests
-    # Create plots
-    dir.create(output_dir, showWarnings = F)
-    for (i in sites) {
-      out_path <- file.path(output_dir,
-                            fs::path_sanitize(paste0(i, ".png"), replacement = "-"))
-      message("Saving plot for ", i, " to '", out_path, "'")
-      p1 <- plot_cost(site = i, 
-                      cost_catchment = catchments,
-                      watersheds = watersheds,
-                      cones = cones,
-                      stn = stn, 
-                      nests = nests,
-                      cost_cutoffs = cost_cutoffs)
-      p2 <- plot_headings(site = i, headings = headings, h = h)
-      p_all <- ggpubr::ggarrange(p1, p2, nrow = 1)
-      ggplot2::ggsave(filename = out_path, plot = p_all)
-    }
-  }
-  
-  # Merge watersheds, stn, and cost_cutoffs to get all
-  # attributes in one sf object
-  watersheds <- merge(watersheds, sf::st_drop_geometry(stn[,c("site", "region")]))
-  watersheds <- merge(watersheds, cost_cutoffs)
-  # Apply the regional cost cutoff to each individual
-  # cost catchment (i.e., draw cost boundaries on each cost
-  # catchment)
-  catchments2 <- lapply(sites, function(x) {
-    message("Setting max boundaries of cost catchment for ", x)
-    # Extract catchment + apply cutoff
-    tmp <- catchments[[x]]
-    cutoff <- watersheds[["cost_max"]][watersheds$site == x]
-    tmp <- terra::ifel(tmp > cutoff, NA, 1)
-    # Vectorize
-    tmp <- terra::as.polygons(tmp, crs = "epsg:3005")
-    tmp <- sf::st_as_sf(tmp)
-    if(nrow(tmp) > 0) tmp$site <- x # after applying inland cutoffs, some sites might have NULL catchments!
-    return(tmp)
-  })
-  
-  # Clean up output
-  catchments2 <- dplyr::bind_rows(catchments2)
-  catchments2 <- catchments2[, "site"]
-  
-  return(catchments2)
-  
 }
+
+# OLD METHOD
+# Calculate the cost of flying through the selected watersheds 
+# from the radar entry point (mouth of the watershed)
+# watershed_cost <- function(watersheds, 
+#                            dem, 
+#                            cones, 
+#                            stn, 
+#                            cost,
+#                            cost_cutoffs,
+#                            output_plots = TRUE,
+#                            output_dir,
+#                            ...) {
+#   # Dissolve watersheds together by site
+#   watersheds <- watersheds |>
+#     dplyr::select(site) |>
+#     dplyr::group_by(site) |>
+#     dplyr::summarize()
+#   
+#   # Reproject stn
+#   stn <- sf::st_transform(stn, 3005)
+#   
+#   sites <- unique(watersheds$site)
+#   # Make 'cost catchments'
+#   catchments <- lapply(sites, function(x) {
+#     message("Creating catchment for ", x)
+#     tmp <- watersheds[watersheds$site == x,]
+#     tmp <- terra::crop(dem, tmp, mask = TRUE)
+#     tmp2 <- terra::crop(dem, cones[cones$site == x, ], mask = TRUE) # also extract anything in the cone path - e.g. water - so birds can cross over water areas in the cone's path
+#     tmp <- terra::merge(tmp, tmp2)
+#     # Choose the point closest on the raster to the radar
+#     # station as the origin point
+#     # Extract origin coordinate
+#     i <- stn[stn$site == x,]
+#     j <- sf::st_union(sf::st_as_sf(terra::as.polygons(tmp)))
+#     origin <- sf::st_nearest_points(i, j)
+#     origin <- sf::st_coordinates(origin)
+#     origin <- origin[,1:2] # drop 'L1' column
+#     i <- sf::st_coordinates(i)
+#     origin <- rbind(origin, i)
+#     # drop the duplicated rows - that's our point `stn`, and we only
+#     # care about origin point in/on the polygon
+#     if (nrow(unique(origin)) == 1) { # vanilla `ifelse` doesn't play nicely with matrices
+#       origin <- unique(origin)
+#     } else if (nrow(unique(origin == 2))) {
+#       origin <- origin[!(duplicated(origin) | duplicated(origin, fromLast = TRUE)), ]
+#     } else {
+#       message("Something weird going on with ", x)
+#     }
+#     origin <- matrix(origin, ncol = 2)
+#     # Assign -1 to origin
+#     if (is.na(terra::cellFromXY(tmp, origin))) message("Unable to find origin for ", x)
+#     tmp[terra::cellFromXY(tmp, origin)] <- -1
+#     tmp <- terra::costDist(tmp, -1, maxiter = 100)
+#     # TODO: cutting out inland stations from analysis
+#     # if re-incorporating later, add this back in
+#     # IMPORTANT! Our cut distance cutoffs assume the origin is from
+#     # a point at sea. For inland stations, we need to add the base
+#     # cost of *how much it costs to fly further from that station.*
+#     # Therefore, we need to load up the cost of the station and add 
+#     # that value to the `tmp` cost raster.
+#     # if (stn[stn$site == x,]$loc == "Inland") {
+#     #   stn_cost <- terra::extract(cost, origin)[[1]]
+#     #   tmp <- tmp + stn_cost
+#     # }
+#     # Next, set max limit of 30km flight from the station
+#     # Otherwise, we assume the birds access a nest from a 
+#     # more efficient route - not via this catchment
+#     # Create 30km radius raster
+#     boundary_30km <- terra::distance(tmp, stn[stn$site == x,])
+#     boundary_30km <- terra::ifel(boundary_30km <= 30000, 1, NA)
+#     
+#     # Intersect the two - creating a raster that contains
+#     # the cost of flying through the watershed, bounded by
+#     # a 30km radius from the station.
+#     tmp <- tmp * boundary_30km
+#     
+#     return(tmp)
+#   })
+#   
+#   names(catchments) <- sites
+#   
+#   # Save plots to inspect...
+#   # TODO: ideally split this out and make it its own 
+#   # target that uses the catchments output. It's time
+#   # consuming to recreate all the catchments just because
+#   # of a plotting error.
+#   if (output_plots == TRUE) {
+#     # Unpack dots
+#     plot_data <- list(...)
+#     headings <- plot_data$headings
+#     h <- plot_data$h
+#     nests <- plot_data$nests
+#     # Create plots
+#     dir.create(output_dir, showWarnings = F)
+#     for (i in sites) {
+#       out_path <- file.path(output_dir,
+#                             fs::path_sanitize(paste0(i, ".png"), replacement = "-"))
+#       message("Saving plot for ", i, " to '", out_path, "'")
+#       p1 <- plot_cost(site = i, 
+#                       cost_catchment = catchments,
+#                       watersheds = watersheds,
+#                       cones = cones,
+#                       stn = stn, 
+#                       nests = nests,
+#                       cost_cutoffs = cost_cutoffs)
+#       p2 <- plot_headings(site = i, headings = headings, h = h)
+#       p_all <- ggpubr::ggarrange(p1, p2, nrow = 1)
+#       ggplot2::ggsave(filename = out_path, plot = p_all)
+#     }
+#   }
+#   
+#   # Merge watersheds, stn, and cost_cutoffs to get all
+#   # attributes in one sf object
+#   watersheds <- merge(watersheds, sf::st_drop_geometry(stn[,c("site", "region")]))
+#   watersheds <- merge(watersheds, cost_cutoffs)
+#   # Apply the regional cost cutoff to each individual
+#   # cost catchment (i.e., draw cost boundaries on each cost
+#   # catchment)
+#   catchments2 <- lapply(sites, function(x) {
+#     message("Setting max boundaries of cost catchment for ", x)
+#     # Extract catchment + apply cutoff
+#     tmp <- catchments[[x]]
+#     cutoff <- watersheds[["cost_max"]][watersheds$site == x]
+#     tmp <- terra::ifel(tmp > cutoff, NA, 1)
+#     # Vectorize
+#     tmp <- terra::as.polygons(tmp, crs = "epsg:3005")
+#     tmp <- sf::st_as_sf(tmp)
+#     if(nrow(tmp) > 0) tmp$site <- x # after applying inland cutoffs, some sites might have NULL catchments!
+#     return(tmp)
+#   })
+#   
+#   # Clean up output
+#   catchments2 <- dplyr::bind_rows(catchments2)
+#   catchments2 <- catchments2[, "site"]
+#   
+#   return(catchments2)
+#   
+# }
 
 
 
