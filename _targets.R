@@ -91,6 +91,12 @@ study_bounds <- sf::st_bbox(c(xmin = 164728, ymin = 333912, xmax = 1387220, ymax
 #   sf::st_crop(study_bounds) |>
 #   terra::vect() # transform to terra SpatVect obj to play better w later terra raster objects
 
+# Function used to define the cost landscape for MAMU to fly through.
+# See ?movecost::mc_cost_functions() for a full list of possible fxns.
+# We are using Eastman's cost function, which expresses cost as a quadratic
+# equation relative to slope. As slope gets steeper, it costs more to 
+# travel over.
+cost_function <- "e"
 
 # API tokens
 # Necessary for plotting fxns
@@ -223,6 +229,7 @@ list(
   # Elevation
   tar_target(nest_elev_m, terra::extract(DEM, nests_0, ID = FALSE)[[1]]),
   # Distance from sea
+  tar_target(nest_dist_km, terra::extract(sea_dist, nests_0, ID = FALSE)[[1]]),
 
   ##### Merge nest data #####
   # Merge into a single dataset
@@ -326,9 +333,10 @@ list(
                                            headings = h_0,
                                            h = h)),
   
-  ##### Calculate cost within watersheds #####
+  ##### Cost catchments #####
   tar_target(cost_catchments, lapply(unique(h$site),
                                      st_cost_catchment, # our function that defines cost catchments for one site
+                                     cost_function = cost_function, # defined at top of script in 'static pipeline objects'
                                      watersheds = watersheds, 
                                      dem = terra::merge(DEM, sea), 
                                      cones = cones, 
@@ -394,7 +402,8 @@ list(
                                         dat_col = "max_mamu",
                                         CI_level = 0.95) |>
                dplyr::mutate(dplyr::across(c(bootmean, boot_min, boot_max),
-                                           round))),
+                                           round)) |>
+               dplyr::filter(site %in% h$site)), # filter it to our sites that made the site + headings ss cutoff
   # Regional mean annual maximum per catchment
   # (across all years) for paper table purposes
   tar_target(mean_max_mamu_reg, bootmean(annual_max_mamu,
@@ -450,6 +459,21 @@ list(
                dplyr::arrange(region)),
   tar_target(total_population, calculate_population(density_map)),
   tar_target(total_density, colSums(cc_density[,c("bootmean", "boot_min", "boot_max")], na.rm = TRUE) / sum(cc_density$sh_area_ha)),
-  tar_target(bc_density, total_population / total_suit_hab_area_ha)
+  tar_target(bc_density, total_population / total_suit_hab_area_ha),
   
+  #### PAPER FIGURES ETC ####
+  
+  # TODO: Sup Mat 1 should be nest likelihood actually
+  # Supplementary Material 1 - cost watershed demo
+  tar_render(S1_cost_catchments,
+             "docs/S1 - cost catchments.Rmd",
+             output_file = "docs/S1 - cost catchments.pdf",
+             params = list(dem = terra::merge(DEM, sea),
+                           cones = cones,
+                           watersheds = watersheds,
+                           stn = stn,
+                           nest_likelihood = nest_likelihood,
+                           cost_function = cost_function, # defined at top of script in 'static pipeline objects'
+                           raw_headings = h_0,
+                           mean_headings = h))
 ) 

@@ -1,0 +1,398 @@
+---
+title: "Cost Catchment process"
+output: pdf_document
+date: "`r Sys.Date()`"
+params: 
+  dem: 
+  cones: "cones"
+  watersheds: "watersheds"
+  stn: "stn"
+  nest_likelihood: "nest_likelihood"
+  cost_function: "e"
+  raw_headings: "h_0"
+  mean_headings: "h"
+editor_options: 
+  chunk_output_type: console
+---
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+options(scipen = 999) # turn off scientific notation
+
+library(terra)
+library(ggplot2)
+library(maptiles)
+library(tidyterra)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(patchwork)
+
+dem <- params$dem
+cones <- params$cones
+watersheds <- params$watersheds
+stn <- params$stn
+nest_likelihood <- params$nest_likelihood
+cost_function <- params$cost_function
+headings <- params$raw_headings
+h <- params$mean_headings
+
+# Data prep
+
+# Pick a site
+site <- "Aaltanhash"
+
+# Filter all inputs down to the appropriate site
+w <- watersheds[watersheds$site == site, ]
+cone <- cones[cones$site == site, ]
+stn <- stn[stn$site == site, ]
+headings <- headings[headings$site == site, ]
+h <- h[h$site == site, ]
+
+# Grab background imagery
+bg_tiles <- get_tiles(w, provider = "Esri.WorldTopoMap", crop = TRUE)
+```
+
+
+The first step in the cost catchment process is to determine where the birds are actually going from the station using the flight headings data. In most cases the flight headings of birds follows intuitively up the waterbody to the watershed directly in front of the station, but in some cases the headings of birds reveals that multiple watersheds adjacent to the station are targetted. In this case, at the Aaltanhash site, there are two peaks in the flight heading distribution, suggesting two watersheds are being targeted: one peak at ~45°, and another at ~75° (Figure 1). 
+
+The mean flight heading, 70° falls in between these two peaks (red line in Figure 1). The polar distribution of headings is also used to calculate dispersion statistics using the `CircStats` package (Lund and Agostinelli, 2025). The circular dispersion is used to calculate the upper and lower bounds of dispersion about the mean, i.e. the variability of headings about the mean (dashed lines in Figure 1).
+
+```{r headings histogram, echo = FALSE, fig.cap = paste("Polar histograms of", nrow(headings), "Marbled Murrelet flight headings at the", site, "station. Flight headings were categorized into either incoming (flying from the sea to inland) or outgoing (flying from inland to the sea). The inverse headings of outgoing flights were calculated by subtracting 180° and then pooled with incoming flight headings to calculate the polar mean heading (red bar). Circular dispersion was then calculated about the mean to generate upper and lower bounds for the mean flight direction. See Lund and Agostinelli (2025) for circular statistics methods."), fig.height = 4}
+p_i <- ggplot(data = headings[headings$flightpath_type == "Incoming",]) + 
+    geom_histogram(aes(x = heading), breaks = seq(0, 360, by = 10)) + 
+    geom_vline(xintercept = h[["mean"]],
+                        color = "red") +
+    geom_vline(xintercept = h[["lower"]],
+                        color = "grey",
+                        linetype = "dashed") +
+    geom_vline(xintercept = h[["upper"]],
+                        color = "grey",
+                        linetype = "dashed") +
+    coord_polar() +
+    scale_x_continuous(
+      limits = c(0, 360), 
+      breaks = seq(0, 330, by = 30),
+      expand = expansion(mult = c(0, 0)) # Keeps the circular ends properly connected
+    ) +
+    ggtitle("Incoming") + 
+  theme_minimal() +
+    theme(axis.title = element_blank(),
+          axis.text.y = element_blank())
+
+p_o <- ggplot(data = headings[headings$flightpath_type == "Outgoing",]) + 
+    geom_histogram(aes(x = heading), breaks = seq(0, 360, by = 10)) + 
+    geom_vline(xintercept = h[["mean"]],
+                        color = "red") +
+    geom_vline(xintercept = h[["lower"]],
+                        color = "grey",
+                        linetype = "dashed") +
+    geom_vline(xintercept = h[["upper"]],
+                        color = "grey",
+                        linetype = "dashed") +
+    coord_polar() +
+    scale_x_continuous(
+      limits = c(0, 360), 
+      breaks = seq(0, 330, by = 30),
+      expand = expansion(mult = c(0, 0)) # Keeps the circular ends properly connected
+    ) +
+    ggtitle("Outgoing minus 180°") + 
+  theme_minimal() +
+    theme(axis.title = element_blank(),
+          axis.text.y = element_blank())
+
+
+p <- ggpubr::ggarrange(p_i, p_o)
+
+plot(p)
+```
+
+\newpage
+
+The next step is to use the mean flight headings to actually select candidate watersheds. We generated a cone to overlap and select the watersheds. Because the majority of nests fall within a 30 km straight-line distance to the coast, we assumed that a bird could, in theory, be targeting any watershed up to a 30 km straight-line distance from our station. Our cones were therefore 30 km in length. The mean flight headings dictate the orientation angle of the cone, and finally the circular dispersion statistic dictated the width angle of the cone. Any watersheds with at least 2% of their area overlapping with the cone were then selected as candidate watersheds that the bird might be targeting from that station (Figure 2).
+
+```{r watershed selection map, echo = FALSE, fig.cap = "Watershed selection. A 30 km cone is extended from the radar entry point, with the angle of the cone aligning with the mean flight heading and the width the cone dictated by the circular dispersion about the mean heading. Any watersheds with at least 2% of their area overlapping with the cone are selected as candidate watersheds that a Marbled Murrelet may be targeting."}
+ca <- ne_countries(scale = 10) |> # Load countries polygons
+  dplyr::filter(name %in% c("Canada", "United States of America"))
+
+ca <- sf::st_transform(ca, 3005)
+
+w_bbox <- sf::st_bbox(w) |>
+  sf::st_as_sfc()
+
+inset <- ggplot() +
+  geom_sf(data = ca) +
+  geom_sf(data = w_bbox,
+          color = "black",
+          fill = NA,
+          size = 1) +
+  coord_sf(xlim = c(504003, 1300323),
+           ylim = c(365000, 1054113)) +
+  theme(axis.ticks = element_blank(),
+        axis.text = element_blank())
+
+p <- ggplot() +
+  geom_spatraster_rgb(data = bg_tiles) +
+  geom_sf(data = w,
+          aes(color = "Wateshed boundaries"),
+          fill = NA,
+          size = 1) +
+  scale_color_manual(values = "red") +
+  geom_sf(data = stn,
+          aes(shape = "Station")) +
+  geom_sf(data = cone,
+          aes(fill = "Flight cone"),
+          color = "orange",
+          alpha = 0.3) +
+  scale_fill_manual(values = "orange") +
+  ggtitle(site) +
+  theme_minimal() +
+  theme(legend.title = element_blank(),
+        legend.spacing.y = unit(-10, "pt"),
+        legend.box.margin = margin(t = 160))
+
+p + inset_element(
+   inset, 
+   left = 0.99,   # Left boundary (0 to 1 scale)
+   bottom = 0.3, # Bottom boundary
+   right = 1.5,  # Right boundary
+   top = 0.9     # Top boundary
+   )
+```
+
+\newpage
+
+The next step is to simulate least-cost paths through the selected watersheds to estimate the possible flight paths that a bird might take while flying through the landscape to reach its nest. This step is subdivided into several operations: first, generating a cost landscape, where steeper/higher slopes are harder to fly over, rather than around; second, generating a set of pseudo nests located within the watersheds; third, calculating least-cost paths between the station and all pseudo nest locations; and finally, pulling a cost cutoff value from the generated least-cost paths to calculate the upper bounds of our cost catchment. 
+
+To start, we pull BC digital elevation model (DEM) data for our selected watersheds (Figure 3).
+
+```{r dem prep, include = FALSE}
+# Dissolve watersheds together by site
+w <- w |>
+  dplyr::select(site) |>
+  dplyr::group_by(site) |>
+  dplyr::summarize()
+
+nl <- terra::crop(nest_likelihood, w, mask = TRUE) # crop nest likelihood raster to our watershed
+
+# Prepare watershed DEM
+tmp <- terra::crop(dem, w, mask = TRUE)
+tmp2 <- terra::crop(dem, cone, mask = TRUE) # also extract anything in the cone path - e.g. water - so birds can cross over water areas in the cone's path
+tmp <- terra::merge(tmp, tmp2)
+```
+
+```{r plot dem, echo = FALSE, fig.cap="Digital Elevation Model (DEM) data cropped to the selected watersheds."}
+ggplot() +
+  geom_spatraster_rgb(data = bg_tiles) +
+  geom_spatraster(data = tmp) +
+  scale_fill_grass_c("viridis", name = "Elevation (m)")
+```
+
+\newpage
+
+Once the DEM data has been selected, we can create a cost landscape, using the `movecost` package. The cost landscape is calculated using a simple quadratic cost function available in the package, Eastman's cost function:
+
+$$C(s) = 0.031(s)^2 - 0.025s + 1$$
+
+where $C$ is the cost, expressed as a function of $s$, slope in degrees. Steeper slopes require more energy to ascend, and are therefore penalized by the function (Figure 4).
+
+```{r eastman plot, echo = FALSE, fig.cap = "Eastman cost function curve. Cost is an abstract, unitless number."}
+eq <- function(s){0.031*(s^2) - 0.025*s + 1}
+curve(eq, from = 0, to = 45, xlab = "Slope (degrees)", ylab = "Cost (unitless)")
+```
+
+The inverse of this cost function gives the conductance, a measure of how easy it is to move across certain slopes:
+
+$$M(s) = 1 / (0.031(s)^2 - 0.025s + 1)$$
+
+where $M$ is conductance (or ease of **m**ovement) and $s$ is slope in degrees (Figure 5).
+
+```{r conductance plot, echo = FALSE, fig.cap = "Eastman cost function conductance curve. Conductance ranges from 0-1 is an abstract, unitless number."}
+eq <- function(s){1 / (0.031*(s^2) - 0.025*s + 1)}
+curve(eq, from = 0, to = 45, xlab = "Slope (degrees)", ylab = "Conductance (unitless)")
+```
+
+\newpage
+
+Applying Eastman's cost function to our DEM give us a conductance surface, or a spatial representation of ease-of-travel across our DEM (Figure 6).
+
+```{r cost surface, fig.cap = "Conductance surface across the Aaltanhash watersheds."}
+# Calculate resistance surface for the selected watersheds
+surf <- movecost::mc_surface(dtm = tmp, funct = cost_function)
+
+plot(surf)
+```
+
+\newpage
+
+From there, we can calculate the accumulated cost surface of traveling from our origin pixel (the radar station) to any other point on the DEM (Figure 7).
+
+```{r accumulated cost, fig.cap = "Accumulated cost of traveling over the Aaltanhash watersheds."}
+# Calculate the origin pixel of the surface raster
+# (In many cases, the station coordinate does not actually
+# exactly overlap the raster)
+p <- terra::as.points(tmp, values = FALSE) # extract raster centroids
+p <- sf::st_as_sf(p)
+origin <- p[sf::st_nearest_feature(stn, p), ] # pull closest raster centroid to our station
+
+# Calculate accumulated cost surface from origin
+acc <- movecost::mc_accum(surf, origin = origin)
+
+plot(acc)
+```
+
+\newpage
+
+Because the cost is an abstract value, it is difficult to choose an exact cutoff to extract as our cost catchment boundary. To pick out a maximum cost cutoff, we simulate 100 flight paths to hypothetical nests within these watersheds. To do so we first generate these 'pseudo nests' using the nest likelihood raster (Figure 8). The nest likelihood raster contains pixels of Marbled Murrelet suitable habitat, with the value of the pixel dictated by distance from shore (see Sup. Mat. for details). 
+
+```{r pseudo nests, fig.cap = "Marbled murrelet suitable habitat, colored by likelihood of occurrence. Nest likelihood is a function of distance from shore, where suitable habitat closer to shore is more likely to contain a nest. The distribution of nest density relative to distance from the shore follows a gamma distribution and is informed by real world nest locations (see Sup. Mat 1 for more details). In blue are 100 simulated nests ('pseudo nests') that are sampled from the nest likelihood layer. Points are denser in areas where nest likelihood is higher."}
+# Now let's make 100 'pseudo nests' within the watershed, all
+# falling within the most likely habitat areas, and calculate
+# path lengths of traveling from the origin to each pseudo-nest
+# Sample 10 'nests' from nlf
+pseudo_nests <- terra::spatSample(nl,
+                                  size = 100, 
+                                  method = "weights", # incorporate the raster probability into the sampling
+                                  na.rm = TRUE,
+                                  as.points = TRUE) |>
+  sf::st_as_sf()
+
+ggplot() + 
+    geom_spatraster_rgb(data = bg_tiles) +
+    geom_spatraster(data = nl) + 
+    scale_fill_princess_c("aura", 
+                       name = "Nest likelihood", 
+                       limits = c(0,1)) + 
+    ggnewscale::new_scale_fill() +
+    geom_sf(data = pseudo_nests, 
+            aes(fill = "Nest"),
+            pch = 21,  
+            color = "black", 
+            size = 2) +
+    scale_fill_manual(values = "cyan", name = "Pseudo nests")
+```
+
+\newpage
+
+We can then simulate least-cost paths between our origin (the radar station) and our pseudo nests (Figure 9), while still remaining within the targeted watersheds.
+
+```{r least cost paths, fig.cap = "Least-cost paths between the origin (the radar station) and the 100 simulated pseudo nest sites."}
+# Calculate least-cost paths between origin and the pseudonests
+paths <- movecost::mc_paths(surf, 
+                            origin = origin,
+                            destin = pseudo_nests)
+
+plot(paths)
+```
+
+\newpage
+
+We assume throughout the text that Marbled Murrelets are willing to fly at most 30 km in a straight line to their nests. For lack of better information, we conservatively extend this distance cutoff to meandering, non-linear pathways as well. The assumption is that if a meandering path is longer than 30 km, there is most likely a more efficient route to that nest via a different river mouth entrance. So, to determine which cost cutoff to apply to our cost catchment, we cut down our 100 simulated nest paths only to those that are at most 30 km long. We then extract out the cost value of the longest flight path under 30 km and use this as our cost catchment boundary.
+
+The exception to the 30 km rule is Haida Gwaii. Because much of the archipelago is narrow and has a heavily convoluted fjordic coastline, all the known nest sites located on Haida Gwaii were within 5 km of the ocean. As such, we assumed a much more conservative maximum flight path that Marbled Murrelets were willing to take overland on Haida Gwaii: 15 km, rather than the 30 km cutoff applied to the mainland and to Vancouver Island.
+
+```{r}
+# Extract out maximum cost of longest flight path up to 15/30 km
+max_path <- ifelse(stn$region == "HG", 15000, 30000) # Set max flight path in km - 30 km for mainland/Vancouver Island, 15 km for Haida Gwaii
+max_cost <- paths$paths[paths$paths$length <= units::as_units(max_path, "m"), ] |> 
+  dplyr::pull(cost) |> 
+  max()
+
+print(max_cost)
+```
+
+After arriving at our maximum flight cost cutoff of `r round(max_cost, 0)`, we can apply that cutoff to the cost surface to extract out our cost catchment for the `r site` station.
+
+```{r}
+# Draw cost catchment boundary
+cat <- movecost::mc_boundary(surface = surf, 
+                             origin = origin,
+                             limit = max_cost)
+
+plot(cat)
+```
+
+\newpage
+
+# Putting it all together
+
+Combining all our layers, we can now see that the catchment objectively selects for areas of habitat for us to map Aaltanhash bird counts to, and therefore ultimately derive a murrelet density estimate for Aaltanhash.
+
+```{r final map, echo = FALSE, fig.cap= paste("Final map showing the station, flight headings cone, selected watersheds, and final resulting cost catchment. Within the cost catchment is the habitat area that is selected for the", site, "station. Suitable habitat is colored from light pink (minimal likelihood of nest occurrence) to yellow (maximal likelihood of nest occurrence).")}
+# Prepare our function output
+out <- cat$boundaries
+out$site <- site
+out$region <- stn$region
+
+# Crop out any sea-areas (both for aesthetics and
+# also so sea areas don't get counted within the 
+# catchment areas)
+out <- suppressWarnings(sf::st_intersection(out, w))
+
+# Recalculate area; rearrange cols
+out <- out |>
+  dplyr::rename(max_cost = limit) |>
+  dplyr::mutate(area = sf::st_area(geometry),
+                area_ha = units::set_units(area, "ha")) |>
+  dplyr::select(site, region, max_cost, area_ha, perimeter)
+
+
+final_p <- ggplot() +
+  geom_spatraster_rgb(data = bg_tiles) +
+  geom_spatraster(data = nl,
+                  aes(fill = layer)) +
+  scale_fill_princess_c("aura", 
+                       name = "Nest likelihood", 
+                       limits = c(0,1)) + 
+  ggnewscale::new_scale_fill() +
+  geom_sf(data = watersheds[watersheds$site == site,],
+          aes(color = "Selected watersheds"),
+          fill = NA) +
+  scale_color_manual(values = "red") +
+  ggnewscale::new_scale_color() +
+  geom_sf(data = out,
+          aes(color = "Cost catchment boundary"),
+          fill = NA, 
+          size = 1) +
+  scale_color_manual(values = "black") +
+  geom_sf(data = stn,
+          aes(shape = "Station")) +
+  geom_sf(data = cone,
+          aes(fill = "Flight cone"),
+          color = "orange",
+          alpha = 0.3) +
+  scale_fill_manual(values = "orange") +
+  ggtitle(site) +
+  theme_minimal() +
+  theme(legend.title = element_blank(),
+        legend.spacing.y = unit(-10, "pt"),
+        legend.box.margin = margin(t = 160))
+
+final_p + inset_element(
+   inset, # created in 'watershed selection map' code chunk
+   left = 0.99,   # Left boundary (0 to 1 scale)
+   bottom = 0.5, # Bottom boundary
+   right = 1.5,  # Right boundary
+   top = 1     # Top boundary
+   )
+
+```
+
+```{r misc calcs, include = FALSE}
+# Load up pre-existing calcs
+# Note this won't perfectly line up with the catchment generated in this document
+# bc the 100 nests are randomly generated each time and I didn't set the seed to
+# match each time since it doesn't really matter that much. 
+withr::with_dir(rprojroot::find_root('_targets.R'), tar_load(cc_density)) 
+
+cc_density <- cc_density[cc_density$site == site, ]
+```
+
+Final `r paste(site)` stats:
+
+* Catchment area (ha): `r paste(round(cc_density$area_ha, 0))`
+* Selected habitat (ha): `r paste(round(cc_density$sh_area_ha, 0))`
+* Mean annual maximum count of birds: `r paste(cc_density$bootmean)` 
+* Bird density (birds / ha): `r paste(round(cc_density$density, 3))`
