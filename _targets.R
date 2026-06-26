@@ -465,9 +465,9 @@ list(
   
   # TODO: Sup Mat 1 should be nest likelihood actually
   # Supplementary Material 1 - cost watershed demo
-  tar_render(S1_cost_catchments,
-             "docs/S1 - cost catchments.Rmd",
-             output_file = "docs/S1 - cost catchments.pdf",
+  tar_render(S2_cost_catchments,
+             "docs/S2 - cost catchments.Rmd",
+             output_file = "docs/S2 - cost catchments.pdf",
              params = list(dem = terra::merge(DEM, sea),
                            cones = cones,
                            watersheds = watersheds,

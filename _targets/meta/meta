@@ -160,6 +160,7 @@ density_map|stem|270017b6a5a31560|f00bcc67ef59de11|f0902df80daf551b|115979272||t
 regional_population|stem|bf6b90758b475bdc|3b67ab5814b50f2e|fa1aea666245f126|1975736088||t20629.7744770327s|s942b|942|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||6.47||
 total_population|stem|e72269c649f3ab10|b8ef4ac0b24f7943|6e38cae464531a7e|1690109568||t20629.774522567s|s139b|139|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||3.39||
 bc_density|stem|fc76239679f0e37f|8de4e254587950cb|377240d43c685259|-297569176||t20629.7745309948s|s242b|242|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0||
+S1_cost_catchments|stem|2f90319ab74f062f|dbb58ae8b7030f73|da97de108316cf3d|-1234800535|docs/S1 - cost catchments.pdf*docs/S1 - cost catchments.Rmd|t20629.9407947429s|s3296751b|3296751|file|local|vector|||28.28||
 rasterize_density|function|e34dbbfad12a5274
 circmean|function|7e16d5c55463d304
 lower_whisker|function|1e7a5ba70256e744
@@ -172,7 +173,7 @@ study_bounds|object|29116127e036346a
 get_usa_land|function|219103f4d243e5f1
 query_cded|function|023191af61b761e4
 nest_isoforest|function|cace87dc5e5748f5
-.Random.seed|object|2320b6f2fc70d588
+.Random.seed|object|80d3a86069546713
 plot_headings|function|a14aa7a1e798ef51
 resample_rast|function|98bf9db3764c3019
 reclass_rast|function|e6e9aca4d6b676a0
@@ -212,4 +213,4 @@ select_watersheds|function|c6fdc90a46b55238
 generate_cones|function|5dc8c35ef57bcdb4
 prepare_habitat|function|bc6ed27910a6b157
 calc_polar_mean|function|0c2285819899880b
-S1_cost_catchments|stem|2f90319ab74f062f|dbb58ae8b7030f73|da97de108316cf3d|-1234800535|docs/S1 - cost catchments.pdf*docs/S1 - cost catchments.Rmd|t20629.9407947429s|s3296751b|3296751|file|local|vector|||28.28||
+S2_cost_catchments|stem|40e92c9227fbc7e0|4fe8783056cebf98|da97de108316cf3d|1411114505|docs/S2 - cost catchments.pdf*docs/S2 - cost catchments.Rmd|t20630.734640486s|s3298638b|3298638|file|local|vector|||76.16||
