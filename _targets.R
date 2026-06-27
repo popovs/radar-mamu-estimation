@@ -463,8 +463,11 @@ list(
   
   #### PAPER FIGURES ETC ####
   
-  # TODO: Sup Mat 1 should be nest likelihood actually
-  # Supplementary Material 1 - cost watershed demo
+  # Supplementary Material 1 - nest density layer
+  tar_render(S1_nest_density,
+             "docs/S1 - nest density distribution.Rmd",
+             output_file = "docs/S1 - nest density distribution.pdf"),
+  # Supplementary Material 2 - cost watershed demo
   tar_render(S2_cost_catchments,
              "docs/S2 - cost catchments.Rmd",
              output_file = "docs/S2 - cost catchments.pdf",
@@ -475,5 +478,9 @@ list(
                            nest_likelihood = nest_likelihood,
                            cost_function = cost_function, # defined at top of script in 'static pipeline objects'
                            raw_headings = h_0,
-                           mean_headings = h))
+                           mean_headings = h)),
+  # Supplementary Material 3 - population calculations
+  tar_render(S3_population_calculation,
+             "docs/S3 - population calculation.Rmd",
+             output_file = "docs/S3 - population calculation.pdf")
 ) 

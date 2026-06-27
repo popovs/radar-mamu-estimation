@@ -1,0 +1,94 @@
+---
+title: "Nest Density distribution"
+output: pdf_document
+date: "`r Sys.Date()`"
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      message = FALSE,
+                      warnings = FALSE)
+
+library(targets)
+library(sf)
+
+withr::with_dir(rprojroot::find_root('_targets.R'), tar_load(nests))
+withr::with_dir(rprojroot::find_root('_targets.R'), tar_load(sea_dist))
+withr::with_dir(rprojroot::find_root('_targets.R'), tar_load(suitable_habitat))
+```
+
+# 1. Fit nest distribution curve
+
+With nest distance-from-coast as the data, fit a spatial distribution curve that describes the probability density of finding a nest (Y) versus distance from the coast (X).
+
+```{r cullen and frey, fig.cap = "Skewness-kurtosis plot of nest distances from the shore in km."}
+library(fitdistrplus)
+
+# Find the best distribution
+descdist(nests$nest_dist_km, discrete = FALSE, boot = 1000)
+```
+
+```{r fit gamma distr, fig.cap = "Nest gamma distribution fit diagnostics. The top-left plot shows the empirical distribution of nest data (grey bars) overlaid with the fitted density curve (red line). The x-axis is distance from the coast in km. The remaining plots show model fit diagnostics."}
+# Fit gamma distribution
+fit <- fitdist(nests$nest_dist_km, distr = "gamma", method = "mle")
+
+plot(fit)
+```
+
+
+\newpage
+
+# 2. Spatialize the gamma distribution
+
+Rasterize this curve, such that every pixel of the BC coastline runs from 0 (low/zero probability) to ~1 (high probability) of finding a Marbled Murrelet nest, based on the pixel's distance from the coast. 
+
+```{r load sea dist, fig.cap = "Map with pixels colored by the distance from the coast in km."}
+library(terra)
+
+ifel(sea_dist > 0, sea_dist, NA) |> 
+  plot(main = "Distance from coast (km)") # example coast distance raster
+```
+
+```{r rasterize gamma, fig.cap = "Rasterized gamma curve. Pixels are colored on a scale from 0 to 1, with higher numbers indicating a higher likelihood of nest occurrence. The value of the pixel is determined by the nest gamma distribution (Figure 2), with pixels closer to shore having a higher likelihood of nest occurrence. (Note that pixels immediately next to shore have a lower probability, with the peak in occurrence at around ~3 km from shore.)"}
+# Replace distance from coast with gamma probabilities
+# Derive a table of every distance with the gamma density 
+# function value at each distance
+distances <- terra::values(sea_dist)
+# Predict values at each distance following the fit gamma distr 
+g <- dgamma(distances, 
+            shape = fit$estimate[[1]], 
+            scale =  1 / fit$estimate[[2]])
+# Normalize to 0-1
+p <- g / max(g, na.rm = TRUE)
+
+# Now put the nest probability values into a raster
+p <- terra::rast(vals = p, 
+                 crs = terra::crs(sea_dist), 
+                 terra::ext(sea_dist), 
+                 res = terra::res(sea_dist))
+
+# Cut out ocean bits
+p <- ifel(p == 0, NA, p)
+
+# Plot
+plot(p, main = "Nest probability")
+```
+
+Clip that nest probability raster to only occur within the suitable habitat layer.
+
+```{r, echo = FALSE, fig.cap = "Rasterized gamma curve (Figure 4), clipped to Marbled Murrelet suitable habitat boundaries. This raster represents likelihood of nest occurrence."}
+# Rasterize suitable habitat
+temp <- terra::rast(terra::vect(sf::st_geometry(suitable_habitat)),
+                    res = terra::res(sea_dist))
+habitat <- terra::rasterize(terra::vect(suitable_habitat), temp)
+
+habitat <- terra::resample(habitat, p) # resample `habitat` to be same extent as `p`
+
+# multiply dist from coast nest probability raster * habitat raster
+nest_prob <- habitat * p
+
+plot(nest_prob, main = "Nest probability")
+```
+
