@@ -305,7 +305,7 @@ print(max_cost)
 
 After arriving at our maximum flight cost cutoff of `r round(max_cost, 0)`, we can apply that cutoff to the cost surface to extract out our cost catchment for the `r site` station.
 
-```{r}
+```{r catchment boundary, fig.cap = "Final cost catchment, with the boundary dictated by the flight cost of the longest path up to 30 km in length."}
 # Draw cost catchment boundary
 cat <- movecost::mc_boundary(surface = surf, 
                              origin = origin,

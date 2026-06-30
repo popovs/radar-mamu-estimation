@@ -161,8 +161,9 @@ regional_population|stem|bf6b90758b475bdc|3b67ab5814b50f2e|fa1aea666245f126|1975
 total_population|stem|e72269c649f3ab10|b8ef4ac0b24f7943|6e38cae464531a7e|1690109568||t20629.774522567s|s139b|139|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||3.39||
 bc_density|stem|fc76239679f0e37f|8de4e254587950cb|377240d43c685259|-297569176||t20629.7745309948s|s242b|242|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0||
 S1_cost_catchments|stem|2f90319ab74f062f|dbb58ae8b7030f73|da97de108316cf3d|-1234800535|docs/S1 - cost catchments.pdf*docs/S1 - cost catchments.Rmd|t20629.9407947429s|s3296751b|3296751|file|local|vector|||28.28||
-S2_cost_catchments|stem|40e92c9227fbc7e0|4fe8783056cebf98|da97de108316cf3d|1411114505|docs/S2 - cost catchments.pdf*docs/S2 - cost catchments.Rmd|t20630.734640486s|s3298638b|3298638|file|local|vector|||76.16||
-S1_nest_density|stem|6bae9bbd2eb72079|2e5c0082f17183b2|97f65be502a57b24|302994340|docs/S1 - nest density distribution.pdf*docs/S1 - nest density distribution.Rmd|t20630.9971602591s|s487616b|487616|file|local|vector|||91.33|NaNs produced. NaNs produced|
+S3_population_calculation|stem|5243067107d575ac|6919543032a87f15|53bccb40cd6b1a37|-320422245|docs/S3 - population calculation.pdf*docs/S3 - population calculation.Rmd|t20631.0166374339s|s326009b|326009|file|local|vector|||47.02||
+S2_cost_catchments|stem|e2eedb67ab3f3944|4fe8783056cebf98|da97de108316cf3d|1411114505|docs/S2 - cost catchments.pdf*docs/S2 - cost catchments.Rmd|t20633.875253788s|s3299179b|3299179|file|local|vector|||57.15||
+S1_nest_density|stem|2c1b03e959b69bf7|2e5c0082f17183b2|97f65be502a57b24|302994340|docs/S1 - nest density distribution.pdf*docs/S1 - nest density distribution.Rmd|t20633.9603525652s|s496790b|496790|file|local|vector|||84.06|NaNs produced. NaNs produced|
 rasterize_density|function|e34dbbfad12a5274
 circmean|function|7e16d5c55463d304
 lower_whisker|function|1e7a5ba70256e744
@@ -175,7 +176,7 @@ study_bounds|object|29116127e036346a
 get_usa_land|function|219103f4d243e5f1
 query_cded|function|023191af61b761e4
 nest_isoforest|function|cace87dc5e5748f5
-.Random.seed|object|f7c8e645bec2e95e
+.Random.seed|object|ac3bcc0cb365e76c
 plot_headings|function|a14aa7a1e798ef51
 resample_rast|function|98bf9db3764c3019
 reclass_rast|function|e6e9aca4d6b676a0
@@ -215,4 +216,4 @@ select_watersheds|function|c6fdc90a46b55238
 generate_cones|function|5dc8c35ef57bcdb4
 prepare_habitat|function|bc6ed27910a6b157
 calc_polar_mean|function|0c2285819899880b
-S3_population_calculation|stem|5243067107d575ac|6919543032a87f15|53bccb40cd6b1a37|-320422245|docs/S3 - population calculation.pdf*docs/S3 - population calculation.Rmd|t20631.0166374339s|s326009b|326009|file|local|vector|||47.02||
+s_0|stem|532d49c0efd83822|ef96c56056dddd7d|108ea8c3e382b3c1|-688234261||t20634.0428576133s|s69732b|69732|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||2.47|attribute variables are assumed to be spatially constant throughout all geometries|

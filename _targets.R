@@ -129,6 +129,9 @@ list(
   tar_target(nests_0, prepare_nests(filepath = nests_path,
                                        regions = regions)),
   ###### Radar Surveys ######
+  tar_target(s_0, prepare_surveys(filepath = s_path,
+                                  regions = regions,
+                                  N_years_min = 0)), # data with no sample size cutoff
   tar_target(s, prepare_surveys(filepath = s_path,
                                 regions = regions,
                                 N_years_min = 3)), # minimum sample size (N unique years) cutoff

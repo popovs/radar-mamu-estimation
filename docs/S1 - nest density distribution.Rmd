@@ -21,7 +21,15 @@ withr::with_dir(rprojroot::find_root('_targets.R'), tar_load(suitable_habitat))
 
 # 1. Fit nest distribution curve
 
-With nest distance-from-coast as the data, fit a spatial distribution curve that describes the probability density of finding a nest (Y) versus distance from the coast (X).
+Nest distance-from-the-coast follows a certain distribution where immediately close to shore, density is low; about 5 km from shore, density peaks; and by 30 km from shore, density tapers back to low (Figure 1).
+
+```{r nest histogram, echo = FALSE, fig.cap = "Density of Marbled Murrelet nests relative to straight-line distance from the coast (km)."}
+density(nests$nest_dist_km) |> 
+  plot(main = NA,
+       xlab = "Distance from the coast (km)")
+```
+
+Using the `{fitdistrplus}` package, use a Cullen & Frey diagram to determine what distribution best describes nest distance-from-the-coast distribution (Figure 2). 
 
 ```{r cullen and frey, fig.cap = "Skewness-kurtosis plot of nest distances from the shore in km."}
 library(fitdistrplus)
@@ -29,6 +37,8 @@ library(fitdistrplus)
 # Find the best distribution
 descdist(nests$nest_dist_km, discrete = FALSE, boot = 1000)
 ```
+
+A gamma distribution best fits our count data (beta distributions are only suitable for data bounded from 0-1). Fit a gamma function to our empirical nest data and examine the fit (Figure 3).
 
 ```{r fit gamma distr, fig.cap = "Nest gamma distribution fit diagnostics. The top-left plot shows the empirical distribution of nest data (grey bars) overlaid with the fitted density curve (red line). The x-axis is distance from the coast in km. The remaining plots show model fit diagnostics."}
 # Fit gamma distribution
@@ -42,7 +52,7 @@ plot(fit)
 
 # 2. Spatialize the gamma distribution
 
-Rasterize this curve, such that every pixel of the BC coastline runs from 0 (low/zero probability) to ~1 (high probability) of finding a Marbled Murrelet nest, based on the pixel's distance from the coast. 
+Rasterize and normalize this curve, such that every pixel of the BC coastline runs from 0 (low/zero probability) to ~1 (high probability) of finding a Marbled Murrelet nest, based on the pixel's distance from the coast. 
 
 ```{r load sea dist, fig.cap = "Map with pixels colored by the distance from the coast in km."}
 library(terra)
