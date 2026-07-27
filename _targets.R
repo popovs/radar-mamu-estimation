@@ -361,6 +361,10 @@ list(
                                           habitat = suitable_habitat,
                                           use_probability = TRUE)),
   # Intersect suitable habitat in each region
+  # SUPER IMPORTANT NOTE: This only works later because there are no 
+  # overlapping areas of the regions polygons! So we are not double-counting
+  # any habitat when we sum it up down the line for the BC-wide density
+  # estimate.
   tar_target(reg_habitat, st_habitat_in_sf(sf = regions,
                                            habitat = suitable_habitat,
                                            use_probability = TRUE)),
