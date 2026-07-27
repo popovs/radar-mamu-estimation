@@ -16,7 +16,7 @@
 # 1) Run `renv::restore()` to install all necessary R packages the pipeline
 #     depends on.
 # 2) Load the {targets} library. Run `tar_make()` to run the pipeline.
-#     NOTE the full pipeline takes 5-6 hours to run if running from scratch.
+#     NOTE the full pipeline can take 1-2 hours to run if running from scratch.
 #     You can comment out sections of the pipeline that you are not
 #     interested in recreating if you wish to skip the creation of them,
 #     assuming nothing downstream of the pipeline depends upon it.
