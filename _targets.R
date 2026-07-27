@@ -44,6 +44,7 @@
 library(targets)
 library(tarchetypes) # Needed for `tar_map()`
 library(geotargets) # Needed to save `terra` SpatRaster targets
+library(ggplot2)
 
 # Set target options:
 tar_option_set(
@@ -91,6 +92,12 @@ study_bounds <- sf::st_bbox(c(xmin = 164728, ymin = 333912, xmax = 1387220, ymax
 #   sf::st_crop(study_bounds) |>
 #   terra::vect() # transform to terra SpatVect obj to play better w later terra raster objects
 
+# Function used to define the cost landscape for MAMU to fly through.
+# See ?movecost::mc_cost_functions() for a full list of possible fxns.
+# We are using Eastman's cost function, which expresses cost as a quadratic
+# equation relative to slope. As slope gets steeper, it costs more to 
+# travel over.
+cost_function <- "e"
 
 # API tokens
 # Necessary for plotting fxns
@@ -123,6 +130,9 @@ list(
   tar_target(nests_0, prepare_nests(filepath = nests_path,
                                        regions = regions)),
   ###### Radar Surveys ######
+  tar_target(s_0, prepare_surveys(filepath = s_path,
+                                  regions = regions,
+                                  N_years_min = 0)), # data with no sample size cutoff
   tar_target(s, prepare_surveys(filepath = s_path,
                                 regions = regions,
                                 N_years_min = 3)), # minimum sample size (N unique years) cutoff
@@ -135,6 +145,8 @@ list(
   tar_target(watersheds_0, prepare_watersheds(ws_path, regions)),
   ###### Suitable Habitat ######
   tar_target(suitable_habitat, prepare_habitat(sh_path, regions)),
+  
+  
   
   #### PREPARE DEM ####
   ##### Land area masks #####
@@ -215,11 +227,6 @@ list(
   ##### Sea distance #####
   # Distance from sea, in km
   tar_terra_rast(sea_dist, terra::distance(sea) / 1000),
-  ##### Cost distance #####
-  # Elevation * Distance from coast
-  tar_terra_rast(cost, terra::costDist(terra::merge(DEM, sea), # IMPORTANT! We want to 'allow' MAMU to cross over sea areas when calculating flight costs.
-                                       target = 0) |> 
-                   {\(.) terra::ifel(. > 0, ., NA)}()),
   
   #### EXTRACT NEST VALUES ####
   ##### Elevation, distance from sea, cost #####
@@ -227,189 +234,37 @@ list(
   tar_target(nest_elev_m, terra::extract(DEM, nests_0, ID = FALSE)[[1]]),
   # Distance from sea
   tar_target(nest_dist_km, terra::extract(sea_dist, nests_0, ID = FALSE)[[1]]),
-  # Cost
-  tar_target(nest_cost, terra::extract(cost, nests_0, ID = FALSE)[[1]]),
+
   ##### Merge nest data #####
   # Merge into a single dataset
-  tar_target(nests, cbind(nests_0, nest_elev_m, nest_dist_km, nest_cost)),
+  tar_target(nests, cbind(nests_0, nest_elev_m, nest_dist_km)), # nest_cost)),
+  
+  ##### Nest probability #####
+  # Fit a nest gamma decay function + rasterize it
+  # Certain habitats may meet the criteria for "suitable habitat".
+  # However, while habitat may be suitable for MAMU nesting in terms
+  # of tree species composition, the suitable habitat layers do not
+  # explicitly take into account the fact that ~99% of nests occur
+  # within 30km of the coastline, and, crucially, that the further
+  # from the coast you are, the less likely the nests are likely to
+  # occur. The nest data follow a gamma distribution of likelihood
+  # vs distance from shore. So, fit a gamma distribution to the nest
+  # data, and then map that gamma distribution decay curve to a
+  # raster. Cells <30km from shore will have a higher probability,
+  # closer to 1, while distances >30km will decay down to 0 probability.
+  
+  # TODO: look into if habitat is being parsed the best way. 
+  # When you simply mask the full raster, the results look a bit
+  # different.
+  
+  # `nest_likelihood` has cut out all non-habitat pieces
+  tar_terra_rast(nest_likelihood, nest_gamma_decay(nests = nests,
+                                                   sea_dist = sea_dist,
+                                                   habitat = suitable_habitat)),
+  # `nest_likelihood_full` is primarily for visualization purposes
+  tar_terra_rast(nest_likelihood_full, nest_gamma_decay(nests = nests,
+                                                        sea_dist = sea_dist)),
 
-  #### REGIONAL CUTOFFS ####
-  ##### Elevation cutoffs #####
-  # Extract nest elevations
-  # The exact elevational cutoffs vary by region and are primarily
-  # dictated by the growing conditions of the trees that MAMU
-  # prefer to nest in. Large coniferous trees that can support
-  # MAMU nests can grow in higher elevations at lower latitudes.
-  # Conversely, the further north you go, the lower the maximum
-  # MAMU nesting elevation. The nest data is the main source of
-  # cutoffs. Adding more nest data will trigger a re-run of this
-  # analysis.
-  # Using the nest elevations extracted in the previous section,
-  # calculate and store regional elevation cutoffs in a table
-  tar_group_by(elevation_cutoffs,
-               # OPTION A: 95% QUANTILES
-               # nest_quantiles(nests,
-               #                quant_data = nest_elev_m,
-               #                prefix = "elev_m"),
-               # OPTION B: ISOLATION TREE OUTLIER DETECTION
-               # nest_isoforest(nests,
-               #                quant_data = nest_elev_m,
-               #                prefix = "elev_m"),
-               # OPTION C: NO OUTLIERS REMOVED
-               aggregate(nest_elev_m ~ region, nests, FUN = "max") |>
-                 dplyr::mutate(elev_m_max = ceiling((nest_elev_m) / 100) * 100) |>
-                 tidyr::complete(region) |>
-                 # If no nests present in certain regions, fill in with data from other regions
-                 # If no nests in NC, use the same value as CC
-                 # If no nests in AKB, use the same value as CC
-                 # If no nests in NVI, use mean value of all other VI regions
-                 dplyr::mutate(elev_m_max = dplyr::replace_when(elev_m_max, 
-                                                                region == "NC" & is.na(nest_elev_m) ~ max(elev_m_max[region == "CC"]),
-                                                                region == "AKB" & is.na(nest_elev_m) ~ max(elev_m_max[region == "CC"]),
-                                                                region == "NVI" & is.na(nest_elev_m) ~ mean(elev_m_max[grepl("VI", region)], na.rm = TRUE))) |>
-                 dplyr::mutate(elev_m_min = 0) |>
-                 dplyr::select(region, elev_m_min, elev_m_max),
-               region), # group by region col so targets later knows to run `reclass_elevation()` by row-level grouping
-  
-  ##### Cost cutoffs #####
-  # Next, we calculate the flight cost values of each nest.
-  # Evidence shows that MAMU take the least-cost flight paths to
-  # their nests; that is, they tend to fly along valley contours
-  # rather than straight across ridges (even if the ridges are
-  # below their nest cutoff elevations). Here we will calculate a
-  # raster of the flight cost (elevation * distance from coast)
-  # to generate a landscape where birds are more or less likely to
-  # nest. This will be used to: 1) delineate the nesting catchment
-  # boundaries later and 2) eliminate "high cost" nesting areas
-  # that may still be included within the elevation cutoff and
-  # coast distance rasters.
-  # Using the nest elevations extracted in the previous section,
-  # calculate and store regional cost cutoffs in a table
-  tar_group_by(cost_cutoffs,
-               # OPTION A: 95% QUANTILES
-               # nest_quantiles(nests,
-               #                quant_data = nest_cost,
-               #                prefix = "cost"),
-               # OPTION B: MAX VALUE AFTER GLOBAL OUTLIERS REMOVED
-               # A few outliers really skew the quantiles. Instead,
-               # grab the simple min/max of each region once outliers
-               # are removed. Outliers are define w a simple boxplot
-               # whisker - if they are outside the 1.5*IQR range, it's
-               # an outlier.
-               # nest_minmax_sans_outliers(nests,
-               #                           quant_data = nest_cost,
-               #                           prefix = "cost"),
-               # OPTION C: REGIONAL IQR AFTER GLOBAL OUTLIERS REMOVED
-               # nest_iqr_sans_outliers(nests = nests,
-               #                        quant_data = nest_cost,
-               #                        prefix = "cost",
-               #                        hg_exception = TRUE),
-               # OPTION D: ISOLATION TREE OUTLIER DETECTION
-               # nest_isoforest(nests = nests,
-               #                quant_data = nest_cost,
-               #                prefix = "cost"),
-               # OPTION X: NO OUTLIERS REMOVED
-               aggregate(nest_cost ~ region, nests, FUN = "max") |>
-                 dplyr::mutate(cost_max = ceiling((nest_cost) / 100) * 100) |>
-                 tidyr::complete(region) |>
-                 # If no nests present in certain regions, fill in with data from other regions
-                 # If no nests in NC, use the same value as CC
-                 # If no nests in AKB, use the same value as CC
-                 # If no nests in NVI, use mean value of all other VI regions
-                 dplyr::mutate(cost_max = dplyr::replace_when(cost_max, 
-                                                              region == "NC" & is.na(nest_cost) ~ max(cost_max[region == "CC"]),
-                                                              region == "AKB" & is.na(nest_cost) ~ max(cost_max[region == "CC"]),
-                                                              region == "NVI" & is.na(nest_cost) ~ mean(cost_max[grepl("VI", region)], na.rm = TRUE))) |>
-                 #dplyr::mutate(cost_max = cost_max / 1000 / 1000) |> # Re-express cost in km^2 rather than m^2
-                 dplyr::mutate(cost_min = 0) |>
-                 dplyr::select(region, cost_min, cost_max),
-               region),
-  
-  #### ITERATE OVER REGIONAL CUTOFFS ####
-  # For each region, iterate the following:
-  # 1. Chop up the raster into regions
-  # 2. Apply elevation cutoffs to each regional raster
-  # 3. Merge into single raster
-
-  ##### Regional elevation cutoffs #####
-  # Chop up DEM
-  tar_terra_rast(regional_DEM, 
-                 crop_rast(rast = DEM,
-                           region_name = regions_region,
-                           regions = regions),
-                 pattern = map(regions_region)),
-  # Apply elevation cutoffs to each regional DEM
-  tar_terra_rast(regional_elev_cutoffs,
-                 reclass_rast(rast = regional_DEM,
-                              region_name = regions_region,
-                              cutoffs = elevation_cutoffs,
-                              min_col = "elev_m_min",
-                              max_col = "elev_m_max"),
-                 pattern = map(regional_DEM, regions_region)),
-  # Merge
-  # `elev` for 'elevation cutoffs'
-  tar_terra_rast(elev, regional_elev_cutoffs |>
-                   terra::sprc() |>
-                   terra::mosaic() |>
-                   terra::resample(DEM)), # resample to same size/resolution as base DEM
-  
-  ##### Regional cost cutoffs #####
-  # Chop up cost raster
-  tar_terra_rast(regional_cost,
-                 crop_rast(rast = cost,
-                           region_name = regions_region,
-                           regions = regions),
-                 pattern = map(regions_region)),
-  # Apply cost cutoffs to each regional cost raster
-  tar_terra_rast(regional_cost_cutoffs,
-                 reclass_rast(rast = regional_cost,
-                              region_name = regions_region,
-                              cutoffs = cost_cutoffs,
-                              min_col = "cost_min",
-                              max_col = "cost_max"),
-                 pattern = map(regional_cost, regions_region)),
-  # Merge
-  # `cc` for 'cost cutoffs'
-  tar_terra_rast(cc, regional_cost_cutoffs |>
-                   terra::sprc() |>
-                   terra::mosaic() |>
-                   terra::resample(DEM)), # resample to same size/resolution as base DEM
-  
-  ##### Coast distance cutoff #####
-  # Next we will create a separate raster of all points with
-  # 30 km distance from the coast, as BC nest survey data
-  # indicates that 99% of MAMU nests are within 30 km of the
-  # coastline. We are going to assume a straight-line 30 km
-  # distance from the shore, ignoring any barriers.
-  # This won't have any regional variation aside from
-  # Vancouver Island - we are going to assume that all of the
-  # island is regularly accessed for nests by MAMU.
-  # `c30km` for 'cutoff - 30km' 
-  tar_terra_rast(c30km, sea_dist |>
-                   terra::crop(regions[grepl("VI", regions$region), ],
-                               mask = TRUE) |>
-                   {\(.) terra::ifel(. > 0, 1, NA)}() |>
-                   terra::merge(sea_dist, first = TRUE) |>
-                   {\(.) terra::ifel(. > 0, ., NA)}() |>
-                   {\(.) terra::ifel(. <= 30, 1, NA)}()),
-  
-  #### MAMU ACCESSIBLE ZONE (MAZ) ####
-  # Finally, merge the cutoff rasters together to create a
-  # "MAMU containment zone" area that meets minimum threshold criteria
-  # for spatially delineating MAMU nesting habitat survey catchments.
-  # All the raster prep functions above set the resolution to match
-  # `res` and the extent to match `DEM`. Therefore we can safely
-  # layer all our raster layers.
-  # Create MAMU Accessible Zone (MAZ)
-  # 'MAMU accessible', i.e. it's below elevation cutoff,
-  # within 30km of ocean, and within cost distance. Does not
-  # necessarily imply it's all suitable nesting habitat; rather,
-  # this area is assumed to encompass most of the suitable
-  # nesting habitat within each region. Finally, we assume that
-  # any sea areas are accessible as well.
-  tar_terra_rast(maz, terra::cover(((elev > 0 ) * (cc > 0) * (c30km > 0)), # Anything accessible was stored as either '1' or '2' in each raster layer.
-                                   sea + 1)), # and then we add the sea (+1, because it's all stored as 0 or NA)
-  
   #### GENERATE RADAR CONES ####
   # Here, radar survey 'catchments' containing marbled murrelet
   # nesting habitat will be generated, using a few basic
@@ -435,6 +290,7 @@ list(
   # as they head inland, with some variation. Calculate the 
   # polar mean flight heading with 95% bootstrapped confidence
   # intervals about the mean.
+  # TODO: clean up comments/fxns
   # OLD METHOD:
   # tar_target(h, calc_polar_mean(headings = h_0, n_reps = 1000, alpha = 0.05)),
   # NEW METHOD (using CircStats pkg):
@@ -480,47 +336,23 @@ list(
                                            stn = stn,
                                            headings = h_0,
                                            h = h)),
-  ##### Watershed flight cost #####
-  # Calculate how much it costs to fly within the selected watersheds
-  tar_target(full_cc, watershed_cost(watersheds = watersheds,
-                                     dem = terra::merge(DEM, sea), # IMPORTANT! We want to 'allow' MAMU to cross over sea areas when calculating flight costs.
-                                     cones = cones,
-                                     stn = stn,
-                                     cost = cost,
-                                     output_plots = save_plots, # defined at the top of script
-                                     cost_cutoffs = cost_cutoffs,
-                                     output_dir = "temp/cost_inspection",
-                                     headings = h_0,
-                                     h = h,
-                                     nests = nests)),
-  ##### Crop catchments #####
-  # Cut out pieces behind heading
-  # Birds aren't flying backwards from radar station
-  tar_target(cropped_cc, directionality_crop(cost_catchments = full_cc,
-                                             stn = stn,
-                                             h = h,
-                                             watersheds = watersheds,
-                                             cones = cones,
-                                             res = res)),
-  ##### Intersect with MAZ #####
-  # Intersect with MAMU-accessible areas
-  tar_target(final_cc, access_catchments(cost_catchments = cropped_cc,
-                                         maz = maz,
-                                         stn = stn,
-                                         cones = cones,
-                                         sea = sea, # IMPORTANT! We want to 'allow' MAMU to cross over sea areas when calculating flight costs. 
-                                         raster_stats = TRUE,
-                                         cost = cost,
-                                         output_plots = save_plots, # defined at top of script
-                                         output_dir = "temp/final_catchment_inspection",
-                                         headings = h_0,
-                                         h = h,
-                                         watersheds = watersheds,
-                                         nests = nests)),
-  tar_target(cc_gpkg,
-             save_sf(sf = final_cc, output_path = "temp/QGIS temp/radar_derived_catchments.gpkg"),
-             format = "file"),
   
+  ##### Cost catchments #####
+  tar_target(cost_catchments, lapply(unique(h$site),
+                                     st_cost_catchment, # our function that defines cost catchments for one site
+                                     cost_function = cost_function, # defined at top of script in 'static pipeline objects'
+                                     watersheds = watersheds, 
+                                     dem = terra::merge(DEM, sea), 
+                                     cones = cones, 
+                                     stn = stn, 
+                                     nest_likelihood = nest_likelihood) |>
+               dplyr::bind_rows()),
+  
+  # Save gpkg
+  tar_target(cc_gpkg,
+             save_sf(sf = cost_catchments, output_path = "temp/QGIS temp/radar_derived_catchments.gpkg"),
+             format = "file"),
+
   #### CATCHMENTS X HABITAT ####
   # Intersect suitable habitat in each catchment
   # TODO: dplyr warning:
@@ -530,7 +362,7 @@ list(
   # ℹ Use `summarise(.groups = "drop_last")` to silence this message.
   # ℹ Use `summarise(.by = c(site, area_ha, region, loc, mean_cost))` for
   # per-operation grouping (`?dplyr::dplyr_by`) instead.
-  tar_target(cc_habitat, st_habitat_in_sf(sf = final_cc,
+  tar_target(cc_habitat, st_habitat_in_sf(sf = cost_catchments,
                                           habitat = suitable_habitat,
                                           use_probability = TRUE)),
   # Intersect suitable habitat in each region
@@ -544,12 +376,13 @@ list(
                                            habitat = suitable_habitat,
                                            use_probability = TRUE)),
   # Final visualization
+  # TODO: rm viz scripts
   # tar_render(final_visualization,
   #            path = "Rmd/catchments_visualization.Rmd",
   #            output_file = "catchments_visualization.pdf",
   #            #error = "null",
   #            quiet = TRUE,
-  #            params = list(catchments = final_cc,
+  #            params = list(catchments = cost_catchments,
   #                          watersheds = watersheds_raw,
   #                          suitable_habitat = suitable_habitat,
   #                          cones = cones,
@@ -568,12 +401,18 @@ list(
                                 N = dplyr::n())),
   # Calculate bootstrapped mean annual maximum per catchment
   # (across all years)
-  tar_target(mean_max_mamu_cc, bootmean(annual_max_mamu,
-                                        group_by = "site",
-                                        dat_col = "max_mamu",
-                                        CI_level = 0.95) |>
+  # All data summary: for every dataset in `s`, including
+  # those that don't have radar headings data
+  tar_target(mean_max_mamu_all, bootmean(annual_max_mamu,
+                                         group_by = "site",
+                                         dat_col = "max_mamu",
+                                         CI_level = 0.95) |>
                dplyr::mutate(dplyr::across(c(bootmean, boot_min, boot_max),
                                            round))),
+  # Cost Catchments data summary: filtered down to only those that
+  # can be matched to a radar catchment
+  tar_target(mean_max_mamu_cc, mean_max_mamu_all |>
+               dplyr::filter(site %in% h$site)), # filter it to our sites that made the site + headings ss cutoff
   # Regional mean annual maximum per catchment
   # (across all years) for paper table purposes
   tar_target(mean_max_mamu_reg, bootmean(annual_max_mamu,
@@ -610,26 +449,7 @@ list(
                dplyr::mutate(density = bootmean / sh_area_ha,
                              density_lwr = boot_min / sh_area_ha,
                              density_upr = boot_max / sh_area_ha)),
-  ##### Nest probability #####
-  # Fit a nest gamma decay function + rasterize it
-  # Certain habitats may meet the criteria for "suitable habitat".
-  # However, while habitat may be suitable for MAMU nesting in terms
-  # of tree species composition, the suitable habitat layers do not
-  # explicitly take into account the fact that ~99% of nests occur
-  # within 30km of the coastline, and, crucially, that the further
-  # from the coast you are, the less likely the nests are likely to
-  # occur. The nest data follow a gamma distribution of likelihood
-  # vs distance from shore. So, fit a gamma distribution to the nest
-  # data, and then map that gamma distribution decay curve to a
-  # raster. Cells <30km from shore will have a higher probability,
-  # closer to 1, while distances >30km will decay down to 0 probability.
-  # `nest_likelihood` has cut out all non-habitat pieces
-  tar_terra_rast(nest_likelihood, nest_gamma_decay(nests = nests,
-                                                   sea_dist = sea_dist,
-                                                   habitat = suitable_habitat)),
-  # `nest_likelihood_full` is primarily for visualization purposes
-  tar_terra_rast(nest_likelihood_full, nest_gamma_decay(nests = nests,
-                                                        sea_dist = sea_dist)),
+
   # Rasterize the regional mean density
   # Apply the nest probability decay function to regional densities
   # Now, apply that gamma decay function to the density layer such
@@ -639,7 +459,7 @@ list(
   tar_terra_rast(density_map, extrapolate_density(regions,
                                                   reg_density,
                                                   nest_likelihood)),
-  
+
   #### POPULATION CALCS ####
   # Calculate MAMU population!
   tar_target(regional_population, calculate_population(density_map,
@@ -648,6 +468,40 @@ list(
                dplyr::arrange(region)),
   tar_target(total_population, calculate_population(density_map)),
   tar_target(total_density, colSums(cc_density[,c("bootmean", "boot_min", "boot_max")], na.rm = TRUE) / sum(cc_density$sh_area_ha)),
-  tar_target(bc_density, total_population / total_suit_hab_area_ha)
+  tar_target(bc_density, total_population / total_suit_hab_area_ha),
   
+  #### PAPER FIGURES ETC ####
+  
+  # Coast distance density plot
+  tar_target(nest_density_plot, ggplot(nests, aes(x = nest_dist_km)) +
+               geom_density() + 
+               labs(x = "Distance from the coast (km)",
+                    y = "Nest density") +
+               theme_minimal()),
+  
+  # Supplementary Table 1 - survey summary
+  tar_render(ST1_survey_summary,
+             "docs/Table S1 - survey data summary.Rmd",
+             output_file = "docs/Table S1 - survey data summary.pdf"),
+  
+  # Supplementary Material 1 - nest density layer
+  tar_render(S1_nest_density,
+             "docs/S1 - nest density distribution.Rmd",
+             output_file = "docs/S1 - nest density distribution.pdf"),
+  # Supplementary Material 2 - cost watershed demo
+  tar_render(S2_cost_catchments,
+             "docs/S2 - cost catchments.Rmd",
+             output_file = "docs/S2 - cost catchments.pdf",
+             params = list(dem = terra::merge(DEM, sea),
+                           cones = cones,
+                           watersheds = watersheds,
+                           stn = stn,
+                           nest_likelihood = nest_likelihood,
+                           cost_function = cost_function, # defined at top of script in 'static pipeline objects'
+                           raw_headings = h_0,
+                           mean_headings = h)),
+  # Supplementary Material 3 - population calculations
+  tar_render(S3_population_calculation,
+             "docs/S3 - population calculation.Rmd",
+             output_file = "docs/S3 - population calculation.pdf")
 ) 

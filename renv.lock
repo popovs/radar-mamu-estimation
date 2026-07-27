@@ -2216,6 +2216,42 @@
       "Maintainer": "Aurélie Siberchicot <aurelie.siberchicot@univ-lyon1.fr>",
       "Repository": "CRAN"
     },
+    "flowdem": {
+      "Package": "flowdem",
+      "Version": "0.2",
+      "Source": "GitHub",
+      "Type": "Package",
+      "Title": "Flow routing on digital elevation models",
+      "Date": "2023-01-12",
+      "Author": "Kenneth Thorø Martinsen",
+      "Maintainer": "Kenneth Thorø Martinsen <kenneth2810@gmail.com>",
+      "Description": "Contains algorithms and functions involved in flow routing on digital elevation models.",
+      "License": "MIT",
+      "Encoding": "UTF-8",
+      "Imports": [
+        "Rcpp (>= 1.0.6)",
+        "terra"
+      ],
+      "LinkingTo": [
+        "Rcpp"
+      ],
+      "RoxygenNote": "7.3.0",
+      "Suggests": [
+        "testthat (>= 3.0.0)",
+        "sf"
+      ],
+      "Config/testthat/edition": "3",
+      "Depends": [
+        "R (>= 2.10)"
+      ],
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteRepo": "flowdem",
+      "RemoteUsername": "KennethTM",
+      "RemoteRef": "HEAD",
+      "RemoteSha": "98cdb201e98bf4692bfa7f6d69e2bcae29590047",
+      "NeedsCompilation": "yes"
+    },
     "fontawesome": {
       "Package": "fontawesome",
       "Version": "0.5.3",
@@ -2465,6 +2501,44 @@
       "Config/testthat/edition": "3",
       "Author": "Chris Toney [aut, cre] (R interface/additional functionality), Michael D. Sumner [ctb], Frank Warmerdam [ctb, cph] (GDAL API documentation; src/progress_r.cpp from gdal/port/cpl_progress.cpp), Even Rouault [ctb, cph] (GDAL API documentation), Marius Appel [ctb, cph] (configure.ac based on https://github.com/appelmar/gdalcubes), Daniel James [ctb, cph] (Boost combine hashes method in src/cmb_table.h), Peter Dimov [ctb, cph] (Boost combine hashes method in src/cmb_table.h)",
       "Maintainer": "Chris Toney <jctoney@gmail.com>",
+      "Repository": "CRAN"
+    },
+    "gdistance": {
+      "Package": "gdistance",
+      "Version": "1.6.5",
+      "Source": "Repository",
+      "Type": "Package",
+      "Title": "Distances and Routes on Geographical Grids",
+      "Authors@R": "c( person(\"Jacob\", \"van Etten\", role = c(\"aut\"), comment = c(ORCID = \"0000-0001-7554-2558\")), person(\"Kauê\", \"de Sousa\", role = c(\"ctb\"), comment = c(ORCID = \"0000-0002-7571-7845\")), person(\"Andrew\", \"Marx\", role = c(\"cre\", \"ctb\"), email = \"ajm.rpackages@gmail.com\", comment = c(ORCID = \"0000-0002-7456-1631\")))",
+      "URL": "https://AgrDataSci.github.io/gdistance/",
+      "BugReports": "https://github.com/AgrDataSci/gdistance/issues",
+      "Description": "Provides classes and functions to calculate various  distance measures and routes in heterogeneous geographic  spaces represented as grids. The package implements measures to model dispersal histories first presented by van Etten and Hijmans (2010) <doi:10.1371/journal.pone.0012060>. Least-cost distances as well as more complex distances based on (constrained) random walks can be calculated. The distances implemented in  the package are used in geographical genetics, accessibility  indicators, and may also have applications in other fields of geospatial analysis.",
+      "License": "GPL (>= 2)",
+      "Encoding": "UTF-8",
+      "LazyData": "true",
+      "Depends": [
+        "R (>= 3.2.0)",
+        "raster (>= 1.9-19)",
+        "methods",
+        "igraph (>= 0.7.0)",
+        "Matrix"
+      ],
+      "Imports": [
+        "sp",
+        "stats",
+        "terra"
+      ],
+      "Suggests": [
+        "knitr",
+        "markdown",
+        "rmarkdown",
+        "testthat (>= 2.1.0)"
+      ],
+      "RoxygenNote": "7.3.2",
+      "VignetteBuilder": "knitr",
+      "NeedsCompilation": "no",
+      "Author": "Jacob van Etten [aut] (ORCID: <https://orcid.org/0000-0001-7554-2558>), Kauê de Sousa [ctb] (ORCID: <https://orcid.org/0000-0002-7571-7845>), Andrew Marx [cre, ctb] (ORCID: <https://orcid.org/0000-0002-7456-1631>)",
+      "Maintainer": "Andrew Marx <ajm.rpackages@gmail.com>",
       "Repository": "CRAN"
     },
     "generics": {
@@ -3415,6 +3489,50 @@
       "Encoding": "UTF-8",
       "NeedsCompilation": "yes",
       "Author": "Jeroen Ooms [aut, cre] (<https://orcid.org/0000-0002-4035-0289>), Duncan Temple Lang [ctb], Lloyd Hilaiel [cph] (author of bundled libyajl)",
+      "Repository": "CRAN"
+    },
+    "khroma": {
+      "Package": "khroma",
+      "Version": "1.17.0",
+      "Source": "Repository",
+      "Title": "Colour Schemes for Scientific Data Visualization",
+      "Authors@R": "c( person(\"Nicolas\", \"Frerebeau\", , \"nicolas.frerebeau@u-bordeaux-montaigne.fr\", role = c(\"aut\", \"cre\"), comment = c(ORCID = \"0000-0001-5759-4944\")), person(\"Brice\", \"Lebrun\", role = \"art\", comment = c(ORCID = \"0000-0001-7503-8685\", \"Logo designer\")), person(\"Vincent\", \"Arel-Bundock\", , \"vincent.arel-bundock@umontreal.ca\", role = \"ctb\", comment = c(ORCID = \"0000-0003-2042-7063\")), person(\"Ulrik\", \"Stervbo\", , \"ulrik.stervbo@gmail.com\", role = \"ctb\", comment = c(ORCID = \"0000-0002-2831-8868\")), person(\"Université Bordeaux Montaigne\", role = \"fnd\", comment = c(ROR = \"03pbgwk21\")), person(\"CNRS\", role = \"fnd\", comment = c(ROR = \"02feahw73\")) )",
+      "Description": "Color schemes ready for each type of data (qualitative, diverging or sequential), with colors that are distinct for all people, including color-blind readers. This package provides an implementation of Paul Tol (2018) and Fabio Crameri (2018) <doi:10.5194/gmd-11-2541-2018> color schemes for use with 'graphics' or 'ggplot2'. It provides tools to simulate color-blindness and to test how well the colors of any palette are identifiable. Several scientific thematic schemes (geologic timescale, land cover, FAO soils, etc.) are also implemented.",
+      "License": "GPL (>= 3)",
+      "URL": "https://codeberg.org/tesselle/khroma, https://packages.tesselle.org/khroma/, https://tesselle.r-universe.dev/khroma",
+      "BugReports": "https://codeberg.org/tesselle/khroma/issues",
+      "Depends": [
+        "R (>= 3.5.0)"
+      ],
+      "Imports": [
+        "graphics",
+        "grDevices",
+        "grid",
+        "stats",
+        "utils"
+      ],
+      "Suggests": [
+        "fontquiver",
+        "ggplot2",
+        "ggraph",
+        "knitr",
+        "markdown",
+        "rsvg",
+        "scales",
+        "spacesXYZ",
+        "svglite",
+        "tinysnapshot (>= 0.2.0)",
+        "tinytest"
+      ],
+      "VignetteBuilder": "knitr",
+      "Encoding": "UTF-8",
+      "RoxygenNote": "7.3.3",
+      "X-schema.org-isPartOf": "https://www.tesselle.org",
+      "X-schema.org-keywords": "data-visualization, colour-schemes, accessibility, r-package",
+      "Collate": "'change.R' 'color.R' 'compare.R' 'info.R' 'khroma-defunct.R' 'khroma-deprecated.R' 'khroma-internal.R' 'khroma-package.R' 'palettes.R' 'plot.R' 'plot_map.R' 'plot_scheme.R' 'plot_scheme_colorblind.R' 'plot_tiles.R' 'print.R' 'scale_colour_crameri.R' 'scale_colour_okabeito.R' 'scale_colour_picker.R' 'scale_colour_science.R' 'scale_colour_tol.R'",
+      "NeedsCompilation": "no",
+      "Author": "Nicolas Frerebeau [aut, cre] (ORCID: <https://orcid.org/0000-0001-5759-4944>), Brice Lebrun [art] (ORCID: <https://orcid.org/0000-0001-7503-8685>, Logo designer), Vincent Arel-Bundock [ctb] (ORCID: <https://orcid.org/0000-0003-2042-7063>), Ulrik Stervbo [ctb] (ORCID: <https://orcid.org/0000-0002-2831-8868>), Université Bordeaux Montaigne [fnd] (ROR: <https://ror.org/03pbgwk21>), CNRS [fnd] (ROR: <https://ror.org/02feahw73>)",
+      "Maintainer": "Nicolas Frerebeau <nicolas.frerebeau@u-bordeaux-montaigne.fr>",
       "Repository": "CRAN"
     },
     "knitr": {
@@ -6248,11 +6366,11 @@
     },
     "terra": {
       "Package": "terra",
-      "Version": "1.8-93",
+      "Version": "1.9-11",
       "Source": "Repository",
       "Type": "Package",
       "Title": "Spatial Data Analysis",
-      "Date": "2026-01-11",
+      "Date": "2026-03-25",
       "Depends": [
         "R (>= 3.5.0)",
         "methods"
@@ -6282,9 +6400,9 @@
       "URL": "https://rspatial.org/, https://rspatial.github.io/terra/",
       "BugReports": "https://github.com/rspatial/terra/issues",
       "LazyLoad": "yes",
-      "Authors@R": "c( person(\"Robert J.\", \"Hijmans\", role=c(\"cre\", \"aut\"),   email=\"r.hijmans@gmail.com\", comment=c(ORCID=\"0000-0001-5872-2872\")),\t\t\t person(\"Márcia\", \"Barbosa\", role=\"ctb\", comment=c(ORCID=\"0000-0001-8972-7713\")), person(\"Roger\", \"Bivand\", role=\"ctb\", comment=c(ORCID=\"0000-0003-2392-6140\")), person(\"Andrew\", \"Brown\", role=\"ctb\", comment=c(ORCID=\"0000-0002-4565-533X\")), person(\"Michael\", \"Chirico\", role=\"ctb\", comment=c(ORCID=\"0000-0003-0787-087X\")), person(\"Emanuele\", \"Cordano\", role=\"ctb\",comment=c(ORCID=\"0000-0002-3508-5898\")), person(\"Krzysztof\", \"Dyba\", role=\"ctb\", comment=c(ORCID=\"0000-0002-8614-3816\")), person(\"Edzer\", \"Pebesma\", role=\"ctb\", comment=c(ORCID=\"0000-0001-8049-7069\")), person(\"Barry\", \"Rowlingson\", role=\"ctb\", comment=c(ORCID=\"0000-0002-8586-6625\")), person(\"Michael D.\", \"Sumner\", role=\"ctb\", comment=c(ORCID=\"0000-0002-2471-7511\")))",
+      "Authors@R": "c( person(\"Robert J.\", \"Hijmans\", role=c(\"cre\", \"aut\"),   email=\"r.hijmans@gmail.com\", comment=c(ORCID=\"0000-0001-5872-2872\")),\t\t\t person(\"Andrew\", \"Brown\", role=\"aut\", comment=c(ORCID=\"0000-0002-4565-533X\")), person(\"Márcia\", \"Barbosa\", role=\"aut\", comment=c(ORCID=\"0000-0001-8972-7713\")), person(\"Roger\", \"Bivand\", role=\"ctb\", comment=c(ORCID=\"0000-0003-2392-6140\")), person(\"Michael\", \"Chirico\", role=\"ctb\", comment=c(ORCID=\"0000-0003-0787-087X\")), person(\"Emanuele\", \"Cordano\", role=\"ctb\",comment=c(ORCID=\"0000-0002-3508-5898\")), person(\"Krzysztof\", \"Dyba\", role=\"ctb\", comment=c(ORCID=\"0000-0002-8614-3816\")), person(\"Edzer\", \"Pebesma\", role=\"ctb\", comment=c(ORCID=\"0000-0001-8049-7069\")), person(\"Barry\", \"Rowlingson\", role=\"ctb\", comment=c(ORCID=\"0000-0002-8586-6625\")), person(\"Michael D.\", \"Sumner\", role=\"ctb\", comment=c(ORCID=\"0000-0002-2471-7511\")))",
       "NeedsCompilation": "yes",
-      "Author": "Robert J. Hijmans [cre, aut] (ORCID: <https://orcid.org/0000-0001-5872-2872>), Márcia Barbosa [ctb] (ORCID: <https://orcid.org/0000-0001-8972-7713>), Roger Bivand [ctb] (ORCID: <https://orcid.org/0000-0003-2392-6140>), Andrew Brown [ctb] (ORCID: <https://orcid.org/0000-0002-4565-533X>), Michael Chirico [ctb] (ORCID: <https://orcid.org/0000-0003-0787-087X>), Emanuele Cordano [ctb] (ORCID: <https://orcid.org/0000-0002-3508-5898>), Krzysztof Dyba [ctb] (ORCID: <https://orcid.org/0000-0002-8614-3816>), Edzer Pebesma [ctb] (ORCID: <https://orcid.org/0000-0001-8049-7069>), Barry Rowlingson [ctb] (ORCID: <https://orcid.org/0000-0002-8586-6625>), Michael D. Sumner [ctb] (ORCID: <https://orcid.org/0000-0002-2471-7511>)",
+      "Author": "Robert J. Hijmans [cre, aut] (ORCID: <https://orcid.org/0000-0001-5872-2872>), Andrew Brown [aut] (ORCID: <https://orcid.org/0000-0002-4565-533X>), Márcia Barbosa [aut] (ORCID: <https://orcid.org/0000-0001-8972-7713>), Roger Bivand [ctb] (ORCID: <https://orcid.org/0000-0003-2392-6140>), Michael Chirico [ctb] (ORCID: <https://orcid.org/0000-0003-0787-087X>), Emanuele Cordano [ctb] (ORCID: <https://orcid.org/0000-0002-3508-5898>), Krzysztof Dyba [ctb] (ORCID: <https://orcid.org/0000-0002-8614-3816>), Edzer Pebesma [ctb] (ORCID: <https://orcid.org/0000-0001-8049-7069>), Barry Rowlingson [ctb] (ORCID: <https://orcid.org/0000-0002-8586-6625>), Michael D. Sumner [ctb] (ORCID: <https://orcid.org/0000-0002-2471-7511>)",
       "Repository": "CRAN"
     },
     "tibble": {
