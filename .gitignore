@@ -57,6 +57,7 @@ temp*
 *.qgz
 *.tiff
 *~*
+figs*
 
 # Large GIS files, except regions
 GIS/*

@@ -446,14 +446,9 @@ list(
   tar_target(total_density, colSums(cc_density[,c("bootmean", "boot_min", "boot_max")], na.rm = TRUE) / sum(cc_density$sh_area_ha)),
   tar_target(bc_density, total_population / total_suit_hab_area_ha),
   
-  #### PAPER FIGURES ETC ####
+  #### SUPPLEMENTARY MATERIAL ####
   
-  # Coast distance density plot
-  tar_target(nest_density_plot, ggplot(nests, aes(x = nest_dist_km)) +
-               geom_density() + 
-               labs(x = "Distance from the coast (km)",
-                    y = "Nest density") +
-               theme_minimal()),
+  # Note paper figures are all created within docs/figures.R.
   
   # Supplementary Table 1 - survey summary
   tar_render(ST1_survey_summary,
