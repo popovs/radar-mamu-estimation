@@ -88,11 +88,27 @@ cost_function <- "e"
 
 # API tokens
 # Necessary for plotting fxns
-source("temp/apikey.R")
+#source("temp/apikey.R")
 
 # SAVE PLOTS? Yes or no
 save_plots <- FALSE
 
+# DOWNLOAD MISSING FILES
+
+# Nest data are classified aside from what has already been released
+# by the Conservation Data Centre onto the BC Data Catalogue. For the
+# purposes of testing this script, download the publicly available
+# dataset if you do not have access to the full nest dataset. 
+nest_download_yn <- !("MAMU_Nests_BC_CDC.gpkg" %in% list.files("GIS")) # check if the file exists already
+# Download publicly available CDC nest data if file not found
+if (nest_download_yn) {
+  dat <- bcdc_query_geodata("https://catalogue.data.gov.bc.ca/dataset/species-and-ecosystems-at-risk-publicly-available-occurrences-cdc") |>
+    dplyr::filter(ENG_NAME == "Marbled Murrelet") |>
+    collect()
+  sf::write_sf(dat, "GIS/MAMU_Nests_BC_CDC.gpkg")
+}
+
+# TODO: add download to MAMU suitable habitat polygons
 
 # PIPELINE ----------------------------------------------------------------
 

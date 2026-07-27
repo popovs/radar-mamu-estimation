@@ -17,6 +17,8 @@ prepare_regions <- function(filepath) {
 # This version doesn't have the uncertainty col
 prepare_nests <- function(filepath, regions = regions) {
   nests <- sf::st_read(filepath)
+  # If note point geoms already, extract point
+  nests <- sf::st_centroid(nests)
   # Intersect to get region the nest falls within,
   # then condense repeat visits to a nest into one geometry record
   nests <- nests |> 
