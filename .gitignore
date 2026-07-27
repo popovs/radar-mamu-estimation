@@ -65,6 +65,9 @@ GIS/*
 !GIS/DEM/Alaska_DEM.tiff
 !GIS/*.txt
 
+# Keep .gitkeep files to commit empty directories
+!**.gitkeep
+
 # Large PDF
 Rmd/catchments_visualization.pdf
 .positai
