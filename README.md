@@ -46,3 +46,7 @@ This folder contains all R functions that the targets pipeline calls.
 ### docs
 
 This folder contains R Markdown scripts that generate the Supplemental Material documents to accompany the publication.
+
+## System Requirements
+
+The analysis pipeline requires up to **10 GB** of free space on your machine. This is due to the large file sizes of the DEM rasters and suitable habitat and watershed polygons. To fully clean this project off your machine, in addition to deleting your local copy of this repositry, be sure to *uninstall the bcdata package*, in order to remove the large BC DEM raster.
