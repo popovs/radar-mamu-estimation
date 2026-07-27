@@ -10,9 +10,8 @@ This project relies on the [targets](https://books.ropensci.org/targets/) packag
 
 Assuming you have cloned this repository and the directory structure is identical on your machine...
 1) You will first need to add two GIS files that are too large to track via Git to the following subdirectories:
-    - `GIS/Watersheds/code_2_HG_merge.gpkg` -> contact sarah.popov@gov.bc.ca to receive this file.
     - `GIS/Suitable Habitat/2024_provincial_suitable_habitat.gpkg` -> download link will be updated here shortly.
-    - Ensure the filenames match the two above.
+    - TODO: ensure suitable habitat polygons are downloaded via pipeline. 
 2) Run `renv::restore()` to install all necessary R packages the pipeline depends on. See the [renv documentation](https://rstudio.github.io/renv/reference/restore.html) for troubleshooting details.
 3) Load the `{targets}` library. Run `tar_make()` to run the pipeline. NOTE the full pipeline can take 1-2 hours to run if running from scratch. You can comment out sections of the pipeline that you are not interested in recreating if you wish to skip the creation of them, assuming nothing downstream of the pipeline depends upon it (e.g. Sup Mat generation at the end of the pipeline). TIP: you can run `tar_visnetwork()` to see how various targets depend upon each other.
 4) Once you have created all your targets, you are ready to play with the data outputs. In a separate R script, you can run `tar_load(<target_name>)` to quickly load up the target in your R session and manipulate it from there.
@@ -37,7 +36,7 @@ This folder contains the data used in this analysis, including the raw radar cou
 
 ### GIS
 
-This folder contains the GIS data necessary for the project, including regional boundaries, DEM data of the Alaska panhandle, suitable habitat polygons, and watershed polygons. **Note:** the suitable habitat polygons will need to be downloaded from the BC Data Catalogue (link will be added to this Github soon). The watershed polygons need to be sent directly as they are too large to upload to Github. Please contact sarah.popov@gov.bc.ca to receive these polygons.
+This folder contains the GIS data necessary for the project, including regional boundaries, DEM data of the Alaska panhandle, suitable habitat polygons, and watershed polygons. **Note:** the suitable habitat polygons will need to be downloaded from the BC Data Catalogue (TODO: link will be added to this Github soon).
 
 ### R
 
