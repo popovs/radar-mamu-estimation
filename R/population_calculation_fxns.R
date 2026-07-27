@@ -1,6 +1,6 @@
-#' 2. CALCULATE MAMU DENSITY AND POPULATION
+#' CALCULATE MAMU DENSITY AND POPULATION
 #' 
-#' Following the creation of the inxn and standardization
+#' Following the creation of catchments and standardization
 #' of the radar survey data, we can now calculate the density
 #' of birds within each catchment. From there, we will group 
 #' each catchment by conservation region (based on the 
@@ -70,49 +70,6 @@ bootmean <- function(dat,
 }
 
 
-# SUPERCEDED. Using bootstrapped mean + CIs instead.
-# max_mamu <- function(s, stn, CI_level = 95) {
-#   s <- s |> dplyr::group_by(site) |> dplyr::mutate(total_effort = dplyr::n())
-#   s <- aggregate(mamuinpd ~ site + year + total_effort, s, FUN = "max")
-#   names(s)[4] <- "max_mamu_count"
-#   # Select most recent max count of each
-#   # s <- s |>
-#   #   dplyr::arrange(site, year) |>
-#   #   dplyr::group_by(site) |>
-#   #   dplyr::slice(dplyr::n()) |>
-#   #   dplyr::select(site, region, loc, year, total_effort, mamu_count) # rearrange cols
-#   # Take the mean of the maximum mamu count across all years
-#   s <- s |>
-#     dplyr::group_by(site) |>
-#     dplyr::summarise(year_min = min(year),
-#                      year_max = max(year),
-#                      n_surveys = max(total_effort),
-#                      mean_max_mamu = round(mean(max_mamu_count)),
-#                      sd = round(sd(max_mamu_count))) # while the overall distribution is non-normal, the max count for each station follows a normal dist.
-#   # Calculate 95% CI
-#   if (CI_level > 1) CI_level <- CI_level / 100
-#   z_score <- qnorm(1 - ((1 - CI_level) / 2)) # get the z-score for the CI
-#   s$CI <- z_score * s$sd / sqrt(s$n_surveys)
-#   # Merge in region info
-#   stn <- sf::st_drop_geometry(stn)
-#   stn <- stn[,c("site", "region", "loc")]
-#   s <- merge(s, stn, by = "site")
-#   # Rearrange cols
-#   s <- s[,c("site", "region", "loc", "year_min", "year_max",
-#             "n_surveys", "mean_max_mamu", "sd", "CI")]
-#   s$CI_level <- CI_level
-#   # Return
-#   return(s)
-# }
-
-
-# PREPARE MAMU HABITAT ----------------------------------------------------
-
-
-
-
-
-
 # CALCULATE DENSITY -------------------------------------------------------
 
 
@@ -137,51 +94,6 @@ catchment_density <- function(mm = mean_max_mamu_cc, # mean_max_mamu_cc is the d
   return(mm)
 }
 
-# From individual catchment densities, calculate a regional estimate
-# with 95% bootstrapped CIs.
-# NOTE 2025-11 This is an UNWEIGHTED MEAN. The density from a catchment 
-# 1 ha in size is weighted the same as one from a 50 ha catchment.
-# It is the equivalent error to taking the mean of several means.
-# For this reason we've switched to weighted mean density for the regional
-# density estimates. This is now obsolete.
-# regional_density <- function(catchment_density, 
-#                            group_by = "region", 
-#                            dat_col = "density", 
-#                            CI_level = 0.95,
-#                            add_AKB = TRUE) {
-#   
-#   out <- bootmean(dat = catchment_density, 
-#            group_by = group_by,
-#            dat_col = dat_col,
-#            CI_level = CI_level) |>
-#     dplyr::rename(density = bootmean,
-#                   density_lwr = boot_min,
-#                   density_upr = boot_max) |>
-#     # Units are sometimes annoying, but set them here
-#     # to maintain consistency btwn `cc_density` & `reg_density`
-#     dplyr::mutate(dplyr::across(c(density, density_lwr, density_upr),
-#                                 ~units::set_units(., "1/ha")))
-#   
-#   # Add in Alaska Border Region?
-#   if (add_AKB) {
-#     out <- rbind(out, 
-#                  data.frame(region = "AKB",
-#                             N = 0, 
-#                             density = out[["density"]][out$region == "NC"],
-#                             density_lwr = out[["density_lwr"]][out$region == "NC"],
-#                             density_upr = out[["density_upr"]][out$region == "NC"]))
-#   }
-#   
-#   # For convenience... rearrange table such
-#   # that records listed from North to South
-#   if ("region" %in% names(out)) {
-#     out$region <- factor(out$region,
-#                          levels = c("AKB", "HG", "NC", "CC", "SC", "WNVI", "NVI", "MWVI", "SWVI", "EVI"))
-#     out <- out[order(out$region), ]
-#   }
-#   
-#   return(out)
-# }
 
 
 
@@ -486,38 +398,3 @@ calculate_population <- function(density_map, sf = NULL, merge_df = NULL) {
 
 
 
-# Outdated
-# extrapolate_density <- function(cc_density, regional_sh_area, min_ss) {
-#   #reg_dens <- aggregate(mamu_sh_density ~ region, cc_density, FUN = "mean")
-#   # Remove density estimates with fewer than minimum sample size total
-#   cc_density <- cc_density[cc_density$n_surveys >= min_ss,]
-#   reg_dens <- cc_density |> 
-#     dplyr::mutate(density_min = mamu_sh_density - density_CI,
-#                   density_max = mamu_sh_density + density_CI) |>
-#     dplyr::summarise(.by = region,
-#                      mamu_sh_density = round(mean(mamu_sh_density), 3),
-#                      density_min = mean(density_min), # ideally, cutting out minimum sample size will prevent NA's sneaking in here
-#                      density_max = mean(density_max),
-#                      n_inxn = dplyr::n(),
-#                      CI_level = mean(CI_level))
-#   reg_dens <- merge(reg_dens, regional_sh_area, by = "region")
-#   # Mean MAMU count
-#   reg_dens$mamu_count <- reg_dens$mamu_sh_density * reg_dens$sh_area_ha
-#   reg_dens$mamu_count <- round(reg_dens$mamu_count)
-#   # Min MAMU count
-#   reg_dens$min_count <- reg_dens$density_min * reg_dens$sh_area_ha
-#   reg_dens$min_count <- round(reg_dens$min_count)
-#   # Max MAMU count
-#   reg_dens$max_count <- reg_dens$density_max * reg_dens$sh_area_ha
-#   reg_dens$max_count <- round(reg_dens$max_count)
-#   # Reorder
-#   reg_dens <- reg_dens[order(reg_dens$region),]
-#   # Round other cols
-#   reg_dens$sh_area_ha <- round(reg_dens$sh_area_ha, 0)
-#   # Select cols
-#   reg_dens <- reg_dens[,c("region", "n_inxn", "mamu_count", "min_count", "max_count", "mamu_sh_density", "sh_area_ha", "CI_level")]
-#   return(reg_dens)
-# }
-#   
-  
-  

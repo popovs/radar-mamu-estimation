@@ -27,7 +27,7 @@
 #     `tar_load(<target name>)` to quickly load up the target in your R
 #     session and manipulate it from there.
 
-# DISCLAIMER 1: THIS WHOLE SCRIPT WILL TAKE SEVERAL HOURS TO RUN.
+# DISCLAIMER 1: THIS WHOLE SCRIPT WILL TAKE ~1 HOUR TO RUN.
 # There are likely faster or more efficient ways of doing this,
 # but the primary goal of this script is reproducibility and
 # ease of understanding. If you wish to simply test the script, 
@@ -75,22 +75,9 @@ tar_source()
 # Note that a smaller number = MUCH SLOWER SCRIPT
 res <- 250 # Set res to ~250 to run things much faster
 
-# Regions to iterate GIS operations over
-#regions_map <- sf::st_drop_geometry(sf::st_read("GIS/regions.gpkg"))
-
 # Bounding box of our entire study area
 study_bounds <- sf::st_bbox(c(xmin = 164728, ymin = 333912, xmax = 1387220, ymax = 1778675),
                             crs = 3005)
-
-# Get land area for AK and WA
-# This will be used to clean up raster boundaries of the AK raster +
-# block off land areas of WA
-# usa_land <- rnaturalearth::ne_states("united states of america") |>
-#   dplyr::filter(name %in% c("Alaska", "Washington")) |>
-#   sf::st_as_sf() |>
-#   sf::st_transform(3005) |>
-#   sf::st_crop(study_bounds) |>
-#   terra::vect() # transform to terra SpatVect obj to play better w later terra raster objects
 
 # Function used to define the cost landscape for MAMU to fly through.
 # See ?movecost::mc_cost_functions() for a full list of possible fxns.
@@ -253,9 +240,11 @@ list(
   # raster. Cells <30km from shore will have a higher probability,
   # closer to 1, while distances >30km will decay down to 0 probability.
   
-  # TODO: look into if habitat is being parsed the best way. 
-  # When you simply mask the full raster, the results look a bit
-  # different.
+  # FYI: rasterizing habitat here, vs simply cropping a higher
+  # res raster w polygon boundaries, will change the habitat layer 
+  # area slightly. Doing it this way sacrifices resolution (we are 
+  # rasterizing habitat to 250x250m blocks) but greatly increases
+  # computing time. 
   
   # `nest_likelihood` has cut out all non-habitat pieces
   tar_terra_rast(nest_likelihood, nest_gamma_decay(nests = nests,
@@ -288,12 +277,9 @@ list(
   # Calculate polar mean flight headings
   # Most birds will be flying in the same general direction
   # as they head inland, with some variation. Calculate the 
-  # polar mean flight heading with 95% bootstrapped confidence
-  # intervals about the mean.
-  # TODO: clean up comments/fxns
-  # OLD METHOD:
-  # tar_target(h, calc_polar_mean(headings = h_0, n_reps = 1000, alpha = 0.05)),
-  # NEW METHOD (using CircStats pkg):
+  # polar mean flight heading with circular dispersion statistics
+  # about the mean.
+  # Using the CircStats package here.
   tar_target(h, h_0 |>
                dplyr::mutate(rad = heading * pi / 180) |>
                dplyr::group_by(site) |>
@@ -355,43 +341,14 @@ list(
 
   #### CATCHMENTS X HABITAT ####
   # Intersect suitable habitat in each catchment
-  # TODO: dplyr warning:
-  # `summarise()` has regrouped the output.       [4m 39.6s, 3+, 63-]
-  # ℹ Summaries were computed grouped by site, area_ha, region, loc, and mean_cost.
-  # ℹ Output is grouped by site, area_ha, region, and loc.
-  # ℹ Use `summarise(.groups = "drop_last")` to silence this message.
-  # ℹ Use `summarise(.by = c(site, area_ha, region, loc, mean_cost))` for
-  # per-operation grouping (`?dplyr::dplyr_by`) instead.
   tar_target(cc_habitat, st_habitat_in_sf(sf = cost_catchments,
                                           habitat = suitable_habitat,
                                           use_probability = TRUE)),
-  # Intersect suitable habitat in each region
-  # TODO: dplyr warning:
-  # ℹ Summaries were computed grouped by MMCR_NAME and region.
-  # ℹ Output is grouped by MMCR_NAME.
-  # ℹ Use `summarise(.groups = "drop_last")` to silence this message.
-  # ℹ Use `summarise(.by = c(MMCR_NAME, region))` for per-operation grouping
+  # Intersect suitable habitat in each region` for per-operation grouping
   # (`?dplyr::dplyr_by`) instead.
   tar_target(reg_habitat, st_habitat_in_sf(sf = regions,
                                            habitat = suitable_habitat,
                                            use_probability = TRUE)),
-  # Final visualization
-  # TODO: rm viz scripts
-  # tar_render(final_visualization,
-  #            path = "Rmd/catchments_visualization.Rmd",
-  #            output_file = "catchments_visualization.pdf",
-  #            #error = "null",
-  #            quiet = TRUE,
-  #            params = list(catchments = cost_catchments,
-  #                          watersheds = watersheds_raw,
-  #                          suitable_habitat = suitable_habitat,
-  #                          cones = cones,
-  #                          stn = stn,
-  #                          nests = nests,
-  #                          apikey = jawg_token,
-  #                          headings = h_0,
-  #                          h = h)
-  #            ),
   #### ANNUAL MAX MAMU COUNTS ####
   # Select maximum MAMU count per station per year
   tar_target(annual_max_mamu, s |>

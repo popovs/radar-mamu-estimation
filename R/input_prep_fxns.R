@@ -231,32 +231,6 @@ prepare_mamu_habitat_gpkg <- function(filepath, maz, regions) {
   # Read files
   sh <- sf::st_read(filepath)
   sh <- janitor::clean_names(sh)
-  #sh <- sh[,c("suit_hab_cl", "geom")]
-  
-  # 2025-05 UPDATE: Instead of intersecting with MAZ, 
-  # we will be applying a gamma decay function of 
-  # distance from shore. This gamma decay curve was
-  # fit to nest distances from shore data.
-  
-  # # Mask the suitable habitat with the MAMU-accessible zone (`maz`)
-  # # There's so much habitat deep in the interior that might technically be 
-  # # appropriate trees for nesting, but are >100km from the coast.
-  # # It's highly unlikely that birds are nesting there.
-  # # The suitable habitat layer did not incorporate distance from
-  # # the coast. 
-  # # Prep `maz`
-  # # Load up as a `stars` object - faster to vectorize
-  # maz <- stars::st_as_stars(maz)
-  # # Polygonize
-  # maz <- sf::st_as_sf(maz,
-  #                     as_points = FALSE,
-  #                     merge = TRUE,
-  #                     na.rm = TRUE)
-  # maz <- sf::st_union(maz) # merge into one polygon
-  # # Simplify this giant maz polygon
-  # maz <- smoothr::smooth(maz, method = "chaikin")
-  # # Intersect suitable habitat with MAMU-accessible zone
-  # sh <- sf::st_intersection(sh, maz)
   
   # Calc area
   sh$sh_area_ha <- units::set_units(sf::st_area(sh), "ha")
@@ -272,20 +246,6 @@ prepare_mamu_habitat_tiff <- function(filepath, maz, band = NA) {
   if (!is.na(band)) {
     tiff <- tiff[band]
   }
-  
-  # 2025-05 UPDATE: Instead of intersecting with MAZ, 
-  # we will be applying a gamma decay function of 
-  # distance from shore. This gamma decay curve was
-  # fit to nest distances from shore data.
-  
-  # # Mask the suitable habitat with the MAMU-accessible zone (`maz`)
-  # # There's so much habitat deep in the interior that might technically be 
-  # # appropriate trees for nesting, but are >100km from the coast.
-  # # It's highly unlikely that birds are nesting there.
-  # # The suitable habitat layer did not incorporate distance from
-  # # the coast. 
-  # maz <- terra::resample(maz, tiff) # resample `maz` to be same extent as habitat
-  # tiff <- (maz == 1) * tiff # only choose habitat areas where maz == TRUE
   
   return(tiff)
 }
