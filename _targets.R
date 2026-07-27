@@ -360,8 +360,7 @@ list(
   tar_target(cc_habitat, st_habitat_in_sf(sf = cost_catchments,
                                           habitat = suitable_habitat,
                                           use_probability = TRUE)),
-  # Intersect suitable habitat in each region` for per-operation grouping
-  # (`?dplyr::dplyr_by`) instead.
+  # Intersect suitable habitat in each region
   tar_target(reg_habitat, st_habitat_in_sf(sf = regions,
                                            habitat = suitable_habitat,
                                            use_probability = TRUE)),
