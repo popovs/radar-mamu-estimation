@@ -58,13 +58,15 @@ temp*
 *.tiff
 *~*
 figs*
+*README internal.txt
 
-# Large GIS files, except regions
-GIS/*
-!GIS/cons_reg.*
-!GIS/regions.gpkg
+# Large GIS files & GIS miscellanea
+GIS/MAMU_Nests_BC_CDC.gpkg
+GIS/Suitable Habitat/2024_provincial_suitable_habitat.gpkg
+*.tiff*
+*.tif*
+*.vrt
 !GIS/DEM/Alaska_DEM.tiff
-!GIS/*.txt
 
 # Keep .gitkeep files to commit empty directories
 !**.gitkeep
