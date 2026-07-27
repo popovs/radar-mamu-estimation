@@ -1,0 +1,262 @@
+---
+title: "S3 - Population calculation"
+output: pdf_document
+date: "`r Sys.Date()`"
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      message = FALSE,
+                      warnings = FALSE)
+
+options(scipen = 999) # turn off scientific notation
+
+withr::with_dir(rprojroot::find_root('_targets.R'), tar_load(reg_density))
+withr::with_dir(rprojroot::find_root('_targets.R'), tar_load(regions))
+```
+
+# 1. Rasterize regional bird densities
+
+The first step to calculating the population is to rasterize the regional bird densities that were calculated from the cost catchments (see Eq. 1 in the main text, described under "Province-wide murrelet population estimation"). Three raster layers are created: one for the midpoint density estimates, one for the lower 95% CI density estimates, and one for the upper 95% CI estimates. We will only rasterize the midpoint estimate here for demonstration purposes.
+
+```{r reg density table, echo = FALSE}
+reg_density |>
+  dplyr::select(region, density) |>
+  dplyr::mutate(density = round(density, 3)) |>
+  knitr::kable(caption = "Regional Marbled Murrelet densities (birds/ha).")
+```
+
+```{r rasterize regional density, fig.cap = "Rasterized bird density estimates for each region in B.C. Shown here are the midpoint density estimates, though separate raster layers were also created for the +/-95% CI estimates as well."}
+# Load libraries
+library(sf)
+library(terra)
+
+# Merge to regions
+regions <- merge(regions, reg_density, "region")
+
+# DROP UNITS! Otherwise terra interprets the values as 
+# CATEGORICAL INTEGERS (factors)
+regions <- units::drop_units(regions)
+reg_vect <- terra::vect(regions)
+
+# Convert to density raster by polygon
+rdens <- terra::rast(terra::ext(reg_vect),
+                     res = 250, # using 250 m resolution throughout
+                     crs = terra::crs(reg_vect))
+
+rdens <- terra::rasterize(reg_vect, 
+                          rdens, 
+                          field = "density")
+
+plot(rdens, main = "Regional MAMU density (birds/ha)")
+```
+
+\newpage
+
+# 2. Derive the nest probability adjustment constant
+
+We need to now assign our calculated Marbled Murrelet population densities to our nest probability distribution, so that regions with higher MAMU densities have a higher likelihood of nests than regions with lower densities. 
+
+Recall our nest probability layer that was calculated in S1:
+
+```{r, echo = FALSE, fig.cap = "Rasterized gamma curve (Figure S1-4), clipped to Marbled Murrelet suitable habitat boundaries. This raster represents likelihood of nest occurrence."}
+withr::with_dir(rprojroot::find_root('_targets.R'), tar_load(nest_likelihood))
+nest_prob <- nest_likelihood
+plot(nest_prob, main = "Nest probability")
+```
+
+If we were to simply multiply the nest probability raster (Figure 2) by the rasterized density (Figure 1), the resulting raster layer would be such that only cells where `density == 1` would have the correct value. This would be incorrect, as the mean density across the region would then be lower than the actual expected mean density values of `r paste(units::drop_units(round(reg_density$density[1], 3)))`, `r paste(units::drop_units(round(reg_density$density[2], 3)))`, `r paste(units::drop_units(round(reg_density$density[3], 3)))`, ... `r paste(units::drop_units(round(reg_density$density[6], 3)))`, etc. Therefore, the next step is to calculate a density adjustment factor - a constant value to add to each region of the density raster (Figure 1) such that, when multiplied by the nest probability layer (Figure 2), the resulting mean regional raster values will equal `r paste(units::drop_units(round(reg_density$density[1], 3)))`, `r paste(units::drop_units(round(reg_density$density[2], 3)))`, `r paste(units::drop_units(round(reg_density$density[3], 3)))`, ... `r paste(units::drop_units(round(reg_density$density[6], 3)))`, etc.
+
+The mean raster value, "MRV", for each region can be expressed as the sum of all raster cell values, divided by the number of cells:
+
+$$MRV = \frac{\Sigma cell values}{N_{cells}}$$
+
+We need to create a raster that keeps the same MRV for each region, but instead of every pixel within that region having a uniform bird density (as in Figure 1), the pixel densities should vary in value (as in Figure 2). In other words, we need a raster where the *distribution* of density values follows a gamma distribution, but the *mean value* of that distribution equals MRV. 
+
+Therefore we need to adjust the values in the spatialized gamma distribution (Figure 2) by a fixed constant, $AF$. The equation to keep MRV the same but follow the nest probability gamma distribution is as follows:
+
+$$MRV_{MAMU density} = (MRV_{MAMU density} + AF) * MRV_{nest probability}$$
+
+$MRV_{MAMU density}$ is a known constant, equal to the density value for the given region described in Table 1. $AF$, or 'adjustment factor', is an unknown constant. $MRV_{nest probability}$ is not a known constant, but it can be calculated from the nest probability raster. Recall that $MRV$ is the sum of all cell values divided by the number of cells. Substituting this into our equation, we get:
+
+$$MRV_{MAMU density} = (MRV_{MAMU density} + AF) * \frac{\Sigma cell values_{nest probability}}{N_{cells_{nest probability}}}$$
+
+Or, rearranged, to solve for $AF$:
+
+$$AF = \frac{MRV_{MAMU density} * N_{cells_{nest probability}}}{\Sigma cell values_{nest probability}} - MRV_{MAMU density}$$
+```{r adjustment table}
+# Define a simple function to calculate for 'AF'
+adj_gamma_mean <- function(nest_likelihood, 
+                           target_density) {
+  # Extract the values of the nest_likelihood raster
+  nls <- terra::values(nest_likelihood)
+  nls <- nls[!is.na(nls)]
+  # Calculate the adjustment value
+  adj <- ((target_density * length(nls)) / sum(nls)) - target_density
+  # Return
+  return(adj)
+}
+
+# Given:
+# - a nest_likelihood raster
+# - a rdens raster
+# - a target_density
+# Produce:
+# A correctly adjusted gamma density raster
+
+# This output will be a raster of MAMU
+# habitat that has a mean density value 
+# as calculated in `reg_density`. 
+# However, instead of being a flat raster
+# assuming equal MAMU density across the 
+# whole region, it is instead adjusted 
+# such that the density is higher closer to
+# shore and less dense further from shore.
+
+# First loop through each region and calculate the 
+# adjustment factor that needs to be added to the 
+# density field overall so that after multiplying by
+# the nest_likelihood layer the mean density is still
+# the same value as in the `reg_density` table
+adj_tbl <- lapply(1:nrow(regions), function(x) {
+  reg_x <- regions[x,] # Pull out the region in question
+  # Note we already merged reg_density into this polygon in a previous step
+  # Intersect nest_prob with region
+  np_x <- terra::crop(nest_prob, reg_x, mask = TRUE) 
+  # Drop geometry of region to stop annoying geom from popping 
+  # up in all subsequent operations
+  reg_x <- sf::st_drop_geometry(reg_x) # Drop geometry
+  # Pull out density value for that region
+  # Note for this demonstration we're not bothering w upper/lower CI bound estimates
+  dvals <- reg_x$density
+  dvals <- as.numeric(dvals)
+  # Now, for each density val in reg_x, run `adj_gamma_mean`
+  adj_vals <- adj_gamma_mean(nest_likelihood = np_x, target_density = dvals)
+  # Put into df to return from fxn
+  out <- data.frame(region = reg_x[["region"]],
+                    adj = adj_vals[1])
+  return(out)
+})
+
+adj_tbl <- dplyr::bind_rows(adj_tbl)
+
+# Drop AKB row. The density adjustment assumes the rasters contain
+# the FULL habitat of the region when doing the adjustment. We don't 
+# know the true N cells for the Alaska region bc we are missing all the
+# Alaska data. So, in the case of AKB, simply use North Coast values.
+adj_tbl <- adj_tbl[which(adj_tbl$region != "AKB"), ]
+
+# Add in AKB using NC vals.
+adj_tbl <- rbind(adj_tbl, 
+                 data.frame(region = "AKB",
+                            adj = adj_tbl[["adj"]][adj_tbl$region == "NC"]))
+
+# Great. Now for each region we have the density value and
+# desired adjustment value. The next step will be to rasterize it.
+adj_tbl |>
+  knitr::kable(digits = 3,
+               caption = "Adjustment factor constants to add to each region's base density value.")
+```
+
+\newpage
+
+# 3. Apply the adjustment factor
+
+For each region, add the adjustment factor $AF$ calculated in step 2 to the rasterized bird density (Figure 1), then multiply it by the nest probability layer. This results in a raster that has the nest densities following a gamma distribution relative to distance from the coast, with the mean pixel values by region equal to those in Table 1/Figure 1. 
+
+```{r final bird density raster, fig.cap="Bird density (birds/ha) within suitable habitat across B.C. Density is higher 1) closer to the coast (e.g., compare the color gradient here to the solid blocks of color in Fig. 1) and 2) within regions with high density, such as the Central Mainland Coast."}
+# DESIRED OUTPUT: raster map with the actual densities of birds
+# (N MAMU/1 ha) per cell
+
+# First update our density table with the adjustments.
+adj_reg_density <- merge(reg_density, adj_tbl, by = "region")
+
+# Add our adjustment factor to the density
+adj_reg_density$density_adj <- adj_reg_density$density + units::set_units(adj_reg_density$adj, "1/ha")
+
+# Merge in spatial information
+adj_reg_density <- merge(regions[,c("region")], adj_reg_density, by = "region")
+
+# DROP UNITS! Otherwise terra interprets the values as 
+# CATEGORICAL INTEGERS (factors)
+adj_reg_density <- units::drop_units(adj_reg_density)
+
+# Now rasterize adj_reg_density
+# Convert to density raster by polygon
+rdens_adj <- terra::rast(terra::ext(adj_reg_density),
+                         res = res(nest_prob)[1],
+                         crs = terra::crs(adj_reg_density))
+
+rdens_adj <- terra::rasterize(adj_reg_density, 
+                              rdens_adj, 
+                              field = "density_adj")
+
+# Next actually produce the final density maps. 
+# Make sure extents match
+rdens_adj <- terra::resample(rdens_adj, nest_prob)
+
+# Apply the nest likelihood gamma decay to the adjusted density layer
+final_rdens <- rdens_adj * nest_prob
+
+plot(final_rdens, main = "MAMU density (1/ha)")
+```
+
+\newpage
+
+## Check results
+
+Perform a gut check - does the mean raster value per region actually line up with Table 1? Use the `exactextractr` package to calculate the mean raster values per region. Given our final density raster (Figure 3) and our regions shapefile, check results:
+
+```{r}
+exactextractr::exact_extract(final_rdens, regions, "mean", append_cols = c("region")) |>
+  knitr::kable(digits = 3)
+```
+
+Though note that the results for the AKB region will not match, because we of course do not have all the cells of AKB data (all our equations above assume we have the complete $N_{cells}$ for each region). 
+
+
+# 4. Calculate population
+
+We need to convert the pixel values from density of birds per hectare to density of birds per pixel cell. From there, we can simply add up the cell values within each region to derive a regional population estimate.
+
+```{r population calculation}
+# Convert MAMU density per hectare to MAMU density per
+# cell in the `density_map` raster. E.g., the density
+# value is {Y mamu}/1 ha; but all the rasters in the
+# pipeline are NOT at 1/ha resolution. So we'd be underestimating
+# the amount of MAMU per raster cell. We need to get
+# {Z mamu}/{res ha}.
+res <- terra::res(final_rdens)[1] # grab the resolution in m of the map cells
+cell_res <- res^2
+cell_res <- units::set_units(cell_res, "m2")
+cell_res <- units::set_units(cell_res, "ha") # so we need density per 6.25ha
+cell_res <- units::drop_units(cell_res) # now drop the units so it plays nice w terra
+
+# The density currently is {Y mamu}/1 ha.
+# We need it to be {Z mamu}/6.25 ha.
+final_rdens <- final_rdens * cell_res 
+
+# Now the map shows N MAMU per pixel, rather than density 
+# of MAMU per 1 ha. We can simply add the pixels up to get
+# our population of MAMU.
+
+regions$population <- exactextractr::exact_extract(final_rdens, regions, "sum")
+
+# For convenience... rearrange table such
+# that records listed from North to South
+regions$region <- factor(regions$region,
+                         levels = c("AKB", "HG", "NC", "CC", "SC", "WNVI", "NVI", "WVI", "MWVI", "SWVI", "EVI"))
+
+regions <- regions[order(regions$region), ]
+
+regions |>
+  sf::st_drop_geometry() |>
+  dplyr::select(region, MMCR_NAME, population) |>
+  dplyr::rename(full_name = MMCR_NAME) |>
+  dplyr::mutate(population = round(population)) |>
+  knitr::kable(caption = "Regional MAMU subpopulations.")
+```
+
+Simply sum up every raster cell to derive a BC-wide population estimate - `r round(sum(regions$population))` birds.
