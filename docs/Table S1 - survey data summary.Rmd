@@ -1,0 +1,30 @@
+---
+title: "Table S1 - Survey Data summary"
+output: pdf_document
+date: "`r Sys.Date()`"
+---
+
+```{r, echo = FALSE}
+
+withr::with_dir(rprojroot::find_root('_targets.R'), tar_load(s_0))
+withr::with_dir(rprojroot::find_root('_targets.R'), tar_load(mean_max_mamu_all))
+
+s_reg <- unique(sf::st_drop_geometry(s_0[,c("site", "region")]))
+
+dat <- merge(mean_max_mamu_all, s_reg)
+dat <- dat |> dplyr::select(site, region, dplyr::everything())
+dat$region <- factor(dat$region, levels = c("AKB", "HG", "NC", "CC", "SC", "WNVI", "NVI", "WVI", "MWVI", "SWVI", "EVI"))
+dat <- dat |> dplyr::arrange(region)
+
+dat$est <- paste0(dat$bootmean, " (", dat$boot_min, "-", dat$boot_max, ")")
+
+dat$site <- ifelse(dat$N < 3, paste0(dat$site, "*"), dat$site)
+
+dat <- dat[,c("site", "region", "N", "est")]
+
+names(dat) <- c("Site", "Region", "N surveys", "Count")
+
+knitr::kable(dat, 
+             caption = "Mean annual maximum bird counts at radar stations in the study region. Bootstrapped 95% confidence intervals are noted in parentheses. Bootstrapped intervals cannot be calculated with a sample size of fewer than 3 years of data; these sites were excluded from the primary analysis.")
+```
+

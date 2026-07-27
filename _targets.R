@@ -44,6 +44,7 @@
 library(targets)
 library(tarchetypes) # Needed for `tar_map()`
 library(geotargets) # Needed to save `terra` SpatRaster targets
+library(ggplot2)
 
 # Set target options:
 tar_option_set(
@@ -400,12 +401,17 @@ list(
                                 N = dplyr::n())),
   # Calculate bootstrapped mean annual maximum per catchment
   # (across all years)
-  tar_target(mean_max_mamu_cc, bootmean(annual_max_mamu,
-                                        group_by = "site",
-                                        dat_col = "max_mamu",
-                                        CI_level = 0.95) |>
+  # All data summary: for every dataset in `s`, including
+  # those that don't have radar headings data
+  tar_target(mean_max_mamu_all, bootmean(annual_max_mamu,
+                                         group_by = "site",
+                                         dat_col = "max_mamu",
+                                         CI_level = 0.95) |>
                dplyr::mutate(dplyr::across(c(bootmean, boot_min, boot_max),
-                                           round)) |>
+                                           round))),
+  # Cost Catchments data summary: filtered down to only those that
+  # can be matched to a radar catchment
+  tar_target(mean_max_mamu_cc, mean_max_mamu_all |>
                dplyr::filter(site %in% h$site)), # filter it to our sites that made the site + headings ss cutoff
   # Regional mean annual maximum per catchment
   # (across all years) for paper table purposes
@@ -465,6 +471,18 @@ list(
   tar_target(bc_density, total_population / total_suit_hab_area_ha),
   
   #### PAPER FIGURES ETC ####
+  
+  # Coast distance density plot
+  tar_target(nest_density_plot, ggplot(nests, aes(x = nest_dist_km)) +
+               geom_density() + 
+               labs(x = "Distance from the coast (km)",
+                    y = "Nest density") +
+               theme_minimal()),
+  
+  # Supplementary Table 1 - survey summary
+  tar_render(ST1_survey_summary,
+             "docs/Table S1 - survey data summary.Rmd",
+             output_file = "docs/Table S1 - survey data summary.pdf"),
   
   # Supplementary Material 1 - nest density layer
   tar_render(S1_nest_density,
