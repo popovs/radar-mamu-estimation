@@ -357,6 +357,8 @@ list(
 
   #### CATCHMENTS X HABITAT ####
   # Intersect suitable habitat in each catchment
+  # SUPER IMPORTANT NOTE: some catchments overlap! So the same hectares
+  # of habitat may be sampled.
   tar_target(cc_habitat, st_habitat_in_sf(sf = cost_catchments,
                                           habitat = suitable_habitat,
                                           use_probability = TRUE)),
@@ -390,7 +392,7 @@ list(
   tar_target(mean_max_mamu_cc, mean_max_mamu_all |>
                dplyr::filter(site %in% h$site)), # filter it to our sites that made the site + headings ss cutoff
   # Regional mean annual maximum per catchment
-  # (across all years) for paper table purposes
+  # (across all years) for summary statistics purposes
   tar_target(mean_max_mamu_reg, bootmean(annual_max_mamu,
                                         group_by = "region",
                                         dat_col = "max_mamu",
@@ -409,19 +411,37 @@ list(
   # Using the bootstrapped mean + upper + lower CIs
   tar_target(cc_density, catchment_density(mm = mean_max_mamu_cc,
                                            catchment_habitat = cc_habitat)),
+  # Calculate sampled habitat area by region (i.e., remove any overlapping
+  # sampled habitat if catchments overlap)
+  tar_target(reg_cat_hab_area, remove_catchment_overlap(cost_catchments, suitable_habitat)),
   # Calculate the weighted mean density of birds within each region
   # Catchments that take up more area of the region have higher weight
+  # tar_target(reg_density, cc_density |>
+  #              dplyr::filter(region == "NC") |>
+  #              dplyr::mutate(region = "AKB") |> # Add in dummy rows for AKB, using NC density
+  #              dplyr::bind_rows(cc_density) |>
+  #              dplyr::group_by(region) |>
+  #              dplyr::summarise(N = dplyr::n(),
+  #                               bootmean = sum(bootmean),
+  #                               boot_min = sum(boot_min, na.rm = TRUE),
+  #                               boot_max = sum(boot_max, na.rm = TRUE),
+  #                               area_ha = sum(area_ha),
+  #                               sh_area_ha = sum(sh_area_ha)) |>
+  #              dplyr::mutate(density = bootmean / sh_area_ha,
+  #                            density_lwr = boot_min / sh_area_ha,
+  #                            density_upr = boot_max / sh_area_ha)),
   tar_target(reg_density, cc_density |>
+               merge(reg_cat_hab_area) |>
                dplyr::filter(region == "NC") |>
                dplyr::mutate(region = "AKB") |> # Add in dummy rows for AKB, using NC density
-               dplyr::bind_rows(cc_density) |>
+               dplyr::bind_rows(merge(cc_density, reg_cat_hab_area)) |>
                dplyr::group_by(region) |>
                dplyr::summarise(N = dplyr::n(),
                                 bootmean = sum(bootmean),
                                 boot_min = sum(boot_min, na.rm = TRUE),
                                 boot_max = sum(boot_max, na.rm = TRUE),
                                 area_ha = sum(area_ha),
-                                sh_area_ha = sum(sh_area_ha)) |>
+                                sh_area_ha = mean(reg_area_ha)) |>
                dplyr::mutate(density = bootmean / sh_area_ha,
                              density_lwr = boot_min / sh_area_ha,
                              density_upr = boot_max / sh_area_ha)),
@@ -444,35 +464,35 @@ list(
                dplyr::arrange(region)),
   tar_target(total_population, calculate_population(density_map)),
   tar_target(total_density, colSums(cc_density[,c("bootmean", "boot_min", "boot_max")], na.rm = TRUE) / sum(cc_density$sh_area_ha)),
-  tar_target(bc_density, total_population / total_suit_hab_area_ha),
+  tar_target(bc_density, total_population / total_suit_hab_area_ha)
   
   #### SUPPLEMENTARY MATERIAL ####
   
   # Note paper figures are all created within docs/figures.R.
   
-  # Supplementary Table 1 - survey summary
-  tar_render(ST1_survey_summary,
-             "docs/Table S1 - survey data summary.Rmd",
-             output_file = "docs/Table S1 - survey data summary.pdf"),
-  
-  # Supplementary Material 1 - nest density layer
-  tar_render(S1_nest_density,
-             "docs/S1 - nest density distribution.Rmd",
-             output_file = "docs/S1 - nest density distribution.pdf"),
-  # Supplementary Material 2 - cost watershed demo
-  tar_render(S2_cost_catchments,
-             "docs/S2 - cost catchments.Rmd",
-             output_file = "docs/S2 - cost catchments.pdf",
-             params = list(dem = terra::merge(DEM, sea),
-                           cones = cones,
-                           watersheds = watersheds,
-                           stn = stn,
-                           nest_likelihood = nest_likelihood,
-                           cost_function = cost_function, # defined at top of script in 'static pipeline objects'
-                           raw_headings = h_0,
-                           mean_headings = h)),
-  # Supplementary Material 3 - population calculations
-  tar_render(S3_population_calculation,
-             "docs/S3 - population calculation.Rmd",
-             output_file = "docs/S3 - population calculation.pdf")
+  # # Supplementary Table 1 - survey summary
+  # tar_render(ST1_survey_summary,
+  #            "docs/Table S1 - survey data summary.Rmd",
+  #            output_file = "docs/Table S1 - survey data summary.pdf"),
+  # 
+  # # Supplementary Material 1 - nest density layer
+  # tar_render(S1_nest_density,
+  #            "docs/S1 - nest density distribution.Rmd",
+  #            output_file = "docs/S1 - nest density distribution.pdf"),
+  # # Supplementary Material 2 - cost watershed demo
+  # tar_render(S2_cost_catchments,
+  #            "docs/S2 - cost catchments.Rmd",
+  #            output_file = "docs/S2 - cost catchments.pdf",
+  #            params = list(dem = terra::merge(DEM, sea),
+  #                          cones = cones,
+  #                          watersheds = watersheds,
+  #                          stn = stn,
+  #                          nest_likelihood = nest_likelihood,
+  #                          cost_function = cost_function, # defined at top of script in 'static pipeline objects'
+  #                          raw_headings = h_0,
+  #                          mean_headings = h)),
+  # # Supplementary Material 3 - population calculations
+  # tar_render(S3_population_calculation,
+  #            "docs/S3 - population calculation.Rmd",
+  #            output_file = "docs/S3 - population calculation.pdf")
 ) 
