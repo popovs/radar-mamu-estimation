@@ -49,7 +49,6 @@ nest_density_plot|stem|83607236bd408afd|61d9f7fe0f90b711|d509d328d3cbfdf6|449791
 mean_max_mamu_all|stem|539ed78d434f4d9c|e284503ac138bc91|06a8c482a853f0de|2141879096||t20642.9209752171s|s1457b|1457|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||1.14||
 mean_max_mamu_cc|stem|749ba91677a860e8|3c9ac75da7e976ea|1be4cea19cf29e68|1074394901||t20642.9209779065s|s1157b|1157|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0||
 regions_path|stem|254aec2d4ce7fc0e|c6bcc97423a7f67f|2c530c1562a7fbd1|-2043061487|GIS/cons_reg.gpkg|t20661.7969912437s|s831488b|831488|file|local|vector|||0.04||
-ST1_survey_summary|stem|7f8f5437a2e9d7a1|de1e7498808b4f6a|0de9e21c9c9aed7a|845124182|docs/Table S1 - survey data summary.pdf*docs/Table S1 - survey data summary.Rmd|t20661.7978641635s|s87589b|87589|file|local|vector|||5.13||
 S1_nest_density|stem|2c1b03e959b69bf7|2e5c0082f17183b2|97f65be502a57b24|302994340|docs/S1 - nest density distribution.pdf*docs/S1 - nest density distribution.Rmd|t20661.7978635887s|s496790b|496790|file|local|vector|||84.06|NaNs produced. NaNs produced|
 CDED_VRT_path|stem|d661a6ef6737ffd7|9b18754daf673b21|7b87c27d718f2922|1594663421|GIS/DEM/CDED_VRT.vrt|t20662.9190879514s|s381353b|381353|file|local|vector|||127.92||
 nests_0|stem|383a279741fd5c52|91fd0cf9bfc0e841|64ac32655a055393|1075200864||t20661.9069951414s|s5716b|5716|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0.51|attribute variables are assumed to be spatially constant throughout all geometries|
@@ -61,6 +60,8 @@ bc_density|stem|f53ed0342ac24b5d|8de4e254587950cb|ba7a9a1ac2a4c976|-297569176||t
 cc_density|stem|1eb782a5724b8182|e3283aa5875524f0|4c147784071b4751|1606636249||t20663.7049511923s|s4629b|4629|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0.04||
 reg_density|stem|18568d0ac2854c9b|d2da6e6e2a5fbd85|7d451e2a1a998352|-343691882||t20663.7049550158s|s727b|727|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0.03||
 total_density|stem|6c2c7aca324c680c|756fc59df005c3e8|fac86c8081474050|1553158417||t20663.7049576758s|s239b|239|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0||
+S2_cost_catchments|stem|dd77de24914837d7|4fe8783056cebf98|89c050c9a97408d2|1411114505|docs/S2 - cost catchments.pdf*docs/S2 - cost catchments.Rmd|t20663.7064926098s|s3299292b|3299292|file|local|vector|||45.16||
+S3_population_calculation|stem|7c641b159d441173|6919543032a87f15|2cbdc8ca0e0bc7e3|-320422245|docs/S3 - population calculation.pdf*docs/S3 - population calculation.Rmd|t20663.7068141474s|s326518b|326518|file|local|vector|||26.05||
 rasterize_density|function|e34dbbfad12a5274
 circmean|function|7e16d5c55463d304
 lower_whisker|function|1e7a5ba70256e744
@@ -73,7 +74,7 @@ study_bounds|object|29116127e036346a
 get_usa_land|function|219103f4d243e5f1
 query_cded|function|023191af61b761e4
 nest_isoforest|function|cace87dc5e5748f5
-.Random.seed|object|0f42fef0033142a6
+.Random.seed|object|15252a48059e9d9a
 plot_headings|function|a14aa7a1e798ef51
 resample_rast|function|98bf9db3764c3019
 reclass_rast|function|e6e9aca4d6b676a0
@@ -112,5 +113,4 @@ select_watersheds|function|c6fdc90a46b55238
 generate_cones|function|5dc8c35ef57bcdb4
 prepare_habitat|function|bc6ed27910a6b157
 calc_polar_mean|function|0c2285819899880b
-S2_cost_catchments|stem|dd77de24914837d7|4fe8783056cebf98|89c050c9a97408d2|1411114505|docs/S2 - cost catchments.pdf*docs/S2 - cost catchments.Rmd|t20663.7064926098s|s3299292b|3299292|file|local|vector|||45.16||
-S3_population_calculation|stem|7c641b159d441173|6919543032a87f15|2cbdc8ca0e0bc7e3|-320422245|docs/S3 - population calculation.pdf*docs/S3 - population calculation.Rmd|t20663.7068141474s|s326518b|326518|file|local|vector|||26.05||
+ST1_survey_summary|stem|f367951a84155a9b|de1e7498808b4f6a|0de9e21c9c9aed7a|845124182|docs/Table S1 - survey data summary.pdf*docs/Table S1 - survey data summary.Rmd|t20663.7118412176s|s87661b|87661|file|local|vector|||6||
