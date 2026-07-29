@@ -55,13 +55,14 @@ nests_0|stem|383a279741fd5c52|91fd0cf9bfc0e841|64ac32655a055393|1075200864||t206
 reg_cat_hab_area|stem|529f2d2b6beba7e2|d880d1ad57ce501a|8cf65ce1ff8b4b21|-265368082||t20662.9194683923s|s378b|378|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||30.7|attribute variables are assumed to be spatially constant throughout all geometries|
 density_map|stem|dcd38fb7b5b3f63a|f00bcc67ef59de11|8bf0e69c8d7587d4|115979272||t20662.9247035296s|s8934679b|8934679|format_custom&read=dGVycmE6OnJhc3QocGF0aCk&write=ewogICAgZG8uY2FsbCh0ZXJyYTo6d3JpdGVSYXN0ZXIsIGMobGlzdChvYmplY3QsIGZpbGVuYW1lID0gcGF0aCwgCiAgICAgICAgZmlsZXR5cGUgPSAiR1RpZmYiLCBvdmVyd3JpdGUgPSBUUlVFLCBnZGFsID0gTlVMTCksIGxpc3QoKSkpCn0&marshal=dGVycmE6OndyYXAob2JqZWN0KQ&unmarshal=dGVycmE6OnVud3JhcChvYmplY3Qp&convert=&copy=&repository=|local|list|||13.81||
 total_population|stem|21ca863c362f2e6e|b8ef4ac0b24f7943|94e5730c8dac8a3c|1690109568||t20662.9255689685s|s139b|139|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||2.86||
-regional_population|stem|aa1b60e0cf7aff32|3b67ab5814b50f2e|bf80f7b946de0913|1975736088||t20662.9256281608s|s929b|929|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||4.5||
 bc_density|stem|f53ed0342ac24b5d|8de4e254587950cb|ba7a9a1ac2a4c976|-297569176||t20662.9256330137s|s243b|243|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0||
 cc_density|stem|1eb782a5724b8182|e3283aa5875524f0|4c147784071b4751|1606636249||t20663.7049511923s|s4629b|4629|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0.04||
 reg_density|stem|18568d0ac2854c9b|d2da6e6e2a5fbd85|7d451e2a1a998352|-343691882||t20663.7049550158s|s727b|727|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0.03||
 total_density|stem|6c2c7aca324c680c|756fc59df005c3e8|fac86c8081474050|1553158417||t20663.7049576758s|s239b|239|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0||
-S2_cost_catchments|stem|dd77de24914837d7|4fe8783056cebf98|89c050c9a97408d2|1411114505|docs/S2 - cost catchments.pdf*docs/S2 - cost catchments.Rmd|t20663.7064926098s|s3299292b|3299292|file|local|vector|||45.16||
-S3_population_calculation|stem|7c641b159d441173|6919543032a87f15|2cbdc8ca0e0bc7e3|-320422245|docs/S3 - population calculation.pdf*docs/S3 - population calculation.Rmd|t20663.7068141474s|s326518b|326518|file|local|vector|||26.05||
+evi_pop|stem|fbce72fef6b0640a|d50a62e60fd4781c|cd8206d2e21aed82|-481018506||t20663.7475968028s|s389b|389|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0.1||
+ST1_survey_summary|stem|f367951a84155a9b|de1e7498808b4f6a|0de9e21c9c9aed7a|845124182|docs/Table S1 - survey data summary.pdf*docs/Table S1 - survey data summary.Rmd|t20663.715861061s|s87661b|87661|file|local|vector|||6||
+S2_cost_catchments|stem|dd77de24914837d7|4fe8783056cebf98|89c050c9a97408d2|1411114505|docs/S2 - cost catchments.pdf*docs/S2 - cost catchments.Rmd|t20663.7158598665s|s3299292b|3299292|file|local|vector|||45.16||
+S3_population_calculation|stem|7c641b159d441173|6919543032a87f15|2cbdc8ca0e0bc7e3|-320422245|docs/S3 - population calculation.pdf*docs/S3 - population calculation.Rmd|t20663.7158603185s|s326518b|326518|file|local|vector|||26.05||
 rasterize_density|function|e34dbbfad12a5274
 circmean|function|7e16d5c55463d304
 lower_whisker|function|1e7a5ba70256e744
@@ -74,7 +75,7 @@ study_bounds|object|29116127e036346a
 get_usa_land|function|219103f4d243e5f1
 query_cded|function|023191af61b761e4
 nest_isoforest|function|cace87dc5e5748f5
-.Random.seed|object|15252a48059e9d9a
+.Random.seed|object|e9763fc8112f3d2f
 plot_headings|function|a14aa7a1e798ef51
 resample_rast|function|98bf9db3764c3019
 reclass_rast|function|e6e9aca4d6b676a0
@@ -113,4 +114,4 @@ select_watersheds|function|c6fdc90a46b55238
 generate_cones|function|5dc8c35ef57bcdb4
 prepare_habitat|function|bc6ed27910a6b157
 calc_polar_mean|function|0c2285819899880b
-ST1_survey_summary|stem|f367951a84155a9b|de1e7498808b4f6a|0de9e21c9c9aed7a|845124182|docs/Table S1 - survey data summary.pdf*docs/Table S1 - survey data summary.Rmd|t20663.7118412176s|s87661b|87661|file|local|vector|||6||
+regional_population|stem|2fdc68d77c7c23ab|2b3c632946aad475|bf80f7b946de0913|1975736088||t20663.7478849468s|s925b|925|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||6.17||

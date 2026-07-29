@@ -457,10 +457,21 @@ list(
   tar_target(regional_population, calculate_population(density_map,
                                                        sf = regions,
                                                        merge_df = reg_density) |>
-               dplyr::arrange(region)),
+               dplyr::arrange(desc(mamu))),
   tar_target(total_population, calculate_population(density_map)),
   tar_target(total_density, colSums(cc_density[,c("bootmean", "boot_min", "boot_max")], na.rm = TRUE) / sum(cc_density$sh_area_ha)),
   tar_target(bc_density, total_population / total_suit_hab_area_ha),
+  
+  # Misc
+  # EVI has insufficient sample size to calculate mean annual maximum per 
+  # site or generate any catchments. So, instead, pull the raw annual 
+  # maximum per site and present that in the paper.
+  tar_target(evi_pop, s_0 |> 
+               sf::st_drop_geometry() |> 
+               dplyr::filter(region == "EVI") |> 
+               dplyr::group_by(year, site) |> 
+               dplyr::summarise(count = max(mamu_in_pd),
+                                N = dplyr::n())),
   
   #### SUPPLEMENTARY MATERIAL ####
   # Note paper figures are all created within docs/figures.R.
