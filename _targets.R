@@ -354,20 +354,7 @@ list(
   tar_target(cc_gpkg,
              save_sf(sf = cost_catchments, output_path = "temp/QGIS temp/radar_derived_catchments.gpkg"),
              format = "file"),
-
-  #### CATCHMENTS X HABITAT ####
-  # Intersect suitable habitat in each catchment
-  tar_target(cc_habitat, st_habitat_in_sf(sf = cost_catchments,
-                                          habitat = suitable_habitat,
-                                          use_probability = TRUE)),
-  # Intersect suitable habitat in each region
-  # SUPER IMPORTANT NOTE: This only works later because there are no 
-  # overlapping areas of the regions polygons! So we are not double-counting
-  # any habitat when we sum it up down the line for the BC-wide density
-  # estimate.
-  tar_target(reg_habitat, st_habitat_in_sf(sf = regions,
-                                           habitat = suitable_habitat,
-                                           use_probability = TRUE)),
+  
   #### ANNUAL MAX MAMU COUNTS ####
   # Select maximum MAMU count per station per year
   tar_target(annual_max_mamu, s |>
@@ -390,7 +377,7 @@ list(
   tar_target(mean_max_mamu_cc, mean_max_mamu_all |>
                dplyr::filter(site %in% h$site)), # filter it to our sites that made the site + headings ss cutoff
   # Regional mean annual maximum per catchment
-  # (across all years) for paper table purposes
+  # (across all years) for summary statistics purposes
   tar_target(mean_max_mamu_reg, bootmean(annual_max_mamu,
                                         group_by = "region",
                                         dat_col = "max_mamu",
@@ -398,19 +385,47 @@ list(
                dplyr::mutate(dplyr::across(c(bootmean, boot_min, boot_max),
                                            round))),
   #### DENSITY CALCS ####
+  ##### Habitat area #####
+  # Intersect suitable habitat in each catchment
+  # SUPER IMPORTANT NOTE: some catchments overlap! So the same hectares
+  # of habitat may be sampled. You cannot simply add habitat up.
+  tar_target(cc_habitat, st_habitat_in_sf(sf = cost_catchments,
+                                          habitat = suitable_habitat,
+                                          use_probability = TRUE)),
+  # Intersect suitable habitat in each region
+  # SUPER IMPORTANT NOTE: This only works later because there are no 
+  # overlapping areas of the regions polygons! So we are not double-counting
+  # any habitat when we sum it up down the line for the BC-wide density
+  # estimate.
+  tar_target(reg_habitat, st_habitat_in_sf(sf = regions,
+                                           habitat = suitable_habitat,
+                                           use_probability = TRUE)),
+  # Sum total habitat in BC
   # NOTE suitable habitat =/= even MAMU density across whole layer!
   # While interior habitat might be equally 'suitable' to coastal habitat, the
   # habitat closer to sea will have more MAMU population than more interior sites.
   # Total habitat (ha) across whole suitable habitat layer
   tar_target(total_suit_hab_area_ha, sum(reg_habitat$sh_area_ha)),
-  # Habitat (ha) summarized by region
-  tar_target(regional_suit_hab_area_ha, sf::st_drop_geometry(reg_habitat)),
+  
+  # Sampled suitable habitat area
+  # Calculate sampled habitat area by region (i.e., remove any overlapping
+  # sampled habitat if catchments overlap)
+  # This is important to do, otherwise if you include overlapping areas
+  # you are artificially inflating your habitat area when aggregating 
+  # density by region!!
+  tar_target(reg_cat_hab_area, remove_catchment_overlap(cost_catchments, suitable_habitat)),
+ 
   # Calculate the mean density of birds within each catchment
   # Using the bootstrapped mean + upper + lower CIs
   tar_target(cc_density, catchment_density(mm = mean_max_mamu_cc,
-                                           catchment_habitat = cc_habitat)),
+                                           catchment_habitat = cc_habitat) |>
+               merge(reg_cat_hab_area)), # merge in our regional sampled habitat area
+  
+  ##### Calculate density #####
   # Calculate the weighted mean density of birds within each region
   # Catchments that take up more area of the region have higher weight
+  # Note the denominator per region is the regional area calculated in
+  # the `reg_cat_hab_area` step.
   tar_target(reg_density, cc_density |>
                dplyr::filter(region == "NC") |>
                dplyr::mutate(region = "AKB") |> # Add in dummy rows for AKB, using NC density
@@ -421,11 +436,12 @@ list(
                                 boot_min = sum(boot_min, na.rm = TRUE),
                                 boot_max = sum(boot_max, na.rm = TRUE),
                                 area_ha = sum(area_ha),
-                                sh_area_ha = sum(sh_area_ha)) |>
+                                sh_area_ha = mean(reg_area_ha)) |>
                dplyr::mutate(density = bootmean / sh_area_ha,
                              density_lwr = boot_min / sh_area_ha,
                              density_upr = boot_max / sh_area_ha)),
 
+  ##### Rasterize density #####
   # Rasterize the regional mean density
   # Apply the nest probability decay function to regional densities
   # Now, apply that gamma decay function to the density layer such
@@ -447,14 +463,12 @@ list(
   tar_target(bc_density, total_population / total_suit_hab_area_ha),
   
   #### SUPPLEMENTARY MATERIAL ####
-  
   # Note paper figures are all created within docs/figures.R.
   
   # Supplementary Table 1 - survey summary
   tar_render(ST1_survey_summary,
              "docs/Table S1 - survey data summary.Rmd",
              output_file = "docs/Table S1 - survey data summary.pdf"),
-  
   # Supplementary Material 1 - nest density layer
   tar_render(S1_nest_density,
              "docs/S1 - nest density distribution.Rmd",

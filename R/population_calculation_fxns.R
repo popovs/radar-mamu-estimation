@@ -96,6 +96,32 @@ catchment_density <- function(mm = mean_max_mamu_cc, # mean_max_mamu_cc is the d
 
 
 
+# SUMMARIZE HABITAT AREA --------------------------------------------------
+
+# Catchments sometimes overlap, sampling the same habitat area more than
+# once. After our catchments are created, we need a function that will 
+# summarize the sampled habitat area within our catchments, accounting
+# for (i.e. removing) overlapping areas.
+remove_catchment_overlap <- function(cost_catchments, suitable_habitat) {
+  # Merge cost catchments by region, removing overlapping areas
+  cc <- cost_catchments |>
+    dplyr::select(region) |>
+    dplyr::group_by(region) |>
+    dplyr::summarise()
+  
+  # Intersect cc w suitable habitat, then recalculate the 
+  # total habitat area within each region.
+  ixn <- st_intersection(cc, suitable_habitat)
+  ixn <- ixn |> 
+    dplyr::group_by(region) |>
+    dplyr::summarise()
+  ixn$reg_area_ha <- st_area(ixn) |> 
+    units::set_units("ha")
+  ixn <- st_drop_geometry(ixn)
+  
+  return(ixn)
+}
+
 
 # DENSITY RASTER MANIPULATION ---------------------------------------------
 
