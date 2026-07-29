@@ -16,6 +16,9 @@ tar_load(suitable_habitat)
 
 cc_density <- merge(cost_catchments, cc_density)
 
+# Drop pre-existing regional habitat area - we will recalculate it
+cc_density <- dplyr::select(cc_density, -reg_area_ha)
+
 # Load up Burger 2002 densities
 b2002_density <- read.csv("data/Burger - 2002 - Table A3-1.csv", skip = 1)
 
@@ -32,27 +35,32 @@ burger_regions <- d |>
   dplyr::group_by(study_area) |>
   dplyr::summarise()
 
+plot(burger_regions, border = NA) # Popov study catchments, merged & grouped by Burger (2002) regions
+
 # Intersect Burger regions w suitable habitat, then
 # recalculate the total habitat area within each B. region.
 ixn <- st_intersection(burger_regions, suitable_habitat)
 ixn <- ixn |> 
   dplyr::group_by(study_area) |>
   dplyr::summarise()
+
+plot(ixn, border = NA) # Habitat area within the merged/grouped catchments
+
 ixn$reg_area_ha <- st_area(ixn) |> 
   units::set_units("ha")
 ixn <- st_drop_geometry(ixn)
 
 # Alright, now merge the Burger regional area into our
 # dataset
-d <- merge(d, ixn)
+d <- merge(d, ixn, by = "study_area")
 d <- units::drop_units(d)
 d <- st_drop_geometry(d)
 
 # Out of curiosity, compare the two
 d |>
   dplyr::group_by(study_area) |>
-  dplyr::summarise(sum_ha_w_overlap = mean(reg_area_ha),
-                   actual_ha = mean(reg_area_ha),
+  dplyr::summarise(sum_ha_w_overlap = sum(sh_area_ha), # if we simply summed up area within catchments together
+                   actual_ha = mean(reg_area_ha), # vs merging in GIS to remove overlaps
                    diff = sum_ha_w_overlap - actual_ha)
 
 ## 01 PLOTS ----
@@ -159,16 +167,14 @@ ggplot(d, aes(x = sh_area_ha, y = habitat_ha_c, color = outlier_yn)) +
   theme(legend.position = "none")
 
 ## N SURVEYS PLOT ----
-ggplot(d, aes(x = N, y = n_years_surveyed, color = outlier_yn)) +
+ggplot(d, aes(x = N, y = n_years_surveyed)) +
   geom_point() +
-  scale_color_manual(values = c("black", "red")) +
   geom_abline(slope = 1, intercept = 0) +
   coord_equal() +
   scale_x_continuous(breaks = seq(0, 10, 1)) +
   scale_y_continuous(breaks = seq(0, 10, 1)) +
   labs(x = "Popov N years per catchment",
-       y = "Burger N years per catchment",
-       caption = "In RED are points Burger (2002) considered outliers") +
+       y = "Burger N years per catchment") +
   theme(legend.position = "none")
 
 
@@ -180,7 +186,7 @@ ggplot(d, aes(x = N, y = n_years_surveyed, color = outlier_yn)) +
 
 d |>
   dplyr::group_by(study_area) |>
-  dplyr::summarise(popov_d = round(sum(bootmean) / mean(reg_area_ha), 3), # note using reg_area_ha here, to not overlap our catchment areas
+  dplyr::summarise(popov_d = round(sum(bootmean) / mean(reg_area_ha), 3), # note using sh_area_ha here, to not overlap our catchment areas
                    popov_d_lwr = round(sum(boot_min, na.rm = TRUE) / mean(reg_area_ha), 3),
                    popov_d_upr = round(sum(boot_max, na.rm = TRUE) / mean(reg_area_ha), 3),
                    burger_a_d = round(sum(mamu_count, na.rm = TRUE) / sum(habitat_ha_a, na.rm = TRUE), 3),
@@ -210,10 +216,8 @@ d |>
   geom_abline(slope = 1) +
   ggrepel::geom_text_repel(aes(label = study_area),
                            min.segment.length = 0) +
-  scale_x_continuous(limits = c(0, 0.145),
-                     breaks = seq(0, 0.5, 0.01)) +
-  scale_y_continuous(limits = c(0, 0.09),
-                     breaks = seq(0, 0.5, 0.01)) +
+  scale_x_continuous(breaks = seq(0, 0.5, 0.01)) +
+  scale_y_continuous(breaks = seq(0, 0.5, 0.01)) +
   coord_fixed() +
   labs(x = "Popov density estimates",
        y = "Burger density estimates",
@@ -222,6 +226,22 @@ d |>
        Outliers included.")
   
 # OUTLIERS EXCLUDED
+
+d |>
+  dplyr::filter(outlier_yn == FALSE) |>
+  dplyr::group_by(study_area) |>
+  dplyr::summarise(popov_d = round(sum(bootmean) / mean(reg_area_ha), 3), # note using sh_area_ha here, to not overlap our catchment areas
+                   popov_d_lwr = round(sum(boot_min, na.rm = TRUE) / mean(reg_area_ha), 3),
+                   popov_d_upr = round(sum(boot_max, na.rm = TRUE) / mean(reg_area_ha), 3),
+                   burger_a_d = round(sum(mamu_count, na.rm = TRUE) / sum(habitat_ha_a, na.rm = TRUE), 3),
+                   burger_b_d = round(sum(mamu_count, na.rm = TRUE) / sum(habitat_ha_b, na.rm = TRUE), 3),
+                   burger_c_d = round(sum(mamu_count, na.rm = TRUE) / sum(habitat_ha_c, na.rm = TRUE), 3),
+                   popov_n = sum(N),
+                   burger_n = sum(n_years_surveyed)) |>
+  dplyr::mutate(popov_d = paste0(popov_d, " [", popov_d_lwr, "-", popov_d_upr, "]")) |>
+  dplyr::mutate(burger_d = paste0(burger_b_d, " [", burger_a_d, "-", burger_c_d, "]")) |>
+  dplyr::select(study_area, popov_d, burger_d, popov_n, burger_n) |>
+  knitr::kable()
 
 d |>
   dplyr::filter(outlier_yn == FALSE) |>
@@ -241,10 +261,8 @@ d |>
   geom_abline(slope = 1) +
   ggrepel::geom_text_repel(aes(label = study_area),
                            min.segment.length = 0) +
-  scale_x_continuous(limits = c(0, 0.145), 
-                     breaks = seq(0, 0.5, 0.01)) +
-  scale_y_continuous(limits = c(0, 0.09),
-                     breaks = seq(0, 0.5, 0.01)) +
+  scale_x_continuous(breaks = seq(0, 0.5, 0.01)) +
+  scale_y_continuous(breaks = seq(0, 0.5, 0.01)) +
   coord_fixed() +
   labs(x = "Popov density estimates",
        y = "Burger density estimates",
@@ -349,7 +367,7 @@ b2002_density |>
                    burger_b_d = sum(mamu_count, na.rm = TRUE) / sum(habitat_ha_b, na.rm = TRUE),
                    burger_c_d = sum(mamu_count, na.rm = TRUE) / sum(habitat_ha_c, na.rm = TRUE),)
 
-# MEAN method - this is the one that lines up w what's reported in doc.
+# MEAN method - this is the one that lines up w what's reported in original pub.
 b2002_density |>
   dplyr::mutate(outlier_yn = grepl("\\*\\*", station_burger)) |>
   dplyr::filter(outlier_yn == FALSE) |>
