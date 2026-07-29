@@ -5,17 +5,13 @@
 # and create all your outputs. This pipeline is built using the {targets}
 # package: https://books.ropensci.org/targets/
 
-# Note this repository DOES NOT contain all the raw data files
-# needed to successfully reproduce the data pipeline on another machine.
-# You will need to contact Sarah Popov (sarah.popov@gov.bc.ca) to receive
-# all the raw data (large GIS files, nest locations, etc.) to run this
-# successfully on your machine.
-
 # BASIC USAGE
-# Assuming you have set up all the raw data files and directories, ...
+# Assuming you have successfully cloned the repository...
 # 1) Run `renv::restore()` to install all necessary R packages the pipeline
 #     depends on.
 # 2) Load the {targets} library. Run `tar_make()` to run the pipeline.
+#     You do not need to run any lines of code within this file by hand -
+#     {targets} takes care of that for you.
 #     NOTE the full pipeline can take 1-2 hours to run if running from scratch.
 #     You can comment out sections of the pipeline that you are not
 #     interested in recreating if you wish to skip the creation of them,
@@ -27,12 +23,8 @@
 #     `tar_load(<target name>)` to quickly load up the target in your R
 #     session and manipulate it from there.
 
-# DISCLAIMER 1: THIS WHOLE SCRIPT WILL TAKE ~1 HOUR TO RUN.
-# There are likely faster or more efficient ways of doing this,
-# but the primary goal of this script is reproducibility and
-# ease of understanding. If you wish to simply test the script, 
-# modify the raster resolutions to a courser scale (e.g., 500m) 
-# to run through the script quickly.
+# DISCLAIMER 1: THIS WHOLE SCRIPT (executing `tar_make()`) MAY TAKE 
+# ~1-2 HOURS TO RUN.
 
 # DISCLAIMER 2: this was run with 16 GB ram and will likely 
 # fail with less - that said, many of these steps can be
@@ -62,15 +54,17 @@ tar_option_set(
 tar_source()
 
 
-#### STATIC PIPELINE OBJECTS ####
+#### STATIC PIPELINE PARAMETERS ####
+
+# Everything in this section stays the same across the 
+# whole project, regardless of what's going on downstream.
 
 # Set resolution (in meters) for all raster analysis
 # Per the BC DEM website, this raster product is at a 25m 
 # resolution, but gridded to a 0.75 arc-second scale. 
 # https://www2.gov.bc.ca/gov/content/data/geographic-data-services/topographic-data/elevation/digital-elevation-model
 # This means all our raster data is at a somewhat odd 
-# 17.37227 x 17.37227 resolution:
-#res(BC_DEM_3005)
+# ~17.37227 x 17.37227 resolution.
 # As such, the highest resolution we can safely go for is 25m.
 # Note that a smaller number = MUCH SLOWER SCRIPT
 res <- 250 # Set res to ~250 to run things much faster
