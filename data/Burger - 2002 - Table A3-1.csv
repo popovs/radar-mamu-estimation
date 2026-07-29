@@ -1,110 +1,110 @@
-,,,,,,All mature & old growth,,,Most likely habitat,,,Highest realistic densities,,
-study_area,station_burger,station_popov,n_years_surveyed,mamu_count,watershed_area_ha,habitat_measure_a,habitat_ha_a,density_a,habitat_measure_b,habitat_ha_b,density_b,habitat_measure_c,habitat_ha_c,density_c
-Central Coast,Aaltanhash,Aaltanhash,1,35,12293,5,5785,0.006,4,2409,0.015,6,3979,0.009
-North Coast,Aaltanhash_River,,1,25,12301,1,2784,0.009,7,2427,0.01,4,1457,0.017
-Central Coast,Ahnuhati,Ahnuhati,1,95,18519,5,6715,0.014,4,1319,0.072,6,3666,0.026
-Central Coast,Ahta,Ahta,1,62,6629,5,5849,0.011,4,3061,0.02,6,2708,0.023
-NW Vancouver Island,Amai,,1,149,2759,1,2035,0.073,2,1708,0.087,2,1708,0.087
-NW Vancouver Island,Artlish,Artlish,2,570,12453,1,9143,0.062,2,4742,0.12,2,4742,0.12
-Clayoquot Sound,Atleo,,2,118,2732,1,1762,0.067,2,1155,0.102,2,1155,0.102
-North Coast,Baker_Inlet,Baker Inlet,1,45,2075,1,1001,0.045,7,1015,0.044,4,485,0.093
-North Coast,Barrie_Creek **,Barrie Creek,1,12,10850,1,1840,0.007,7,1467,0.008,4,1205,0.01
-North Coast,Bay_of_Plenty **,Bay of Plenty,1,20,7461,1,6453,0.003,7,2831,0.007,4,1359,0.015
-Sunshine Coast,Bear (Bute area),,1,93.5,29453,1,5353,0.017,3,3258,0.029,3,3258,0.029
-Clayoquot Sound,Bedwell (excluding Ursus),Bedwell,3,110,13598,1,8577,0.013,2,2942,0.037,2,2942,0.037
-Central Coast,Bella Coola **,Bella Coola,1,13,144796,5,15368,0.001,4,15325,0.001,6,6157,0.002
-Clayoquot Sound,Boat Basin (Hesquiat),,2,331,5672,1,5250,0.063,2,4574,0.072,2,4574,0.072
-Sunshine Coast,Brem (Toba area),Brem,2,297.5,24598,1,6298,0.047,3,4739,0.063,3,4739,0.063
-North Coast,Brim_River,Brim River,1,36,26616,1,3054,0.012,7,2864,0.013,4,1824,0.02
-Sunshine Coast,Brittain  (Jervis area),Brittain,2,113,12223,1,3732,0.03,3,2789,0.041,3,2789,0.041
-Clayoquot Sound,Bulson,Bulson,3,412,8856,1,7981,0.052,2,3662,0.113,2,3662,0.113
-North Coast,Cedar_Creek,,1,24,2407,1,893,0.027,7,1227,0.02,4,801,0.03
-North Coast,Chambers_Creek,,1,26,8911,1,5176,0.005,7,4221,0.006,4,2187,0.012
-Central Coast,Chuckwalla/Kilbella,Kilbella,1,462,71610,5,21357,0.022,4,13673,0.034,6,10442,0.044
-Clayoquot Sound,Clayoquot + 0.5 upper Kennedy,,2,494,9432,1,8329,0.059,2,4663,0.106,2,4663,0.106
-NW Vancouver Island,Conuma,,2,372,12403,1,9714,0.038,2,4367,0.085,2,4367,0.085
-Clayoquot Sound,Cypre,,2,63,5763,1,3523,0.018,2,1769,0.036,2,1769,0.036
-Sunshine Coast,Dakota (Howe area),,1,8,2072,1,1027,0.008,3,853,0.009,3,853,0.009
-Sunshine Coast,Deserted (Jervis area),Deserted,1,107,13523,1,3747,0.029,3,3134,0.034,3,3134,0.034
-Central Coast,Draney,,1,31,11089,5,9793,0.003,4,4550,0.007,6,4351,0.007
-North Coast,East_Inlet,East Inlet,1,64,3152,1,1582,0.04,7,1284,0.05,4,650,0.099
-Central Coast,Ellerslie Lake,Ellerslie,1,312,21083,5,8266,0.038,4,6127,0.051,6,5059,0.062
-NW Vancouver Island,Espinosa,,1,115,2743,1,1933,0.059,2,1276,0.09,2,1276,0.09
-Clayoquot Sound,Flores Creek #6,,3,120,1742,1,1742,0.069,2,1664,0.072,2,1664,0.072
-Sunshine Coast,Forbes (Toba area) **,Forbes,2,236,5612,1,2521,0.094,3,1746,0.135,3,1746,0.135
-North Coast,Gilttoyees_Creek,Gilttoyees,1,98,28512,1,3797,0.026,7,3510,0.028,4,2396,0.041
-Central Coast,Green,Green,1,197,19123,5,7981,0.025,4,4661,0.042,6,5418,0.036
-North Coast,Green_Lagoon,,1,67,14143,1,5075,0.013,7,5074,0.013,4,3081,0.022
-Clayoquot Sound,Hesq Point Creek **,,2,196,1767,1,1752,0.112,2,1570,0.125,2,1570,0.125
-Sunshine Coast,Homathko (Bute area),,1,103,126777,1,16123,0.006,3,9125,0.011,3,9125,0.011
-Sunshine Coast,Hunaechin (Jervis area),,1,43,15722,1,2473,0.017,3,1515,0.028,3,1515,0.028
-Central Coast,James Bay,,1,100,4339,5,3941,0.025,4,1804,0.055,6,1919,0.052
-Central Coast,Johnstone St. A/B,,1,77,13000,5,4215,0.018,4,4731,0.016,6,4214,0.018
-Central Coast,Kakweiken,Kakweikan,1,297,32370,5,15374,0.019,4,8060,0.037,6,4834,0.061
-NW Vancouver Island,Kashutl,,1,85,2701,1,1926,0.044,2,1345,0.063,2,1345,0.063
-NW Vancouver Island,Kauwinich,,2,290,8065,1,5270,0.055,2,3421,0.085,2,3421,0.085
-North Coast,Kemano_River **,,1,37,106134,1,11057,0.003,7,12800,0.003,4,11861,0.003
-Clayoquot Sound,Kennedy (excl. upper valley),,3,334,18769,1,13842,0.024,2,6565,0.051,2,6565,0.051
-Central Coast,Khutze,Khutze,1,133,27678,5,6197,0.021,4,3319,0.04,6,1601,0.083
-North Coast,Khutze_River,,1,57,20734,1,3568,0.016,7,3068,0.019,4,2169,0.026
-North Coast,Khutzeymateen_River,Khutzeymateen River,1,56,42196,1,9968,0.006,7,9523,0.006,4,6083,0.009
-North Coast,Kiltuish_River,,1,25,13920,1,2190,0.011,7,2045,0.012,4,1211,0.021
-Central Coast,Kimsquit **,,1,17,101714,5,17071,0.001,4,14607,0.001,6,0,
-North Coast,Kiskosh_Creek,,1,7,3094,1,1230,0.006,7,696,0.01,4,212,0.033
-NW Vancouver Island,Klashkish/East,Klaskish,2,1005,9669,1,9219,0.109,2,8610,0.117,2,8610,0.117
-North Coast,Klekane_River,,1,23,8022,1,2204,0.01,7,1667,0.014,4,924,0.025
-Central Coast,Koeye,Koeye,1,250,17349,5,6790,0.037,4,8857,0.028,6,6017,0.042
-NW Vancouver Island,Koprino,,1,267,5957,1,3622,0.074,2,2902,0.092,2,2902,0.092
-North Coast,Kowesas_River,,1,41,37409,1,9063,0.005,7,5174,0.008,4,3032,0.014
-Central Coast,Kwalate **,Kwalate,1,195,9317,5,0,,4,725,0.269,6,0,
-Central Coast,Kwatna,Kwatna,1,392,37758,5,14878,0.026,4,6853,0.057,6,5955,0.066
-North Coast,Kwinamass_River **,Kwinamass River,1,44,33345,1,14236,0.003,7,11396,0.004,4,6598,0.007
-NW Vancouver Island,Leiner,,2,294,10504,1,6594,0.045,2,2877,0.102,2,2877,0.102
-North Coast,Leverson_Creek_A,,1,110,9012,1,4451,0.025,7,2600,0.042,4,766,0.144
-NW Vancouver Island,Little Zeballos,,1,85,4325,1,2391,0.036,2,556,0.153,2,556,0.153
-NW Vancouver Island,Malskope **,,2,220,3526,1,1996,0.11,2,1251,0.176,2,1251,0.176
-North Coast,McIsaac_River,,1,43,3508,1,1468,0.029,7,1096,0.039,4,689,0.062
-Sunshine Coast,McNab (Howe area),,2,7,6874,1,1476,0.005,3,478,0.015,3,478,0.015
-North Coast,McShane_Creek,,1,23,3573,1,1064,0.022,7,860,0.027,4,439,0.052
-Clayoquot Sound,Megin (West Megin only),Megin,3,430,10745,1,10321,0.042,2,8189,0.053,2,8189,0.053
-Clayoquot Sound,Moyeha,Moyeha,3,596,17930,1,12935,0.046,2,5365,0.111,2,5365,0.111
-Central Coast,Namu **,,1,90,6835,5,251,0.359,4,4310,0.021,6,251,0.359
-NW Vancouver Island,Nasparti,Nasparti,2,177,5890,1,5472,0.032,2,5085,0.035,2,5085,0.035
-Central Coast,Nekite,Nekite,1,55,41000,5,15307,0.004,4,6557,0.008,6,6332,0.009
-NW Vancouver Island,Nuchalitz,,1,314,4707,1,2986,0.105,2,2739,0.115,2,2739,0.115
-Sunshine Coast,Orford (Bute area),Orford,2,171,42489,1,7157,0.024,3,4796,0.036,3,4796,0.036
-NW Vancouver Island,Oukinish,,2,160,3824,1,3151,0.051,2,2336,0.068,2,2336,0.068
-Sunshine Coast,Paradise (Bute area),,1,129,9007,1,2474,0.052,3,1943,0.066,3,1943,0.066
-NW Vancouver Island,Port Eliza,,1,28,2573,1,1884,0.015,2,1538,0.018,2,1538,0.018
-Sunshine Coast,Powell-Daniels (Toba area),,1,99,35745,1,3929,0.025,3,4744,0.021,3,4744,0.021
-NW Vancouver Island,Power,Power,2,454,5504,1,4689,0.097,2,3447,0.132,2,3447,0.132
-Clayoquot Sound,Pretty Girl,,2,260,3540,1,3362,0.077,2,2706,0.096,2,2706,0.096
-Sunshine Coast,Quatam (Toba area),Quatam,2,200,15814,1,5088,0.039,3,4138,0.048,3,4138,0.048
-Sunshine Coast,Rainy (Howe area) **,Rainy River,1,7,6830,1,2590,0.003,3,2135,0.003,3,2135,0.003
-Central Coast,Sim,,1,31,30405,5,5174,0.006,4,321,0.097,6,209,0.148
-Central Coast,Skowquiltz,Skowquiltz,1,92,27296,5,0,,4,3248,0.028,6,0,
-Sunshine Coast,Skwakwa (Jervis area),Skwawka,1,155,20144,1,3939,0.039,3,3189,0.049,3,3189,0.049
-Sunshine Coast,Southgate (Bute area),Southgate,1,95,79871,1,12500,0.008,3,8266,0.011,3,8266,0.011
-NW Vancouver Island,Sucwoa,Sucwoa R./Canton Ck,1,23,4448,1,2277,0.01,2,847,0.027,2,847,0.027
-Clayoquot Sound,Sydney,,2,225,5591,1,5517,0.041,2,3985,0.056,2,3985,0.056
-NW Vancouver Island,Tahsis,Tahsis,2,271,7461,1,4866,0.056,2,2189,0.124,2,2189,0.124
-NW Vancouver Island,Tahsish,Tahsish Inlet,2,442,23887,1,16239,0.027,2,8009,0.055,2,8009,0.055
-Sunshine Coast,Tahumming (Toba area),,2,34,25571,1,3526,0.01,3,2408,0.014,3,2408,0.014
-Sunshine Coast,Teaquahan (Bute area),,1,31,15548,1,2175,0.014,3,1611,0.019,3,1611,0.019
-NW Vancouver Island,Tlupana/Kleptee,,2,236,15667,1,13354,0.018,2,6844,0.034,2,6844,0.034
-Sunshine Coast,Toba (Toba area),Toba,2,325.5,177184,1,26095,0.012,3,19342,0.017,3,19342,0.017
-Clayoquot Sound,Tofino Cr + 0.5 upper Kennedy,,3,213,6454,1,5232,0.041,2,2624,0.081,2,2624,0.081
-North Coast,Toon_River_Estuary,Toon River,1,99,13104,1,3715,0.027,7,3122,0.032,4,1853,0.053
-Clayoquot Sound,Tranquil,,2,268,5870,1,4358,0.061,2,1977,0.135,2,1977,0.135
-North Coast,Triumph_River,,1,22,8609,1,2883,0.008,7,2118,0.01,4,1348,0.016
-Sunshine Coast,Tzoonie (Jervis area),,2,38.5,16914,1,4047,0.01,3,3117,0.012,3,3117,0.012
-North Coast,Union_Inlet,,1,29,6738,1,2725,0.011,7,2003,0.014,4,914,0.032
-North Coast,Unknown_1,,1,19,1223,1,404,0.047,7,380,0.05,4,228,0.084
-North Coast,Unknown_5,,1,13,2568,1,1282,0.01,7,1095,0.012,4,619,0.021
-Clayoquot Sound,Ursus,,3,331,7348,1,6367,0.052,2,3032,0.109,2,3032,0.109
-Sunshine Coast,Vancouver (Jervis area),Vancouver,1,143,19638,1,7591,0.019,3,5960,0.024,3,5960,0.024
-Central Coast,Wakeman,Wakeman,1,250,68919,5,26518,0.009,4,15330,0.016,6,10173,0.025
-Central Coast,Wannock,Wannock,1,169,85018,5,25081,0.007,4,20028,0.008,6,14387,0.012
-Clayoquot Sound,Watta (includes East Megin),Watta,3,650,17341,1,14951,0.043,2,7870,0.083,2,7870,0.083
-Clayoquot Sound,Watta South,,2,45,1394,1,1394,0.032,2,689,0.065,2,689,0.065
+,,,,,,All mature & old growth,,,Most likely habitat,,,Highest realistic densities,,
+study_area,station_burger,station_popov,n_years_surveyed,mamu_count,watershed_area_ha,habitat_measure_a,habitat_ha_a,density_a,habitat_measure_b,habitat_ha_b,density_b,habitat_measure_c,habitat_ha_c,density_c
+Central Coast,Aaltanhash,Aaltanhash,1,35,12293,5,5785,0.006,4,2409,0.015,6,3979,0.009
+North Coast,Aaltanhash_River,,1,25,12301,1,2784,0.009,7,2427,0.01,4,1457,0.017
+Central Coast,Ahnuhati,Ahnuhati,1,95,18519,5,6715,0.014,4,1319,0.072,6,3666,0.026
+Central Coast,Ahta,Ahta,1,62,6629,5,5849,0.011,4,3061,0.02,6,2708,0.023
+NW Vancouver Island,Amai,,1,149,2759,1,2035,0.073,2,1708,0.087,2,1708,0.087
+NW Vancouver Island,Artlish,Artlish,2,570,12453,1,9143,0.062,2,4742,0.12,2,4742,0.12
+Clayoquot Sound,Atleo,,2,118,2732,1,1762,0.067,2,1155,0.102,2,1155,0.102
+North Coast,Baker_Inlet,Baker Inlet,1,45,2075,1,1001,0.045,7,1015,0.044,4,485,0.093
+North Coast,Barrie_Creek **,Barrie Creek,1,12,10850,1,1840,0.007,7,1467,0.008,4,1205,0.01
+North Coast,Bay_of_Plenty **,Bay of Plenty,1,20,7461,1,6453,0.003,7,2831,0.007,4,1359,0.015
+Sunshine Coast,Bear (Bute area),,1,93.5,29453,1,5353,0.017,3,3258,0.029,3,3258,0.029
+Clayoquot Sound,Bedwell (excluding Ursus),Bedwell,3,110,13598,1,8577,0.013,2,2942,0.037,2,2942,0.037
+Central Coast,Bella Coola **,Bella Coola,1,13,144796,5,15368,0.001,4,15325,0.001,6,6157,0.002
+Clayoquot Sound,Boat Basin (Hesquiat),,2,331,5672,1,5250,0.063,2,4574,0.072,2,4574,0.072
+Sunshine Coast,Brem (Toba area),Brem,2,297.5,24598,1,6298,0.047,3,4739,0.063,3,4739,0.063
+North Coast,Brim_River,Brim River,1,36,26616,1,3054,0.012,7,2864,0.013,4,1824,0.02
+Sunshine Coast,Brittain  (Jervis area),Brittain,2,113,12223,1,3732,0.03,3,2789,0.041,3,2789,0.041
+Clayoquot Sound,Bulson,Bulson,3,412,8856,1,7981,0.052,2,3662,0.113,2,3662,0.113
+North Coast,Cedar_Creek,,1,24,2407,1,893,0.027,7,1227,0.02,4,801,0.03
+North Coast,Chambers_Creek,,1,26,8911,1,5176,0.005,7,4221,0.006,4,2187,0.012
+Central Coast,Chuckwalla/Kilbella,Kilbella,1,462,71610,5,21357,0.022,4,13673,0.034,6,10442,0.044
+Clayoquot Sound,Clayoquot + 0.5 upper Kennedy,,2,494,9432,1,8329,0.059,2,4663,0.106,2,4663,0.106
+NW Vancouver Island,Conuma,,2,372,12403,1,9714,0.038,2,4367,0.085,2,4367,0.085
+Clayoquot Sound,Cypre,,2,63,5763,1,3523,0.018,2,1769,0.036,2,1769,0.036
+Sunshine Coast,Dakota (Howe area),,1,8,2072,1,1027,0.008,3,853,0.009,3,853,0.009
+Sunshine Coast,Deserted (Jervis area),Deserted,1,107,13523,1,3747,0.029,3,3134,0.034,3,3134,0.034
+Central Coast,Draney,,1,31,11089,5,9793,0.003,4,4550,0.007,6,4351,0.007
+North Coast,East_Inlet,East Inlet,1,64,3152,1,1582,0.04,7,1284,0.05,4,650,0.099
+Central Coast,Ellerslie Lake,Ellerslie,1,312,21083,5,8266,0.038,4,6127,0.051,6,5059,0.062
+NW Vancouver Island,Espinosa,,1,115,2743,1,1933,0.059,2,1276,0.09,2,1276,0.09
+Clayoquot Sound,Flores Creek #6,,3,120,1742,1,1742,0.069,2,1664,0.072,2,1664,0.072
+Sunshine Coast,Forbes (Toba area) **,Forbes,2,236,5612,1,2521,0.094,3,1746,0.135,3,1746,0.135
+North Coast,Gilttoyees_Creek,Gilttoyees,1,98,28512,1,3797,0.026,7,3510,0.028,4,2396,0.041
+Central Coast,Green,Green,1,197,19123,5,7981,0.025,4,4661,0.042,6,5418,0.036
+North Coast,Green_Lagoon,,1,67,14143,1,5075,0.013,7,5074,0.013,4,3081,0.022
+Clayoquot Sound,Hesq Point Creek **,,2,196,1767,1,1752,0.112,2,1570,0.125,2,1570,0.125
+Sunshine Coast,Homathko (Bute area),,1,103,126777,1,16123,0.006,3,9125,0.011,3,9125,0.011
+Sunshine Coast,Hunaechin (Jervis area),,1,43,15722,1,2473,0.017,3,1515,0.028,3,1515,0.028
+Central Coast,James Bay,,1,100,4339,5,3941,0.025,4,1804,0.055,6,1919,0.052
+Central Coast,Johnstone St. A/B,,1,77,13000,5,4215,0.018,4,4731,0.016,6,4214,0.018
+Central Coast,Kakweiken,Kakweikan,1,297,32370,5,15374,0.019,4,8060,0.037,6,4834,0.061
+NW Vancouver Island,Kashutl,,1,85,2701,1,1926,0.044,2,1345,0.063,2,1345,0.063
+NW Vancouver Island,Kauwinich,,2,290,8065,1,5270,0.055,2,3421,0.085,2,3421,0.085
+North Coast,Kemano_River **,,1,37,106134,1,11057,0.003,7,12800,0.003,4,11861,0.003
+Clayoquot Sound,Kennedy (excl. upper valley),,3,334,18769,1,13842,0.024,2,6565,0.051,2,6565,0.051
+Central Coast,Khutze,Khutze,1,133,27678,5,6197,0.021,4,3319,0.04,6,1601,0.083
+North Coast,Khutze_River,,1,57,20734,1,3568,0.016,7,3068,0.019,4,2169,0.026
+North Coast,Khutzeymateen_River,Khutzeymateen River,1,56,42196,1,9968,0.006,7,9523,0.006,4,6083,0.009
+North Coast,Kiltuish_River,,1,25,13920,1,2190,0.011,7,2045,0.012,4,1211,0.021
+Central Coast,Kimsquit **,,1,17,101714,5,17071,0.001,4,14607,0.001,6,0,
+North Coast,Kiskosh_Creek,,1,7,3094,1,1230,0.006,7,696,0.01,4,212,0.033
+NW Vancouver Island,Klashkish/East,Klaskish,2,1005,9669,1,9219,0.109,2,8610,0.117,2,8610,0.117
+North Coast,Klekane_River,,1,23,8022,1,2204,0.01,7,1667,0.014,4,924,0.025
+Central Coast,Koeye,Koeye,1,250,17349,5,6790,0.037,4,8857,0.028,6,6017,0.042
+NW Vancouver Island,Koprino,,1,267,5957,1,3622,0.074,2,2902,0.092,2,2902,0.092
+North Coast,Kowesas_River,,1,41,37409,1,9063,0.005,7,5174,0.008,4,3032,0.014
+Central Coast,Kwalate **,Kwalate,1,195,9317,5,0,,4,725,0.269,6,0,
+Central Coast,Kwatna,Kwatna,1,392,37758,5,14878,0.026,4,6853,0.057,6,5955,0.066
+North Coast,Kwinamass_River **,Kwinamass River,1,44,33345,1,14236,0.003,7,11396,0.004,4,6598,0.007
+NW Vancouver Island,Leiner,,2,294,10504,1,6594,0.045,2,2877,0.102,2,2877,0.102
+North Coast,Leverson_Creek_A,,1,110,9012,1,4451,0.025,7,2600,0.042,4,766,0.144
+NW Vancouver Island,Little Zeballos,,1,85,4325,1,2391,0.036,2,556,0.153,2,556,0.153
+NW Vancouver Island,Malskope **,,2,220,3526,1,1996,0.11,2,1251,0.176,2,1251,0.176
+North Coast,McIsaac_River,,1,43,3508,1,1468,0.029,7,1096,0.039,4,689,0.062
+Sunshine Coast,McNab (Howe area),,2,7,6874,1,1476,0.005,3,478,0.015,3,478,0.015
+North Coast,McShane_Creek,,1,23,3573,1,1064,0.022,7,860,0.027,4,439,0.052
+Clayoquot Sound,Megin (West Megin only),Megin,3,430,10745,1,10321,0.042,2,8189,0.053,2,8189,0.053
+Clayoquot Sound,Moyeha,Moyeha,3,596,17930,1,12935,0.046,2,5365,0.111,2,5365,0.111
+Central Coast,Namu **,,1,90,6835,5,251,0.359,4,4310,0.021,6,251,0.359
+NW Vancouver Island,Nasparti,Nasparti,2,177,5890,1,5472,0.032,2,5085,0.035,2,5085,0.035
+Central Coast,Nekite,Nekite,1,55,41000,5,15307,0.004,4,6557,0.008,6,6332,0.009
+NW Vancouver Island,Nuchalitz,,1,314,4707,1,2986,0.105,2,2739,0.115,2,2739,0.115
+Sunshine Coast,Orford (Bute area),Orford,2,171,42489,1,7157,0.024,3,4796,0.036,3,4796,0.036
+NW Vancouver Island,Oukinish,,2,160,3824,1,3151,0.051,2,2336,0.068,2,2336,0.068
+Sunshine Coast,Paradise (Bute area),,1,129,9007,1,2474,0.052,3,1943,0.066,3,1943,0.066
+NW Vancouver Island,Port Eliza,,1,28,2573,1,1884,0.015,2,1538,0.018,2,1538,0.018
+Sunshine Coast,Powell-Daniels (Toba area),,1,99,35745,1,3929,0.025,3,4744,0.021,3,4744,0.021
+NW Vancouver Island,Power,Power,2,454,5504,1,4689,0.097,2,3447,0.132,2,3447,0.132
+Clayoquot Sound,Pretty Girl,,2,260,3540,1,3362,0.077,2,2706,0.096,2,2706,0.096
+Sunshine Coast,Quatam (Toba area),Quatam,2,200,15814,1,5088,0.039,3,4138,0.048,3,4138,0.048
+Sunshine Coast,Rainy (Howe area) **,Rainy River,1,7,6830,1,2590,0.003,3,2135,0.003,3,2135,0.003
+Central Coast,Sim,,1,31,30405,5,5174,0.006,4,321,0.097,6,209,0.148
+Central Coast,Skowquiltz,Skowquiltz,1,92,27296,5,0,,4,3248,0.028,6,0,
+Sunshine Coast,Skwakwa (Jervis area),Skwawka,1,155,20144,1,3939,0.039,3,3189,0.049,3,3189,0.049
+Sunshine Coast,Southgate (Bute area),Southgate,1,95,79871,1,12500,0.008,3,8266,0.011,3,8266,0.011
+NW Vancouver Island,Sucwoa,Sucwoa R./Canton Ck,1,23,4448,1,2277,0.01,2,847,0.027,2,847,0.027
+Clayoquot Sound,Sydney,,2,225,5591,1,5517,0.041,2,3985,0.056,2,3985,0.056
+NW Vancouver Island,Tahsis,Tahsis,2,271,7461,1,4866,0.056,2,2189,0.124,2,2189,0.124
+NW Vancouver Island,Tahsish,Tahsish Inlet,2,442,23887,1,16239,0.027,2,8009,0.055,2,8009,0.055
+Sunshine Coast,Tahumming (Toba area),,2,34,25571,1,3526,0.01,3,2408,0.014,3,2408,0.014
+Sunshine Coast,Teaquahan (Bute area),,1,31,15548,1,2175,0.014,3,1611,0.019,3,1611,0.019
+NW Vancouver Island,Tlupana/Kleptee,,2,236,15667,1,13354,0.018,2,6844,0.034,2,6844,0.034
+Sunshine Coast,Toba (Toba area),Toba,2,325.5,177184,1,26095,0.012,3,19342,0.017,3,19342,0.017
+Clayoquot Sound,Tofino Cr + 0.5 upper Kennedy,,3,213,6454,1,5232,0.041,2,2624,0.081,2,2624,0.081
+North Coast,Toon_River_Estuary,Toon River,1,99,13104,1,3715,0.027,7,3122,0.032,4,1853,0.053
+Clayoquot Sound,Tranquil,,2,268,5870,1,4358,0.061,2,1977,0.135,2,1977,0.135
+North Coast,Triumph_River,,1,22,8609,1,2883,0.008,7,2118,0.01,4,1348,0.016
+Sunshine Coast,Tzoonie (Jervis area),,2,38.5,16914,1,4047,0.01,3,3117,0.012,3,3117,0.012
+North Coast,Union_Inlet,,1,29,6738,1,2725,0.011,7,2003,0.014,4,914,0.032
+North Coast,Unknown_1,,1,19,1223,1,404,0.047,7,380,0.05,4,228,0.084
+North Coast,Unknown_5,,1,13,2568,1,1282,0.01,7,1095,0.012,4,619,0.021
+Clayoquot Sound,Ursus,,3,331,7348,1,6367,0.052,2,3032,0.109,2,3032,0.109
+Sunshine Coast,Vancouver (Jervis area),Vancouver,1,143,19638,1,7591,0.019,3,5960,0.024,3,5960,0.024
+Central Coast,Wakeman,Wakeman,1,250,68919,5,26518,0.009,4,15330,0.016,6,10173,0.025
+Central Coast,Wannock,Wannock,1,169,85018,5,25081,0.007,4,20028,0.008,6,14387,0.012
+Clayoquot Sound,Watta (includes East Megin),Watta,3,650,17341,1,14951,0.043,2,7870,0.083,2,7870,0.083
+Clayoquot Sound,Watta South,,2,45,1394,1,1394,0.032,2,689,0.065,2,689,0.065
 NW Vancouver Island,Zeballos,Zeballos,2,204,19499,1,12373,0.016,2,4178,0.049,2,4178,0.049
