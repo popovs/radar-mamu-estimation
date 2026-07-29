@@ -460,35 +460,33 @@ list(
                dplyr::arrange(region)),
   tar_target(total_population, calculate_population(density_map)),
   tar_target(total_density, colSums(cc_density[,c("bootmean", "boot_min", "boot_max")], na.rm = TRUE) / sum(cc_density$sh_area_ha)),
-  tar_target(bc_density, total_population / total_suit_hab_area_ha)
+  tar_target(bc_density, total_population / total_suit_hab_area_ha),
   
   #### SUPPLEMENTARY MATERIAL ####
-  
   # Note paper figures are all created within docs/figures.R.
   
-  # # Supplementary Table 1 - survey summary
-  # tar_render(ST1_survey_summary,
-  #            "docs/Table S1 - survey data summary.Rmd",
-  #            output_file = "docs/Table S1 - survey data summary.pdf"),
-  # 
-  # # Supplementary Material 1 - nest density layer
-  # tar_render(S1_nest_density,
-  #            "docs/S1 - nest density distribution.Rmd",
-  #            output_file = "docs/S1 - nest density distribution.pdf"),
-  # # Supplementary Material 2 - cost watershed demo
-  # tar_render(S2_cost_catchments,
-  #            "docs/S2 - cost catchments.Rmd",
-  #            output_file = "docs/S2 - cost catchments.pdf",
-  #            params = list(dem = terra::merge(DEM, sea),
-  #                          cones = cones,
-  #                          watersheds = watersheds,
-  #                          stn = stn,
-  #                          nest_likelihood = nest_likelihood,
-  #                          cost_function = cost_function, # defined at top of script in 'static pipeline objects'
-  #                          raw_headings = h_0,
-  #                          mean_headings = h)),
-  # # Supplementary Material 3 - population calculations
-  # tar_render(S3_population_calculation,
-  #            "docs/S3 - population calculation.Rmd",
-  #            output_file = "docs/S3 - population calculation.pdf")
+  # Supplementary Table 1 - survey summary
+  tar_render(ST1_survey_summary,
+             "docs/Table S1 - survey data summary.Rmd",
+             output_file = "docs/Table S1 - survey data summary.pdf"),
+  # Supplementary Material 1 - nest density layer
+  tar_render(S1_nest_density,
+             "docs/S1 - nest density distribution.Rmd",
+             output_file = "docs/S1 - nest density distribution.pdf"),
+  # Supplementary Material 2 - cost watershed demo
+  tar_render(S2_cost_catchments,
+             "docs/S2 - cost catchments.Rmd",
+             output_file = "docs/S2 - cost catchments.pdf",
+             params = list(dem = terra::merge(DEM, sea),
+                           cones = cones,
+                           watersheds = watersheds,
+                           stn = stn,
+                           nest_likelihood = nest_likelihood,
+                           cost_function = cost_function, # defined at top of script in 'static pipeline objects'
+                           raw_headings = h_0,
+                           mean_headings = h)),
+  # Supplementary Material 3 - population calculations
+  tar_render(S3_population_calculation,
+             "docs/S3 - population calculation.Rmd",
+             output_file = "docs/S3 - population calculation.pdf")
 ) 
