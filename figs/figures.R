@@ -330,17 +330,18 @@ p <-
   
   # Nest likelihood raster
   geom_spatraster(data = nl,
-                           aes(fill = layer),
-                           show.legend = FALSE) +
-  scale_fill_princess_c("aura", 
-                        name = "Nest likelihood", 
-                        limits = c(0,1)) + 
+                  aes(fill = layer),
+                  show.legend = FALSE) +
+  scale_fill_grass_c("forest_cover", 
+                     name = "Nest likelihood", 
+                     limits = c(0,1)) + 
   ggnewscale::new_scale_fill() +
   
   # Watershed boundaries
   geom_sf(data = watersheds[watersheds$site == site,],
-                   aes(color = "Selected watersheds"),
-          fill = NA) +
+                   aes(color = "Targeted watersheds"),
+          fill = NA,
+          size = 0.5) +
   scale_color_manual(values = "red",
                               guide = guide_legend(order = 4)) +
   ggnewscale::new_scale_color() +
@@ -399,6 +400,11 @@ p <-
   #                   y = 929000,
   #                   size = 8) +
   
+  # Scale bar
+  ggspatial::annotation_scale(location = "bl", 
+                              height = unit(0.1, "cm"),
+                              width_hint = 0.5) +
+    
   # Misc aesthetics
   scale_x_continuous(expand = c(0, 0)) +
   scale_y_continuous(expand = c(0, 0)) +
@@ -407,11 +413,31 @@ p <-
   theme(legend.title = element_blank(),
                  #legend.position = "bottom",
         legend.spacing.y = unit(-10, "pt"),
-        legend.box.margin = margin(t = 160)
+        legend.box.margin = margin(t = 135)
         ) +
   guides(colour = guide_legend(ncol = 2,
-                                        nrow = 2,
-                                        byrow = TRUE))
+                               nrow = 2,
+                               byrow = TRUE))
+
+# Grab nest likelihood legend, so we can plot that grob separately
+nl_map <- 
+  ggplot() +
+  geom_spatraster(data = nl,
+                  aes(fill = layer)) +
+  scale_fill_grass_c("forest_cover",
+                     name = "Nest likelihood",
+                     limits = c(0,1),
+                     guide = guide_colorbar(direction = "horizontal",
+                                            title.position  = "top",
+                                            label.position = "bottom")) +
+    theme(legend.title = element_text(size = 9),
+          legend.text = element_text(size = 8, color = "#878585"), # Adjust legend text size
+          legend.key.width = unit(0.8, "cm"), # Change legend colorbar width
+          legend.key.height = unit(0.1, "cm"), # Change legend colorbar height
+          legend.background = element_blank() # Remove legend background
+    )
+
+nl_legend <- cowplot::get_legend(nl_map)
 
 
 # combine -----------------------------------------------------------------
@@ -429,6 +455,12 @@ final <-
   right = 0.45,
   bottom = 0.75,
   left = 0.25
+) + patchwork::inset_element(
+  nl_legend,
+  top = 0, 
+  right = 1.5,
+  bottom = 0,
+  left = 0.99
 )
   
 # x <- ggpubr::ggarrange(inset, rh, ncol = 1, labels = c("B", "C"))
