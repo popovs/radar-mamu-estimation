@@ -386,6 +386,12 @@ list(
   tar_target(cc_habitat, st_habitat_in_sf(sf = cost_catchments,
                                           habitat = suitable_habitat,
                                           use_probability = TRUE)),
+  # Total catchment area x region
+  tar_target(cc_region, cost_catchments |>
+               dplyr::group_by(region) |>
+               dplyr::summarise() |>
+               dplyr::mutate(area_ha = st_area(geometry)) |>
+               dplyr::mutate(area_ha = units::set_units(area_ha, "ha"))),
   # Intersect suitable habitat in each region
   # SUPER IMPORTANT NOTE: This only works later because there are no 
   # overlapping areas of the regions polygons! So we are not double-counting
@@ -453,7 +459,12 @@ list(
                                                        merge_df = reg_density) |>
                dplyr::arrange(desc(mamu))),
   tar_target(total_population, calculate_population(density_map)),
-  tar_target(total_density, colSums(cc_density[,c("bootmean", "boot_min", "boot_max")], na.rm = TRUE) / sum(cc_density$sh_area_ha)),
+  # Total sampled density within our catchments
+  # (total bird count divided by sampled catchment habitat area, 
+  # after removing overlapping catchment areas)
+  tar_target(total_density, colSums(cc_density[,c("bootmean", "boot_min", "boot_max")], na.rm = TRUE) / sum(reg_cat_hab_area$reg_area_ha)),
+  # BC density
+  # (estimated total population divided by all habitat area)
   tar_target(bc_density, total_population / total_suit_hab_area_ha),
   
   # Misc
