@@ -2,6 +2,7 @@
 #' 
 #' Self explanatory, I hope.
 
+# No longer used within the pipeline but helpful for visualizing on the fly.
 
 plot_headings <- function(site, headings, h) {
   # Subset to needed data

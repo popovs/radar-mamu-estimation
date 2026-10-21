@@ -28,3 +28,4 @@ knitr::kable(dat,
              caption = "Mean annual maximum bird counts at radar stations in the study region. Bootstrapped 95% confidence intervals are noted in parentheses. Bootstrapped intervals cannot be calculated with a sample size of fewer than 3 years of data; these sites were excluded from the primary analysis.")
 ```
 
+\*Excluded from further analysis due to low sample size

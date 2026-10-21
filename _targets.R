@@ -5,18 +5,14 @@
 # and create all your outputs. This pipeline is built using the {targets}
 # package: https://books.ropensci.org/targets/
 
-# Note this repository DOES NOT contain all the raw data files
-# needed to successfully reproduce the data pipeline on another machine.
-# You will need to contact Sarah Popov (sarah.popov@gov.bc.ca) to receive
-# all the raw data (large GIS files, nest locations, etc.) to run this
-# successfully on your machine.
-
 # BASIC USAGE
-# Assuming you have set up all the raw data files and directories, ...
+# Assuming you have successfully cloned the repository...
 # 1) Run `renv::restore()` to install all necessary R packages the pipeline
 #     depends on.
 # 2) Load the {targets} library. Run `tar_make()` to run the pipeline.
-#     NOTE the full pipeline takes 5-6 hours to run if running from scratch.
+#     You do not need to run any lines of code within this file by hand -
+#     {targets} takes care of that for you.
+#     NOTE the full pipeline can take 1-2 hours to run if running from scratch.
 #     You can comment out sections of the pipeline that you are not
 #     interested in recreating if you wish to skip the creation of them,
 #     assuming nothing downstream of the pipeline depends upon it.
@@ -27,12 +23,8 @@
 #     `tar_load(<target name>)` to quickly load up the target in your R
 #     session and manipulate it from there.
 
-# DISCLAIMER 1: THIS WHOLE SCRIPT WILL TAKE SEVERAL HOURS TO RUN.
-# There are likely faster or more efficient ways of doing this,
-# but the primary goal of this script is reproducibility and
-# ease of understanding. If you wish to simply test the script, 
-# modify the raster resolutions to a courser scale (e.g., 500m) 
-# to run through the script quickly.
+# DISCLAIMER 1: THIS WHOLE SCRIPT (executing `tar_make()`) MAY TAKE 
+# ~1-2 HOURS TO RUN.
 
 # DISCLAIMER 2: this was run with 16 GB ram and will likely 
 # fail with less - that said, many of these steps can be
@@ -62,35 +54,24 @@ tar_option_set(
 tar_source()
 
 
-#### STATIC PIPELINE OBJECTS ####
+#### STATIC PIPELINE PARAMETERS ####
+
+# Everything in this section stays the same across the 
+# whole project, regardless of what's going on downstream.
 
 # Set resolution (in meters) for all raster analysis
 # Per the BC DEM website, this raster product is at a 25m 
 # resolution, but gridded to a 0.75 arc-second scale. 
 # https://www2.gov.bc.ca/gov/content/data/geographic-data-services/topographic-data/elevation/digital-elevation-model
 # This means all our raster data is at a somewhat odd 
-# 17.37227 x 17.37227 resolution:
-#res(BC_DEM_3005)
+# ~17.37227 x 17.37227 resolution.
 # As such, the highest resolution we can safely go for is 25m.
 # Note that a smaller number = MUCH SLOWER SCRIPT
 res <- 250 # Set res to ~250 to run things much faster
 
-# Regions to iterate GIS operations over
-#regions_map <- sf::st_drop_geometry(sf::st_read("GIS/regions.gpkg"))
-
 # Bounding box of our entire study area
 study_bounds <- sf::st_bbox(c(xmin = 164728, ymin = 333912, xmax = 1387220, ymax = 1778675),
                             crs = 3005)
-
-# Get land area for AK and WA
-# This will be used to clean up raster boundaries of the AK raster +
-# block off land areas of WA
-# usa_land <- rnaturalearth::ne_states("united states of america") |>
-#   dplyr::filter(name %in% c("Alaska", "Washington")) |>
-#   sf::st_as_sf() |>
-#   sf::st_transform(3005) |>
-#   sf::st_crop(study_bounds) |>
-#   terra::vect() # transform to terra SpatVect obj to play better w later terra raster objects
 
 # Function used to define the cost landscape for MAMU to fly through.
 # See ?movecost::mc_cost_functions() for a full list of possible fxns.
@@ -101,11 +82,27 @@ cost_function <- "e"
 
 # API tokens
 # Necessary for plotting fxns
-source("temp/apikey.R")
+#source("temp/apikey.R")
 
 # SAVE PLOTS? Yes or no
 save_plots <- FALSE
 
+# DOWNLOAD MISSING FILES
+
+# Nest data are classified aside from what has already been released
+# by the Conservation Data Centre onto the BC Data Catalogue. For the
+# purposes of testing this script, download the publicly available
+# dataset if you do not have access to the full nest dataset. 
+nest_download_yn <- !("MAMU_Nests_BC_CDC.gpkg" %in% list.files("GIS")) # check if the file exists already
+# Download publicly available CDC nest data if file not found
+if (nest_download_yn) {
+  dat <- bcdc_query_geodata("https://catalogue.data.gov.bc.ca/dataset/species-and-ecosystems-at-risk-publicly-available-occurrences-cdc") |>
+    dplyr::filter(ENG_NAME == "Marbled Murrelet") |>
+    collect()
+  sf::write_sf(dat, "GIS/MAMU_Nests_BC_CDC.gpkg")
+}
+
+# TODO: add download to MAMU suitable habitat polygons
 
 # PIPELINE ----------------------------------------------------------------
 
@@ -253,9 +250,11 @@ list(
   # raster. Cells <30km from shore will have a higher probability,
   # closer to 1, while distances >30km will decay down to 0 probability.
   
-  # TODO: look into if habitat is being parsed the best way. 
-  # When you simply mask the full raster, the results look a bit
-  # different.
+  # FYI: rasterizing habitat here, vs simply cropping a higher
+  # res raster w polygon boundaries, will change the habitat layer 
+  # area slightly. Doing it this way sacrifices resolution (we are 
+  # rasterizing habitat to 250x250m blocks) but greatly increases
+  # computing time. 
   
   # `nest_likelihood` has cut out all non-habitat pieces
   tar_terra_rast(nest_likelihood, nest_gamma_decay(nests = nests,
@@ -288,12 +287,9 @@ list(
   # Calculate polar mean flight headings
   # Most birds will be flying in the same general direction
   # as they head inland, with some variation. Calculate the 
-  # polar mean flight heading with 95% bootstrapped confidence
-  # intervals about the mean.
-  # TODO: clean up comments/fxns
-  # OLD METHOD:
-  # tar_target(h, calc_polar_mean(headings = h_0, n_reps = 1000, alpha = 0.05)),
-  # NEW METHOD (using CircStats pkg):
+  # polar mean flight heading with circular dispersion statistics
+  # about the mean.
+  # Using the CircStats package here.
   tar_target(h, h_0 |>
                dplyr::mutate(rad = heading * pi / 180) |>
                dplyr::group_by(site) |>
@@ -352,46 +348,7 @@ list(
   tar_target(cc_gpkg,
              save_sf(sf = cost_catchments, output_path = "temp/QGIS temp/radar_derived_catchments.gpkg"),
              format = "file"),
-
-  #### CATCHMENTS X HABITAT ####
-  # Intersect suitable habitat in each catchment
-  # TODO: dplyr warning:
-  # `summarise()` has regrouped the output.       [4m 39.6s, 3+, 63-]
-  # ℹ Summaries were computed grouped by site, area_ha, region, loc, and mean_cost.
-  # ℹ Output is grouped by site, area_ha, region, and loc.
-  # ℹ Use `summarise(.groups = "drop_last")` to silence this message.
-  # ℹ Use `summarise(.by = c(site, area_ha, region, loc, mean_cost))` for
-  # per-operation grouping (`?dplyr::dplyr_by`) instead.
-  tar_target(cc_habitat, st_habitat_in_sf(sf = cost_catchments,
-                                          habitat = suitable_habitat,
-                                          use_probability = TRUE)),
-  # Intersect suitable habitat in each region
-  # TODO: dplyr warning:
-  # ℹ Summaries were computed grouped by MMCR_NAME and region.
-  # ℹ Output is grouped by MMCR_NAME.
-  # ℹ Use `summarise(.groups = "drop_last")` to silence this message.
-  # ℹ Use `summarise(.by = c(MMCR_NAME, region))` for per-operation grouping
-  # (`?dplyr::dplyr_by`) instead.
-  tar_target(reg_habitat, st_habitat_in_sf(sf = regions,
-                                           habitat = suitable_habitat,
-                                           use_probability = TRUE)),
-  # Final visualization
-  # TODO: rm viz scripts
-  # tar_render(final_visualization,
-  #            path = "Rmd/catchments_visualization.Rmd",
-  #            output_file = "catchments_visualization.pdf",
-  #            #error = "null",
-  #            quiet = TRUE,
-  #            params = list(catchments = cost_catchments,
-  #                          watersheds = watersheds_raw,
-  #                          suitable_habitat = suitable_habitat,
-  #                          cones = cones,
-  #                          stn = stn,
-  #                          nests = nests,
-  #                          apikey = jawg_token,
-  #                          headings = h_0,
-  #                          h = h)
-  #            ),
+  
   #### ANNUAL MAX MAMU COUNTS ####
   # Select maximum MAMU count per station per year
   tar_target(annual_max_mamu, s |>
@@ -414,7 +371,7 @@ list(
   tar_target(mean_max_mamu_cc, mean_max_mamu_all |>
                dplyr::filter(site %in% h$site)), # filter it to our sites that made the site + headings ss cutoff
   # Regional mean annual maximum per catchment
-  # (across all years) for paper table purposes
+  # (across all years) for summary statistics purposes
   tar_target(mean_max_mamu_reg, bootmean(annual_max_mamu,
                                         group_by = "region",
                                         dat_col = "max_mamu",
@@ -422,19 +379,53 @@ list(
                dplyr::mutate(dplyr::across(c(bootmean, boot_min, boot_max),
                                            round))),
   #### DENSITY CALCS ####
+  ##### Habitat area #####
+  # Intersect suitable habitat in each catchment
+  # SUPER IMPORTANT NOTE: some catchments overlap! So the same hectares
+  # of habitat may be sampled. You cannot simply add habitat up.
+  tar_target(cc_habitat, st_habitat_in_sf(sf = cost_catchments,
+                                          habitat = suitable_habitat,
+                                          use_probability = TRUE)),
+  # Total catchment area x region
+  tar_target(cc_region, cost_catchments |>
+               dplyr::group_by(region) |>
+               dplyr::summarise() |>
+               dplyr::mutate(area_ha = st_area(geometry)) |>
+               dplyr::mutate(area_ha = units::set_units(area_ha, "ha"))),
+  # Intersect suitable habitat in each region
+  # SUPER IMPORTANT NOTE: This only works later because there are no 
+  # overlapping areas of the regions polygons! So we are not double-counting
+  # any habitat when we sum it up down the line for the BC-wide density
+  # estimate.
+  tar_target(reg_habitat, st_habitat_in_sf(sf = regions,
+                                           habitat = suitable_habitat,
+                                           use_probability = TRUE)),
+  # Sum total habitat in BC
   # NOTE suitable habitat =/= even MAMU density across whole layer!
   # While interior habitat might be equally 'suitable' to coastal habitat, the
   # habitat closer to sea will have more MAMU population than more interior sites.
   # Total habitat (ha) across whole suitable habitat layer
   tar_target(total_suit_hab_area_ha, sum(reg_habitat$sh_area_ha)),
-  # Habitat (ha) summarized by region
-  tar_target(regional_suit_hab_area_ha, sf::st_drop_geometry(reg_habitat)),
+  
+  # Sampled suitable habitat area
+  # Calculate sampled habitat area by region (i.e., remove any overlapping
+  # sampled habitat if catchments overlap)
+  # This is important to do, otherwise if you include overlapping areas
+  # you are artificially inflating your habitat area when aggregating 
+  # density by region!!
+  tar_target(reg_cat_hab_area, remove_catchment_overlap(cost_catchments, suitable_habitat)),
+ 
   # Calculate the mean density of birds within each catchment
   # Using the bootstrapped mean + upper + lower CIs
   tar_target(cc_density, catchment_density(mm = mean_max_mamu_cc,
-                                           catchment_habitat = cc_habitat)),
+                                           catchment_habitat = cc_habitat) |>
+               merge(reg_cat_hab_area)), # merge in our regional sampled habitat area
+  
+  ##### Calculate density #####
   # Calculate the weighted mean density of birds within each region
   # Catchments that take up more area of the region have higher weight
+  # Note the denominator per region is the regional area calculated in
+  # the `reg_cat_hab_area` step.
   tar_target(reg_density, cc_density |>
                dplyr::filter(region == "NC") |>
                dplyr::mutate(region = "AKB") |> # Add in dummy rows for AKB, using NC density
@@ -445,11 +436,12 @@ list(
                                 boot_min = sum(boot_min, na.rm = TRUE),
                                 boot_max = sum(boot_max, na.rm = TRUE),
                                 area_ha = sum(area_ha),
-                                sh_area_ha = sum(sh_area_ha)) |>
+                                sh_area_ha = mean(reg_area_ha)) |>
                dplyr::mutate(density = bootmean / sh_area_ha,
                              density_lwr = boot_min / sh_area_ha,
                              density_upr = boot_max / sh_area_ha)),
 
+  ##### Rasterize density #####
   # Rasterize the regional mean density
   # Apply the nest probability decay function to regional densities
   # Now, apply that gamma decay function to the density layer such
@@ -465,25 +457,34 @@ list(
   tar_target(regional_population, calculate_population(density_map,
                                                        sf = regions,
                                                        merge_df = reg_density) |>
-               dplyr::arrange(region)),
+               dplyr::arrange(desc(mamu))),
   tar_target(total_population, calculate_population(density_map)),
-  tar_target(total_density, colSums(cc_density[,c("bootmean", "boot_min", "boot_max")], na.rm = TRUE) / sum(cc_density$sh_area_ha)),
+  # Total sampled density within our catchments
+  # (total bird count divided by sampled catchment habitat area, 
+  # after removing overlapping catchment areas)
+  tar_target(total_density, colSums(cc_density[,c("bootmean", "boot_min", "boot_max")], na.rm = TRUE) / sum(reg_cat_hab_area$reg_area_ha)),
+  # BC density
+  # (estimated total population divided by all habitat area)
   tar_target(bc_density, total_population / total_suit_hab_area_ha),
   
-  #### PAPER FIGURES ETC ####
+  # Misc
+  # EVI has insufficient sample size to calculate mean annual maximum per 
+  # site or generate any catchments. So, instead, pull the raw annual 
+  # maximum per site and present that in the paper.
+  tar_target(evi_pop, s_0 |> 
+               sf::st_drop_geometry() |> 
+               dplyr::filter(region == "EVI") |> 
+               dplyr::group_by(year, site) |> 
+               dplyr::summarise(count = max(mamu_in_pd),
+                                N = dplyr::n())),
   
-  # Coast distance density plot
-  tar_target(nest_density_plot, ggplot(nests, aes(x = nest_dist_km)) +
-               geom_density() + 
-               labs(x = "Distance from the coast (km)",
-                    y = "Nest density") +
-               theme_minimal()),
+  #### SUPPLEMENTARY MATERIAL ####
+  # Note paper figures are all created within docs/figures.R.
   
   # Supplementary Table 1 - survey summary
   tar_render(ST1_survey_summary,
              "docs/Table S1 - survey data summary.Rmd",
              output_file = "docs/Table S1 - survey data summary.pdf"),
-  
   # Supplementary Material 1 - nest density layer
   tar_render(S1_nest_density,
              "docs/S1 - nest density distribution.Rmd",

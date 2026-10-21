@@ -14,7 +14,10 @@ save_sf <- function(sf, output_path) {
 
 
 
-# SUMMARY STATISTICS ------------------------------------------------------
+# NEST SUMMARY STATISTICS -------------------------------------------------
+
+# These are no longer used in the pipeline at all, but useful
+# to keep around in case of future nest summary stats/outlier detection
 
 nest_quantiles <- function(nests, quant_data, prefix, quantiles = c(0.025, 0.975)) {
   # TODO: if this overwrites the data, it might trigger an endless pipeline reassessment loop
