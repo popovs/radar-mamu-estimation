@@ -35,7 +35,10 @@ labels <- labels |> st_as_sf(coords = c("X", "Y"), crs = 3005)
 labels <- labels[labels$label %in% regions$region, ]
 
 # Pick a site for site-specific figures
-site <- "Aaltanhash"
+site <- "Aaltanhash" 
+#site <- "Kwalate"
+#site <- "Toba"
+#site <- "Forbes"
 
 # Filter all inputs down to the appropriate site
 w <- watersheds[watersheds$site == site, ]
@@ -351,9 +354,9 @@ p <-
   geom_sf(data = paths_geom[paths_geom$pass_fail == FALSE, ],
                    #aes(alpha = pass_fail),
                    #aes(color = pass_fail),
-                   size = 0.4,
-                   alpha = 0.4,
-                   linetype = "11",
+                   size = 0.2,
+                   alpha = 0.8,
+                   #linetype = "11",
                    color = "darkcyan") +
   #scale_alpha_discrete(c(0.5, 0.2)) +
   #scale_color_manual(values = c("grey85", "grey10")) +
