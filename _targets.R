@@ -350,29 +350,46 @@ list(
              format = "file"),
   
   #### ANNUAL MAX MAMU COUNTS ####
+  # First, take care of EVI
+  # EVI is a special case where we don't have enough data to draw catchments, so we
+  # just sum the raw total count, including those from inland sites.
+  tar_target(annual_max_mamu_evi, read.csv(s_path) |>
+               janitor::clean_names() |>
+               dplyr::filter(status == "Complete") |>
+               dplyr::filter(region == "EV") |>
+               dplyr::group_by(year, site) |>
+               dplyr::summarise(max_mamu = max(mamu_in_pd),
+                                N = dplyr::n()) |>
+               dplyr::mutate(region = "EVI") |>
+               dplyr::select(site, region, year, max_mamu, N) |>
+               dplyr::arrange(site, year)),
   # Select maximum MAMU count per station per year
-  tar_target(annual_max_mamu, s |>
+  tar_target(annual_max_mamu_all, s |>
                sf::st_drop_geometry() |>
                dplyr::group_by(site, region, year) |>
                dplyr::summarise(max_mamu = max(mamu_in_pd, na.rm = TRUE),
-                                N = dplyr::n())),
+                                N = dplyr::n()) |>
+               dplyr::bind_rows(annual_max_mamu_evi)),
   # Calculate bootstrapped mean annual maximum per catchment
   # (across all years)
-  # All data summary: for every dataset in `s`, including
+  # All data summary: for every dataset in `s` + EVI, including
   # those that don't have radar headings data
-  tar_target(mean_max_mamu_all, bootmean(annual_max_mamu,
+  tar_target(mean_max_mamu, bootmean(annual_max_mamu_all,
                                          group_by = "site",
                                          dat_col = "max_mamu",
                                          CI_level = 0.95) |>
                dplyr::mutate(dplyr::across(c(bootmean, boot_min, boot_max),
-                                           round))),
+                                           round)) |>
+               dplyr::left_join(unique(annual_max_mamu_all[,c("site", "region")]))),
   # Cost Catchments data summary: filtered down to only those that
   # can be matched to a radar catchment
-  tar_target(mean_max_mamu_cc, mean_max_mamu_all |>
+  tar_target(mean_max_mamu_cc, mean_max_mamu |>
                dplyr::filter(site %in% h$site)), # filter it to our sites that made the site + headings ss cutoff
   # Regional mean annual maximum per catchment
   # (across all years) for summary statistics purposes
-  tar_target(mean_max_mamu_reg, bootmean(annual_max_mamu,
+  # This tells you the typical maximum bird count for a 
+  # survey within a region
+  tar_target(mean_max_mamu_reg, bootmean(annual_max_mamu_all,
                                         group_by = "region",
                                         dat_col = "max_mamu",
                                         CI_level = 0.95) |>
@@ -430,6 +447,7 @@ list(
                dplyr::filter(region == "NC") |>
                dplyr::mutate(region = "AKB") |> # Add in dummy rows for AKB, using NC density
                dplyr::bind_rows(cc_density) |>
+               dplyr::bind_rows(mean_max_mamu[mean_max_mamu$region == "EVI", ]) |>
                dplyr::group_by(region) |>
                dplyr::summarise(N = dplyr::n(),
                                 bootmean = sum(bootmean),
@@ -458,51 +476,39 @@ list(
                                                        sf = regions,
                                                        merge_df = reg_density) |>
                dplyr::arrange(desc(mamu))),
-  tar_target(total_population, calculate_population(density_map)),
+  # Note this number will have slight discrepancies to simply adding up
+  # the numbers in the `regional_population` table, because of cases where
+  # raster cells don't line up perfectly within any region. Those raster cells
+  # get counted in this 'total' calc.
+  tar_target(total_population, calculate_population(density_map) + reg_density[reg_density$region == "EVI", c("bootmean", "boot_min", "boot_max")] |> as.numeric()),
   # Total sampled density within our catchments
   # (total bird count divided by sampled catchment habitat area, 
   # after removing overlapping catchment areas)
   tar_target(total_density, colSums(cc_density[,c("bootmean", "boot_min", "boot_max")], na.rm = TRUE) / sum(reg_cat_hab_area$reg_area_ha)),
   # BC density
   # (estimated total population divided by all habitat area)
-  tar_target(bc_density, total_population / total_suit_hab_area_ha),
-  
-  # Misc
-  # EVI has insufficient sample size to calculate mean annual maximum per 
-  # site or generate any catchments. So, instead, pull the raw annual 
-  # maximum per site and present that in the paper.
-  tar_target(evi_pop, s_0 |> 
-               sf::st_drop_geometry() |> 
-               dplyr::filter(region == "EVI") |> 
-               dplyr::group_by(year, site) |> 
-               dplyr::summarise(count = max(mamu_in_pd),
-                                N = dplyr::n())),
+  # NOTE: this is an underestimate since it doesn't include EVI.
+  tar_target(bc_density, total_population / total_suit_hab_area_ha)#,
   
   #### SUPPLEMENTARY MATERIAL ####
-  # Note paper figures are all created within docs/figures.R.
+  # Note paper figures are all created within figs/figures.R.
   
-  # Supplementary Table 1 - survey summary
-  tar_render(ST1_survey_summary,
-             "docs/Table S1 - survey data summary.Rmd",
-             output_file = "docs/Table S1 - survey data summary.pdf"),
-  # Supplementary Material 1 - nest density layer
-  tar_render(S1_nest_density,
-             "docs/S1 - nest density distribution.Rmd",
-             output_file = "docs/S1 - nest density distribution.pdf"),
-  # Supplementary Material 2 - cost watershed demo
-  tar_render(S2_cost_catchments,
-             "docs/S2 - cost catchments.Rmd",
-             output_file = "docs/S2 - cost catchments.pdf",
-             params = list(dem = terra::merge(DEM, sea),
-                           cones = cones,
-                           watersheds = watersheds,
-                           stn = stn,
-                           nest_likelihood = nest_likelihood,
-                           cost_function = cost_function, # defined at top of script in 'static pipeline objects'
-                           raw_headings = h_0,
-                           mean_headings = h)),
-  # Supplementary Material 3 - population calculations
-  tar_render(S3_population_calculation,
-             "docs/S3 - population calculation.Rmd",
-             output_file = "docs/S3 - population calculation.pdf")
+  # # Supplementary Table 1 - survey summary
+  # tar_render(ST1_survey_summary,
+  #            "docs/Table S1 - survey data summary.Rmd",
+  #            output_file = "docs/Table S1 - survey data summary.pdf"),
+  # # Supplementary Material 1 - nest density layer
+  # tar_render(S1_nest_density,
+  #            "docs/S1 - nest density distribution.Rmd",
+  #            output_file = "docs/S1 - nest density distribution.pdf"),
+  # # Supplementary Material 2 - cost watershed demo
+  # tar_render(S2_cost_catchments,
+  #            "docs/S2 - cost catchments.Rmd",
+  #            output_file = "docs/S2 - cost catchments.pdf",
+  #            params = list(site = "Aaltanhash",
+  #                          cost_function = cost_function)), # cost_function defined at the top of this script
+  # # Supplementary Material 3 - population calculations
+  # tar_render(S3_population_calculation,
+  #            "docs/S3 - population calculation.Rmd",
+  #            output_file = "docs/S3 - population calculation.pdf")
 ) 

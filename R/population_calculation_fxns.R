@@ -79,7 +79,7 @@ catchment_density <- function(mm = mean_max_mamu_cc, # mean_max_mamu_cc is the d
                               area_col = "sh_area_ha",
                               dat_cols = c("bootmean", "boot_min", "boot_max")) {
   c_hab <- sf::st_drop_geometry(catchment_habitat)
-  mm <- merge(mm, c_hab, by = "site")
+  mm <- merge(mm, c_hab, by = c("site", "region"))
   
   # Calculate density
   mm$density <- mm[[dat_cols[1]]] / mm[[area_col]]
