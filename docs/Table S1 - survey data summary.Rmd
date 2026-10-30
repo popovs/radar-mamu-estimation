@@ -28,3 +28,6 @@ knitr::kable(dat,
 
 \*Excluded from analysis due to low sample size
 \**Inland monitoring station included in final population total for EVI 
+
+Number of unique sites (excluding low sample size sites): `r nrow(dat[!grepl("[a-zA-Z]\\*$", dat$Site),])`
+Total sum *N* surveys (excluding low sample size sites): `r sum(dat[["N surveys"]][!grepl("[a-zA-Z]\\*$", dat$Site)])`
