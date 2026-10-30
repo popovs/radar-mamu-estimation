@@ -6,7 +6,6 @@
 
 # setup -------------------------------------------------------------------
 
-
 library(targets)
 library(sf)
 library(terra)
@@ -25,8 +24,22 @@ tar_load(nest_likelihood)
 tar_load(DEM)
 tar_load(sea)
 tar_load(cost_catchments)
-tar_load(mean_max_mamu_cc)
+tar_load(mean_max_mamu)
 
+# Prepare EVI specific station data
+raw_s <- read.csv(tar_read(s_path))
+evi_stn <- raw_s |>
+  janitor::clean_names() |>
+  dplyr::select(site, region, loc, lat, lon) |>
+  dplyr::group_by(site, region, loc) |>
+  dplyr::summarise(lat = mean(lat),
+                   lon = mean(lon)) |>
+  dplyr::filter(region == "EV") |>
+  dplyr::mutate(region = "EVI")
+# Merge to main stn data
+stn <- dplyr::bind_rows(stn, evi_stn)
+
+# Prep DEM & map labels
 dem <- merge(DEM, sea)
 headings <- h_0
 
@@ -83,7 +96,7 @@ names(hill) <- "shades"
 pal_greys <- hcl.colors(1000, "Grays")
 
 # Create hexagons layer
-hex <- merge(mean_max_mamu_cc, stn)
+hex <- merge(mean_max_mamu, stn)
 hex <- hex |>
   st_drop_geometry() |>
   dplyr::select(lat, lon, bootmean) |>

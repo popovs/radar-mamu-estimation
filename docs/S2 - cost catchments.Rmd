@@ -3,14 +3,8 @@ title: "Cost Catchment process"
 output: pdf_document
 date: "`r Sys.Date()`"
 params: 
-  dem: 
-  cones: "cones"
-  watersheds: "watersheds"
-  stn: "stn"
-  nest_likelihood: "nest_likelihood"
-  cost_function: "e"
-  raw_headings: "h_0"
-  mean_headings: "h"
+  site: 
+  cost_function: 
 editor_options: 
   chunk_output_type: console
 ---
@@ -30,19 +24,28 @@ library(rnaturalearth)
 library(rnaturalearthdata)
 library(patchwork)
 
-dem <- params$dem
-cones <- params$cones
-watersheds <- params$watersheds
-stn <- params$stn
-nest_likelihood <- params$nest_likelihood
-cost_function <- params$cost_function
-headings <- params$raw_headings
-h <- params$mean_headings
+dem <- withr::with_dir(rprojroot::find_root('_targets.R'), tar_read(DEM))
+withr::with_dir(rprojroot::find_root('_targets.R'), tar_load(cones))
+withr::with_dir(rprojroot::find_root('_targets.R'), tar_load(watersheds))
+withr::with_dir(rprojroot::find_root('_targets.R'), tar_load(stn))
+withr::with_dir(rprojroot::find_root('_targets.R'), tar_load(nest_likelihood))
+headings <- withr::with_dir(rprojroot::find_root('_targets.R'), tar_read(h_0))
+withr::with_dir(rprojroot::find_root('_targets.R'), tar_load(h))
+
+#dem <- params$dem
+# cones <- params$cones
+# watersheds <- params$watersheds
+# stn <- params$stn
+# nest_likelihood <- params$nest_likelihood
+# cost_function <- params$cost_function
+# headings <- params$raw_headings
+# h <- params$mean_headings
 
 # Data prep
 
 # Pick a site
-site <- "Aaltanhash"
+site <- params$site
+#site <- "Aaltanhash"
 
 # Filter all inputs down to the appropriate site
 w <- watersheds[watersheds$site == site, ]
@@ -262,7 +265,7 @@ pseudo_nests <- terra::spatSample(nl,
 ggplot() + 
     geom_spatraster_rgb(data = bg_tiles) +
     geom_spatraster(data = nl) + 
-    scale_fill_princess_c("aura", 
+    scale_fill_grass_c("forest_cover", 
                        name = "Nest likelihood", 
                        limits = c(0,1)) + 
     ggnewscale::new_scale_fill() +
@@ -343,7 +346,7 @@ final_p <- ggplot() +
   geom_spatraster_rgb(data = bg_tiles) +
   geom_spatraster(data = nl,
                   aes(fill = layer)) +
-  scale_fill_princess_c("aura", 
+  scale_fill_grass_c("forest_cover", 
                        name = "Nest likelihood", 
                        limits = c(0,1)) + 
   ggnewscale::new_scale_fill() +
