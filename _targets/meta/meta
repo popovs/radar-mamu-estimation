@@ -48,8 +48,6 @@ reg_cat_hab_area|stem|529f2d2b6beba7e2|d880d1ad57ce501a|8cf65ce1ff8b4b21|-265368
 cc_gpkg|stem|b1e7d369cca5e832|b0cf9e53c9b36409|6be327248cb99f90|-1719884871|temp/QGIS temp/radar_derived_catchments.gpkg|t20629.7737962963s|s14610432b|14610432|file|local|vector|||0.41||
 cc_region|stem|d3f0a133c54cb3c6|f5da72764d1acc14|4a5935c83ca90400|1909978141||t20690.8802546296s|s932875b|932875|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0.5||
 annual_max_mamu_evi|stem|b11674a874a1dc08|5b184292bdf2f123|68eabbd6ca4bcdc9|2041856300||t20753.8225763714s|s1007b|1007|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||1.72||
-annual_max_mamu|stem|50e940b78baf576b|f2505e08b5265e9b|15d0b5d10477ee9b|2008668618||t20753.8225821783s|s4632b|4632|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0.09||
-mean_max_mamu_all|stem|29cf2f0762bae1db|8a3a02c04a72d5de|3dd1e3b68a94876c|2141879096||t20753.846854935s|s1853b|1853|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||1.31||
 annual_max_mamu_all|stem|50e940b78baf576b|f2505e08b5265e9b|15d0b5d10477ee9b|-289616910||t20753.852251255s|s4632b|4632|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0.12||
 mean_max_mamu|stem|eccee28b7f85d582|8e62fa6642495d62|2b28bd0ec9622669|489676966||t20753.8525980978s|s1852b|1852|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||1.23||
 mean_max_mamu_reg|stem|74062e10c8706c1b|16ab606de426001b|2b28bd0ec9622669|-1159112802||t20753.8526031198s|s309b|309|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0.14||
@@ -59,6 +57,9 @@ total_density|stem|52913d56b5436749|964de51402148ef4|23d28fe1b9d5feb4|1553158417
 reg_density|stem|0f9fcede284df482|e9baef8ffa6542a4|21272d55b0251318|-343691882||t20753.8543147136s|s745b|745|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0.05||
 density_map|stem|91a3d2de3ed76682|f00bcc67ef59de11|8c76e815c2656537|115979272||t20755.9884339749s|s8935855b|8935855|format_custom&read=dGVycmE6OnJhc3QocGF0aCk&write=ewogICAgZG8uY2FsbCh0ZXJyYTo6d3JpdGVSYXN0ZXIsIGMobGlzdChvYmplY3QsIGZpbGVuYW1lID0gcGF0aCwgCiAgICAgICAgZmlsZXR5cGUgPSAiR1RpZmYiLCBvdmVyd3JpdGUgPSBUUlVFLCBnZGFsID0gTlVMTCksIGxpc3QoKSkpCn0&marshal=dGVycmE6OndyYXAob2JqZWN0KQ&unmarshal=dGVycmE6OnVud3JhcChvYmplY3Qp&convert=&copy=&repository=|local|list|||10.13||
 regional_population|stem|403592553a44ce45|2b3c632946aad475|af7de4826484f0e8|1975736088||t20755.9884954206s|s960b|960|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||4.81||
+total_population|stem|5b057ed09ee80eee|191b530e55d070c6|dad626d83b9220ca|1690109568||t20755.9957862334s|s138b|138|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||1.78||
+bc_density|stem|34df9068aa982d26|8de4e254587950cb|fa166e419a64915f|-297569176||t20755.9957898517s|s242b|242|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0||
+S1_nest_density|stem||2e5c0082f17183b2|97f65be502a57b24|302994340||t20759.7690843188s||0|file|local|vector|||33.95|unknown timezone 'British Columbia Standard Time'. NaNs produced. NaNs produced|LaTeX failed to compile S1 - nest density distribution.tex. See https://yihui.org/tinytex/r/#debugging for debugging tips. See S1 - nest density distribution.log for more info.
 rasterize_density|function|e34dbbfad12a5274
 circmean|function|7e16d5c55463d304
 lower_whisker|function|1e7a5ba70256e744
@@ -71,7 +72,7 @@ study_bounds|object|29116127e036346a
 get_usa_land|function|219103f4d243e5f1
 query_cded|function|023191af61b761e4
 nest_isoforest|function|cace87dc5e5748f5
-.Random.seed|object|65fda0fe105860c9
+.Random.seed|object|feaddfa2f0934fb1
 plot_headings|function|a14aa7a1e798ef51
 resample_rast|function|98bf9db3764c3019
 reclass_rast|function|e6e9aca4d6b676a0
@@ -110,5 +111,4 @@ select_watersheds|function|c6fdc90a46b55238
 generate_cones|function|5dc8c35ef57bcdb4
 prepare_habitat|function|bc6ed27910a6b157
 calc_polar_mean|function|0c2285819899880b
-total_population|stem|5b057ed09ee80eee|191b530e55d070c6|dad626d83b9220ca|1690109568||t20755.9957862334s|s138b|138|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||1.78||
-bc_density|stem|34df9068aa982d26|8de4e254587950cb|fa166e419a64915f|-297569176||t20755.9957898517s|s242b|242|format_custom&read=ewogICAgcXMyOjpxc19yZWFkKHBhdGgpCn0&write=ewogICAgcXMyOjpxc19zYXZlKG9iamVjdCA9IG9iamVjdCwgZmlsZSA9IHBhdGgpCn0&marshal=&unmarshal=&convert=&copy=&repository=|local|vector|||0||
+ST1_survey_summary|stem|5ef533120f2a83da|37cb654cf7cfba3a|65d198afe4598ece|845124182|docs/Table S1 - survey data summary.pdf*docs/Table S1 - survey data summary.Rmd|t20759.7682360873s||96041|file|local|vector|||0.36||The directory 'docs' does not exist.

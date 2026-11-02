@@ -6,9 +6,11 @@ date: "`r Sys.Date()`"
 
 ```{r, echo = FALSE}
 
-withr::with_dir(rprojroot::find_root('_targets.R'), tar_load(mean_max_mamu_all))
+library(targets)
 
-dat <- mean_max_mamu_all
+withr::with_dir(rprojroot::find_root('_targets.R'), tar_load(mean_max_mamu))
+
+dat <- mean_max_mamu
 dat <- dat |> dplyr::select(site, region, dplyr::everything())
 dat$region <- factor(dat$region, levels = c("AKB", "HG", "NC", "CC", "SC", "WNVI", "NVI", "WVI", "MWVI", "SWVI", "EVI"))
 dat <- dat |> dplyr::arrange(region)
@@ -26,8 +28,11 @@ knitr::kable(dat,
              caption = "Mean annual maximum bird counts at radar stations in the study region. Bootstrapped 95% confidence intervals are noted in parentheses. Bootstrapped intervals cannot be calculated with a sample size of fewer than 3 years of data; these sites were excluded from the primary analysis.")
 ```
 
-\*Excluded from analysis due to low sample size
+\*Excluded from analysis due to low sample size  
+
 \**Inland monitoring station included in final population total for EVI 
 
-Number of unique sites (excluding low sample size sites): `r nrow(dat[!grepl("[a-zA-Z]\\*$", dat$Site),])`
+
+Number of unique sites (excluding low sample size sites): `r nrow(dat[!grepl("[a-zA-Z]\\*$", dat$Site),])`  
+
 Total sum *N* surveys (excluding low sample size sites): `r sum(dat[["N surveys"]][!grepl("[a-zA-Z]\\*$", dat$Site)])`

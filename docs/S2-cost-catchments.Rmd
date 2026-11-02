@@ -3,8 +3,8 @@ title: "Cost Catchment process"
 output: pdf_document
 date: "`r Sys.Date()`"
 params: 
-  site: 
-  cost_function: 
+  site: "Aaltanhash"
+  cost_function: "e"
 editor_options: 
   chunk_output_type: console
 ---
@@ -16,6 +16,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 options(scipen = 999) # turn off scientific notation
 
+library(targets)
 library(terra)
 library(ggplot2)
 library(maptiles)
@@ -46,6 +47,13 @@ withr::with_dir(rprojroot::find_root('_targets.R'), tar_load(h))
 # Pick a site
 site <- params$site
 #site <- "Aaltanhash"
+
+# Set cost fxn
+cost_function <- params$cost_function
+
+# Check params provided
+stopifnot("No site param provided" = !is.null(site))
+stopifnot("No cost_function param provided" = !is.null(cost_function))
 
 # Filter all inputs down to the appropriate site
 w <- watersheds[watersheds$site == site, ]

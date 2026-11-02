@@ -493,22 +493,25 @@ list(
   #### SUPPLEMENTARY MATERIAL ####
   # Note paper figures are all created within figs/figures.R.
   
+  # 2026-11-02 TODO: For some reason these no longer work from targets
+  # pipeline. Instead knitting the .Rmd files manually until I can get
+  # a fix to work.
   # # Supplementary Table 1 - survey summary
   # tar_render(ST1_survey_summary,
-  #            "docs/Table S1 - survey data summary.Rmd",
-  #            output_file = "docs/Table S1 - survey data summary.pdf"),
+  #            "docs/Table-S1-survey-data-summary.Rmd",
+  #            output_file = "docs/Table-S1-survey-data-summary.pdf"),
   # # Supplementary Material 1 - nest density layer
   # tar_render(S1_nest_density,
-  #            "docs/S1 - nest density distribution.Rmd",
-  #            output_file = "docs/S1 - nest density distribution.pdf"),
+  #            "docs/S1-nest-density-distribution.Rmd",
+  #            output_file = "docs/S1-nest-density-distribution.pdf"),
   # # Supplementary Material 2 - cost watershed demo
   # tar_render(S2_cost_catchments,
-  #            "docs/S2 - cost catchments.Rmd",
-  #            output_file = "docs/S2 - cost catchments.pdf",
+  #            "docs/S2-cost-catchments.Rmd",
+  #            output_file = "docs/S2-cost-catchments.pdf",
   #            params = list(site = "Aaltanhash",
   #                          cost_function = cost_function)), # cost_function defined at the top of this script
   # # Supplementary Material 3 - population calculations
   # tar_render(S3_population_calculation,
-  #            "docs/S3 - population calculation.Rmd",
-  #            output_file = "docs/S3 - population calculation.pdf")
+  #            "docs/S3-population-calculation.Rmd",
+  #            output_file = "docs/S3-population-calculation.pdf")
 ) 
