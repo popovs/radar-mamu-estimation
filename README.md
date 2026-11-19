@@ -1,9 +1,4 @@
----
 
-editor_options: 
-  markdown: 
-    wrap: 72
----
 
 # A novel application of radar survey data to estimate population size of the Marbled Murrelet, a cryptic seabird in British Columbia, Canada
 
