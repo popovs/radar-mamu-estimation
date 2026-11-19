@@ -13,6 +13,8 @@ knitr::opts_chunk$set(echo = TRUE,
 
 options(scipen = 999) # turn off scientific notation
 
+library(targets)
+
 withr::with_dir(rprojroot::find_root('_targets.R'), tar_load(reg_density))
 withr::with_dir(rprojroot::find_root('_targets.R'), tar_load(regions))
 ```
